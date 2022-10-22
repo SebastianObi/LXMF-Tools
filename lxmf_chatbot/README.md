@@ -21,7 +21,12 @@ As these are normal LXMF messages, any LXMF capable application can be used to c
 
 
 ## Current Status
-It should currently be considered beta software. All core features are implemented and functioning, but additions will probably occur as real-world use is explored. There will be bugs.
+It should currently be considered beta software and still work in progress.
+
+All core features are implemented and functioning, but additions will probably occur as real-world use is explored.
+
+There may be errors or the compatibility after an update is no longer guaranteed.
+
 The full documentation is not yet available. Due to lack of time I can also not say when this will be further processed.
 
 
