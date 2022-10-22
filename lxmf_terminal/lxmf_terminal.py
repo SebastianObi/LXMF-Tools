@@ -763,7 +763,7 @@ def output_now():
         if search != "":
             output = re.sub(search, config_get(CONFIG, "message", "send_regex_replace"), output)
 
-        LXMF_CONNECTION.send(SESSION["source"], content_prefix + output + content_suffix, "")
+        LXMF_CONNECTION.send(SESSION["source"], content_prefix + output + content_suffix)
 
     return True
 

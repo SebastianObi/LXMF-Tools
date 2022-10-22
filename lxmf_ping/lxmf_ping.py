@@ -739,9 +739,9 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, dest="", inter
                 content = "#"+ str(DATA[key]["count"]) + " " + content
                 content = content[:size]
                 if key == ".":
-                    LXMF_CONNECTION.send(secrets.token_hex(nbytes=10), content, "")
+                    LXMF_CONNECTION.send(secrets.token_hex(nbytes=10), content)
                 else:
-                    LXMF_CONNECTION.send(key, content, "")
+                    LXMF_CONNECTION.send(key, content)
                 print("Destination: " + str (key) + "  |  #: " + str(DATA[key]["count"]) + "  |  Messages delivered: " + str(DATA[key]["count_success"]) + "/" + str(DATA[key]["count"]) + " (" + str(round(100/DATA[key]["count"]*DATA[key]["count_success"], 2)) + "%)  |  Time (min / max / avg): " + str(DATA[key]["time_min"]) + " / " + str(DATA[key]["time_max"]) + " / " + str(DATA[key]["time_avg"]) + "  |  Info: Sending/Queued")
         time.sleep(interval)
 

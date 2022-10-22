@@ -608,8 +608,6 @@ def lxmf_message_received_callback(message):
 
         content = content_prefix + content + content_suffix
 
-        title = message.title.decode('utf-8')
-
         if config_get(CONFIG, "message", "timestamp") == "client":
             timestamp = message.timestamp
         else:
@@ -619,7 +617,7 @@ def lxmf_message_received_callback(message):
             if "receive" in section:
                 for (key, val) in DATA.items(section):
                     if key != source_hash:
-                        LXMF_CONNECTION.send(key, content, title, timestamp)
+                        LXMF_CONNECTION.send(key, content, title, None, timestamp)
         return
     else:
         log("LXMF - Source " + RNS.prettyhexrep(message.source_hash) + " 'send' not allowed", LOG_DEBUG)

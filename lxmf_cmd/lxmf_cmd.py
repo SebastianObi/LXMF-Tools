@@ -587,7 +587,7 @@ def lxmf_message_received_callback(message):
         if search != "":
             content = re.sub(search, config_get(CONFIG, "message", "send_regex_replace"), content)
 
-        LXMF_CONNECTION.send(message.source_hash, content_prefix + content + content_suffix, "")
+        LXMF_CONNECTION.send(message.source_hash, content_prefix + content + content_suffix)
     else:
         log("LXMF - Source " + RNS.prettyhexrep(message.source_hash) + " not allowed", LOG_DEBUG)
         return

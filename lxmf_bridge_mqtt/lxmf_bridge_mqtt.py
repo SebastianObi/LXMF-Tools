@@ -769,7 +769,7 @@ def mqtt_message_received_callback_send(client, userdata, message):
         if message_data["date_time"] != "":
             timestamp = time.mktime(datetime.datetime.strptime(message_data["date_time"], '%Y-%m-%d %H:%M:%S').timetuple())
 
-    LXMF_CONNECTION.send(message_data["destination"].strip(), content, message_data["title"].strip(), timestamp)
+    LXMF_CONNECTION.send(message_data["destination"].strip(), content, message_data["title"].strip(), None, timestamp)
 
 
 ##############################################################################################################
