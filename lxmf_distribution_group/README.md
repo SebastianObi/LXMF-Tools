@@ -15,7 +15,7 @@ For more information, see the configuration options (at the end of the program f
 - Text based interface to display advanced functions or infos
 - Cluster of several groups (communication between groups with different levels)
 - Automatic negotiation of the clusters
-- Statistics at cluster, group and user level
+- Statistics at cluster, router, group and user level
 - Easy configuration within readable config files
 - Various admin commands for the daily tasks to be controlled via LXMF messages
 - Group description, rules and pinned messages
@@ -58,6 +58,9 @@ The full documentation is not yet available. Due to lack of time I can also not 
 
 ## Development Roadmap
 - Planned, but not yet scheduled
+  - Propagation Node fallback
+  - Propagation Node auto discover
+  - Propagation Node auto select
   - Parameters for backup/restore configuration and data
   - Parameters for backup/restore identity
   - Cluster bridges/repeater

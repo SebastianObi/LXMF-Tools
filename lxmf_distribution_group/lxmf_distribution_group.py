@@ -760,15 +760,18 @@ def lxmf_message_received_callback(message):
                         LXMF_CONNECTION.send(source_hash, content_user, "", None, None, "interface_send")
                 return
 
+    source_rights = []
     for section in DATA.sections():
         for (key, val) in DATA.items(section):
             if key == source_hash:
-                source_name = val
+                if source_name == "":
+                    source_name = val
                 source_right = section
+                source_rights.append(section)
 
     if fields:
         if "c_n" in fields and "c_t" in fields and "m_t" in fields:
-            if fields["c_n"] == CONFIG["cluster"]["name"] and fields["c_t"] == CONFIG["cluster"]["type"] and source_right == "cluster" and config_getboolean(CONFIG, "cluster", "enabled"):
+            if fields["c_n"] == CONFIG["cluster"]["name"] and fields["c_t"] == CONFIG["cluster"]["type"] and "cluster" in source_rights and config_getboolean(CONFIG, "cluster", "enabled"):
                 content_prefix = config_get(CONFIG, "message", "cluster_receive_prefix", "", lng_key)
                 content_suffix = config_get(CONFIG, "message", "cluster_receive_suffix", "", lng_key)
 
@@ -1168,6 +1171,8 @@ def lxmf_message_notification_success_callback(message):
     if CONFIG["statistic"].getboolean("enabled"):
         if message.app_data.startswith("cluster") and CONFIG["statistic"].getboolean("cluster"):
             statistic("add", message.app_data + "_" + message.desired_method_str + "_success")
+        elif message.app_data.startswith("router") and CONFIG["statistic"].getboolean("router"):
+            statistic("add", message.app_data + "_" + message.desired_method_str + "_success")
         elif message.app_data.startswith("local") and CONFIG["statistic"].getboolean("local"):
             statistic("add", message.app_data + "_" + message.desired_method_str + "_success")
         elif message.app_data.startswith("interface") and CONFIG["statistic"].getboolean("interface"):
@@ -1187,6 +1192,8 @@ def lxmf_message_notification_success_callback(message):
 def lxmf_message_notification_failed_callback(message):
     if CONFIG["statistic"].getboolean("enabled"):
         if message.app_data.startswith("cluster") and CONFIG["statistic"].getboolean("cluster"):
+            statistic("add", message.app_data + "_" + message.desired_method_str + "_failed")
+        elif message.app_data.startswith("router") and CONFIG["statistic"].getboolean("router"):
             statistic("add", message.app_data + "_" + message.desired_method_str + "_failed")
         elif message.app_data.startswith("local") and CONFIG["statistic"].getboolean("local"):
             statistic("add", message.app_data + "_" + message.desired_method_str + "_failed")
@@ -1220,26 +1227,33 @@ class rns_announce_callback:
             receive = app_data.decode("utf-8")
             if receive != "":
                 receive = json.loads(receive)
+                executed = False
 
-                if "c" in receive and "c_h" in receive and "c_d" in receive and CONFIG["cluster"].getboolean("enabled") and DATA["main"].getboolean("auto_add_cluster"):
+                if "h" in receive and "c" in receive and "c_n" in receive and CONFIG["cluster"].getboolean("enabled") and DATA["main"].getboolean("auto_add_cluster"):
                     if receive["c"] == "1":
-                        if not DATA.has_option("cluster", receive["c_h"]):
+                        if not DATA.has_option("cluster", receive["h"]):
                             content_group = config_get(CONFIG, "interface_messages", "cluster_join", "", lng_key)
-                            content_group = replace(content_group, receive["c_h"], receive["c_d"], "", lng_key)
+                            content_group = replace(content_group, receive["h"], receive["c_n"], "", lng_key)
                             if content_group != "":
                                 for section in sections:
                                     if "receive_cluster_join" in config_get(CONFIG, "rights", section).split(","):
                                         for (key, val) in DATA.items(section):
                                                 LXMF_CONNECTION.send(key, content_group, "", None, None, "interface_send")
+                        DATA["cluster"][receive["h"]] = receive["c_n"]
+                        executed = True
 
-                        DATA["cluster"][receive["c_h"]] = receive["c_d"]
+                if "h" in receive and "r" in receive and "r_n" in receive and CONFIG["router"].getboolean("enabled") and DATA["main"].getboolean("auto_add_router"):
+                    if receive["r"] == "1":
+                        DATA["router"][receive["h"]] = receive["r_n"]
+                        executed = True
 
-                        if CONFIG["main"].getboolean("auto_save_data"):
-                            DATA.remove_option("main", "unsaved")
-                            if not data_save(PATH + "/data.cfg"):
-                                DATA["main"]["unsaved"] = "True"
-                        else:
+                if executed:
+                    if CONFIG["main"].getboolean("auto_save_data"):
+                        DATA.remove_option("main", "unsaved")
+                        if not data_save(PATH + "/data.cfg"):
                             DATA["main"]["unsaved"] = "True"
+                    else:
+                        DATA["main"]["unsaved"] = "True"
 
 
 ##############################################################################################################
@@ -1577,6 +1591,26 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                     content = content + "#Out - Direct - Failed:\n" + statistic_get("cluster_out_direct_failed") + "\n\n"
                     content = content + "#Out - Propagated - Failed:\n" + statistic_get("cluster_out_propagated_failed") + "\n\n"
 
+            if CONFIG["statistic"].getboolean("enabled") and CONFIG["statistic"].getboolean("router") and "statistic_router" in source_rights and ("statistic_min" in source_rights or "statistic_full" in source_rights):
+                content = content + replace(config_get(CONFIG, "interface_menu", "statistic_header_router", "", lng_key), source_hash, source_name, source_right, lng_key).replace(delimiter+"value"+delimiter, value)
+                if "statistic_min" in source_rights:
+                    statistic_recalculate("router_in_direct")
+                    statistic_recalculate("router_in_propagated")
+                    statistic_recalculate("router_out_direct_success")
+                    statistic_recalculate("router_out_propagated_success")
+                    statistic_recalculate("router_out_direct_failed")
+                    statistic_recalculate("router_out_propagated_failed")
+                    content = content + "#In: " + statistic_value_get("router_in_direct", value+"_value", "0") + "d/" + statistic_value_get("router_in_propagated", value+"_value", "0") + "p\n"
+                    content = content + "#Out OK: " + statistic_value_get("router_out_direct_success", value+"_value", "0") + "d/" + statistic_value_get("router_out_propagated_success", value+"_value", "0") + "p\n"
+                    content = content + "#Out Failed: " + statistic_value_get("router_out_direct_failed", value+"_value", "0") + "d/" + statistic_value_get("router_out_propagated_failed", value+"_value", "0") + "p\n\n"
+                if "statistic_full" in source_rights:
+                    content = content + "#In - Direct:\n" + statistic_get("router_in_direct") + "\n\n"
+                    content = content + "#In - Propagated:\n" + statistic_get("router_in_propagated") + "\n\n"
+                    content = content + "#Out - Direct - Success:\n" + statistic_get("router_out_direct_success") + "\n\n"
+                    content = content + "#Out - Propagated - Success:\n" + statistic_get("router_out_propagated_success") + "\n\n"
+                    content = content + "#Out - Direct - Failed:\n" + statistic_get("router_out_direct_failed") + "\n\n"
+                    content = content + "#Out - Propagated - Failed:\n" + statistic_get("router_out_propagated_failed") + "\n\n"
+
             if CONFIG["statistic"].getboolean("enabled") and CONFIG["statistic"].getboolean("local") and "statistic_local" in source_rights and ("statistic_min" in source_rights or "statistic_full" in source_rights):
                 content = content + replace(config_get(CONFIG, "interface_menu", "statistic_header_local", "", lng_key), source_hash, source_name, source_right, lng_key).replace(delimiter+"value"+delimiter, value)
                 if "statistic_min" in source_rights:
@@ -1748,6 +1782,28 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                 DATA["main"]["unsaved"] = "True"
         except:
             content = config_get(CONFIG, "interface_menu", "auto_add_cluster_error", "", lng_key)
+
+
+    # "/auto_add_router" command.
+    elif cmd == "auto_add_router" and "auto_add_router" in source_rights:
+        if DATA["main"].getboolean("auto_add_router"):
+            content = config_get(CONFIG, "interface_menu", "auto_add_router_true", "", lng_key)
+        else:
+            content = config_get(CONFIG, "interface_menu", "auto_add_router_false", "", lng_key)
+
+    elif cmd.startswith("auto_add_router ") and "auto_add_router" in source_rights:
+        try:
+            cmd, value = cmd.split(" ", 1)
+            if val_to_bool(value):
+                DATA["main"]["auto_add_router"] = "True"
+                content = config_get(CONFIG, "interface_menu", "auto_add_router_true", "", lng_key)
+                DATA["main"]["unsaved"] = "True"
+            else:
+                DATA["main"]["auto_add_router"] = "False"
+                content = config_get(CONFIG, "interface_menu", "auto_add_router_false", "", lng_key)
+                DATA["main"]["unsaved"] = "True"
+        except:
+            content = config_get(CONFIG, "interface_menu", "auto_add_router_error", "", lng_key)
 
 
     # "/invite_user" command.
@@ -3298,8 +3354,10 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
     log("LXMF - Address: " + RNS.prettyhexrep(LXMF_CONNECTION.destination_hash()), LOG_FORCE)
     log("...............................................................................", LOG_FORCE)
 
-    if CONFIG["cluster"].getboolean("enabled") or CONFIG["high_availability"].getboolean("enabled"):
+    if CONFIG["cluster"].getboolean("enabled") or CONFIG["router"].getboolean("enabled") or CONFIG["high_availability"].getboolean("enabled"):
         announce_data = defaultdict(dict)
+
+        announce_data["h"] = LXMF_CONNECTION.destination_hash_str()
 
         if CONFIG["high_availability"].getboolean("enabled"):
             announce_data["ha"] = "1"
@@ -3309,11 +3367,15 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
 
         if CONFIG["cluster"].getboolean("enabled"):
             announce_data["c"] = "1"
-            announce_data["c_h"] = LXMF_CONNECTION.destination_hash_str()
-            announce_data["c_d"] = CONFIG["cluster"]["display_name"].replace(" ", "")
+            announce_data["c_n"] = CONFIG["cluster"]["display_name"].replace(" ", "")
         else:
             announce_data["c"] = "0"
 
+        if CONFIG["router"].getboolean("enabled"):
+            announce_data["r"] = "1"
+            announce_data["r_n"] = CONFIG["router"]["display_name"].replace(" ", "")
+        else:
+            announce_data["r"] = "0"
 
         log("RNS - Connecting ...", LOG_DEBUG)
         RNS_CONNECTION = rns_connection(
@@ -3326,7 +3388,7 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
             announce_startup_delay=CONFIG["rns"]["announce_startup_delay"],
             announce_periodic=CONFIG["rns"].getboolean("announce_periodic"),
             announce_periodic_interval=CONFIG["rns"]["announce_periodic_interval"],
-            announce_data = json.dumps(announce_data)
+            announce_data = json.dumps(announce_data, separators=(',', ':'))
             )
         RNS_CONNECTION.register_announce_callback(rns_announce_callback)
         log("RNS - Connected", LOG_DEBUG)
@@ -3431,11 +3493,23 @@ name = grp
 type = cluster
 
 # Slash-separated list with the names of this cluster.
+# This feature can be used to build multi level group structures.
+# All send messages that match the name (all levels) will be received.
+# The last name is the main name of this group and is used as source for send messages.
 # No spaces are allowed in the name.
-# All send messages that match the name will be received.
-# The last name is the main name of this group
-# and is used as source for send messages.
 display_name = County/Region/City
+
+
+#### Router settings ####
+[router]
+
+# Enable/Disable router functionality.
+enabled = True
+
+# Comma-separated list with the names for which the messages are to be routed/repeated.
+# The names and levels must match the used display_name of the cluster accordingly.
+# No spaces are allowed in the name.
+display_name = Country,Country/Region
 
 
 #### High availability settings ####
@@ -3597,14 +3671,28 @@ name = grp
 type = cluster
 
 # Slash-separated list with the names of this cluster.
+# This feature can be used to build multi level group structures.
+# All send messages that match the name (all levels) will be received.
+# The last name is the main name of this group and is used as source for send messages.
 # No spaces are allowed in the name.
-# All send messages that match the name will be received.
-# The last name is the main name of this group
-# and is used as source for send messages.
 display_name = County/Region/City
 
 # Define the delimiters for cluster input.
 delimiter_input = @
+
+
+
+
+#### Router settings ####
+[router]
+
+# Enable/Disable router functionality.
+enabled = True
+
+# Comma-separated list with the names for which the messages are to be routed/repeated.
+# The names and levels must match the used display_name of the cluster accordingly.
+# No spaces are allowed in the name.
+display_name = Country,Country/Region
 
 
 
@@ -3734,6 +3822,9 @@ enabled = True
 # Create cluster statistics.
 cluster = True
 
+# Create router statistics.
+router = True
+
 # Create local/group statistics.
 local = True
 
@@ -3752,9 +3843,9 @@ user = True
 # Delimiter for different rights: ,
 [rights]
 
-admin = interface,receive_local,receive_cluster,receive_cluster_pin_add,receive_cluster_loop,receive_cluster_join,receive_join,receive_leave,receive_invite,receive_kick,receive_block,receive_unblock,receive_allow,receive_deny,receive_description,receive_rules,receive_pin_add,receive_pin_remove,receive_name_def,receive_name_change,receive_auto_name_def,receive_auto_name_change,reply_signature,reply_cluster_enabled,reply_cluster_right,reply_interface_enabled,reply_interface_right,reply_local_enabled,reply_local_right,reply_block,reply_length_min,reply_length_max,send_local,send_cluster,help,leave,name,address,info,pin,pin_add,pin_remove,cluster_pin_add,description,rules,readme,time,version,groups,members,admins,moderators,users,guests,search,activitys,statistic,statistic_min,statistic_full,statistic_cluster,statistic_local,statistic_interface,statistic_self,statistic_user,status,delivery,enable_local,enable_cluster,auto_add_user,auto_add_user_type,auto_add_cluster,invite_user,invite_user_type,allow_user,allow_user_type,deny_user,deny_user_type,description_set,rules_set,announce,sync,show_run,show,add,del,move,invite,kick,block,unblock,allow,deny,load,save,reload,reset,unsaved
-mod = interface,receive_local,receive_cluster,receive_cluster_pin_add,receive_cluster_loop,receive_join,receive_leave,receive_invite,receive_kick,receive_block,receive_unblock,receive_allow,receive_deny,receive_description,receive_rules,receive_pin_add,reply_signature,reply_cluster_enabled,reply_cluster_right,reply_interface_enabled,reply_interface_right,reply_local_enabled,reply_local_right,reply_block,reply_length_min,reply_length_max,send_local,send_cluster,help,leave,name,address,info,pin,pin_add,pin_remove,cluster_pin_add,description,rules,readme,time,version,groups,members,admins,moderators,users,guests,search,activitys,statistic,statistic_min,statistic_cluster,statistic_local,statistic_self,delivery,show,add,del,move,invite,kick,block,unblock,allow,deny
-user = interface,receive_local,receive_cluster,receive_cluster_pin_add,receive_cluster_loop,receive_join,receive_leave,receive_invite,receive_kick,receive_block,receive_unblock,receive_allow,receive_description,receive_rules,receive_pin_add,reply_signature,reply_cluster_enabled,reply_cluster_right,reply_interface_enabled,reply_interface_right,reply_local_enabled,reply_local_right,reply_block,reply_length_min,reply_length_max,send_local,send_cluster,help,leave,name,address,info,pin,pin_add,pin_remove,cluster_pin_add,description,rules,readme,time,version,groups,members,admins,moderators,users,guests,search,activitys,statistic,statistic_min,statistic_cluster,statistic_local,statistic_self,delivery,invite
+admin = interface,receive_local,receive_cluster,receive_cluster_pin_add,receive_cluster_loop,receive_cluster_join,receive_join,receive_leave,receive_invite,receive_kick,receive_block,receive_unblock,receive_allow,receive_deny,receive_description,receive_rules,receive_pin_add,receive_pin_remove,receive_name_def,receive_name_change,receive_auto_name_def,receive_auto_name_change,reply_signature,reply_cluster_enabled,reply_cluster_right,reply_interface_enabled,reply_interface_right,reply_local_enabled,reply_local_right,reply_block,reply_length_min,reply_length_max,send_local,send_cluster,help,leave,name,address,info,pin,pin_add,pin_remove,cluster_pin_add,description,rules,readme,time,version,groups,members,admins,moderators,users,guests,search,activitys,statistic,statistic_min,statistic_full,statistic_cluster,statistic_router,statistic_local,statistic_interface,statistic_self,statistic_user,status,delivery,enable_local,enable_cluster,auto_add_user,auto_add_user_type,auto_add_cluster,auto_add_router,invite_user,invite_user_type,allow_user,allow_user_type,deny_user,deny_user_type,description_set,rules_set,announce,sync,show_run,show,add,del,move,invite,kick,block,unblock,allow,deny,load,save,reload,reset,unsaved
+mod = interface,receive_local,receive_cluster,receive_cluster_pin_add,receive_cluster_loop,receive_join,receive_leave,receive_invite,receive_kick,receive_block,receive_unblock,receive_allow,receive_deny,receive_description,receive_rules,receive_pin_add,reply_signature,reply_cluster_enabled,reply_cluster_right,reply_interface_enabled,reply_interface_right,reply_local_enabled,reply_local_right,reply_block,reply_length_min,reply_length_max,send_local,send_cluster,help,leave,name,address,info,pin,pin_add,pin_remove,cluster_pin_add,description,rules,readme,time,version,groups,members,admins,moderators,users,guests,search,activitys,statistic,statistic_min,statistic_cluster,statistic_router,statistic_local,statistic_self,delivery,show,add,del,move,invite,kick,block,unblock,allow,deny
+user = interface,receive_local,receive_cluster,receive_cluster_pin_add,receive_cluster_loop,receive_join,receive_leave,receive_invite,receive_kick,receive_block,receive_unblock,receive_allow,receive_description,receive_rules,receive_pin_add,reply_signature,reply_cluster_enabled,reply_cluster_right,reply_interface_enabled,reply_interface_right,reply_local_enabled,reply_local_right,reply_block,reply_length_min,reply_length_max,send_local,send_cluster,help,leave,name,address,info,pin,pin_add,pin_remove,cluster_pin_add,description,rules,readme,time,version,groups,members,admins,moderators,users,guests,search,activitys,statistic,statistic_min,statistic_cluster,statistic_router,statistic_local,statistic_self,delivery,invite
 guest = interface,receive_local,receive_cluster,receive_cluster_loop,leave
 wait = 
 
@@ -3817,6 +3908,7 @@ wait =
 # statistic_min = Minimal statistics output.
 # statistic_full = Full/Maximal statistics output.
 # statistic_cluster = Displays the cluster statistics on the statistics text.
+# statistic_router = Displays the cluster statistics on the statistics text.
 # statistic_local = Displays the local statistics on the statistics text.
 # statistic_interface = Displays the interface statistics on the statistics text.
 # statistic_self = Displays the own statistics on the statistics text.
@@ -3828,6 +3920,7 @@ wait =
 # auto_add_user = Use of the "/auto_add_user" command allowed.
 # auto_add_user_type = Use of the "/auto_add_user_type" command allowed.
 # auto_add_cluster = Use of the "/auto_add_cluster" command allowed.
+# auto_add_router = Use of the "/auto_add_router" command allowed.
 # invite_user = Use of the "/invite_user" command allowed.
 # invite_user_type = Use of the "/invite_user_type" command allowed.
 # allow_user = Use of the "/allow_user" command allowed.
@@ -4167,6 +4260,8 @@ activitys_member-de = !source_name!!n!<!source_address!>!n!!activity_receive! / 
 # "/statistic" command.
 statistic_header_cluster = -- Cluster statistics - !value! --!n!
 statistic_header_cluster-de = -- Cluster-Statistik - !value! --!n!
+statistic_header_router = -- Router statistics - !value! --!n!
+statistic_header_router-de = -- Router-Statistik - !value! --!n!
 statistic_header_local = -- Group statistics - !value! --!n!
 statistic_header_local-de = -- Gruppen-Statistik - !value! --!n!
 statistic_header_interface = -- Interface statistics - !value! --!n!
@@ -4228,6 +4323,14 @@ auto_add_cluster_false = OK: Auto add cluster disabled.
 auto_add_cluster_false-de = OK: Cluster/Gruppen automatisch hinzufügen deaktiviert.
 auto_add_cluster_error = ERROR: Auto add cluster change.
 auto_add_cluster_error-de = FEHLER: Änderung Cluster/Gruppen automatisch hinzufügen.
+
+# "/auto_add_router" command.
+auto_add_router_true = OK: Auto add router enabled.
+auto_add_router_true-de = OK: Router automatisch hinzufügen aktiviert.
+auto_add_router_false = OK: Auto add router disabled.
+auto_add_router_false-de = OK: Router automatisch hinzufügen deaktiviert.
+auto_add_router_error = ERROR: Auto add router change.
+auto_add_router_error-de = FEHLER: Änderung Router automatisch hinzufügen.
 
 # "/invite_user" command.
 invite_user_true = OK: Invite user enabled.
@@ -4512,6 +4615,9 @@ auto_add_user_type-de = /auto_add_user_type <admin/mod/user/guest>!n!
 auto_add_cluster = /auto_add_cluster <true/false> = Add unknown cluster functionality!n!
 auto_add_cluster-de = /auto_add_cluster <true/false> = Unbekannten Cluster/Gruppen hinzufügen Funktionalität!n!
 
+auto_add_router = /auto_add_router <true/false> = Add unknown router functionality!n!
+auto_add_router-de = /auto_add_router <true/false> = Unbekannten Router hinzufügen Funktionalität!n!
+
 invite_user = /invite_user <true/false> = Invite functionality!n!
 invite_user-de = /invite_user <true/false> = Einladung Funktionalität!n!
 
@@ -4620,6 +4726,7 @@ enabled_cluster = True
 auto_add_user = True
 auto_add_user_type = user
 auto_add_cluster = True
+auto_add_router = True
 invite_user = True
 invite_user_type = user
 allow_user = True
@@ -4662,6 +4769,11 @@ rules-de = Bitte befolgen Sie die allgemeinen benimm-dich-Regeln welche als selb
 [cluster]
 
 [block_cluster]
+
+#### Router (Automatically or manual created) ####
+[router]
+
+[block_router]
 
 #### Pinned messages (Automatically created) ####
 [pin]
