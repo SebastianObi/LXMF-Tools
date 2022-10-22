@@ -166,11 +166,36 @@ The full documentation is not yet available. Due to lack of time I can also not 
   type = cluster
   
   # Slash-separated list with the names of this cluster.
+  # This feature can be used to build multi level group structures.
+  # All send messages that match the name (all levels) will be received.
+  # The last name is the main name of this group and is used as source for send messages.
   # No spaces are allowed in the name.
-  # All send messages that match the name will be received.
-  # The last name is the main name of this group
-  # and is used as source for send messages.
   display_name = County/Region/City
+  
+  
+  #### Router settings ####
+  [router]
+  
+  # Enable/Disable router functionality.
+  enabled = True
+  
+  # Comma-separated list with the names for which the messages are to be routed/repeated.
+  # The names and levels must match the used display_name of the cluster accordingly.
+  # No spaces are allowed in the name.
+  display_name = Country,Country/Region
+  
+  
+  #### High availability settings ####
+  [high_availability]
+  
+  # Enable/Disable this functionality.
+  enabled = False
+  
+  # Role of this node (master/slave)
+  role = master
+  
+  # Peer address
+  peer = 
   
   
   #### Statistic/Counter settings ####
@@ -404,6 +429,44 @@ Please do not forget to close the program first!
   [cluster]
   801f48d54bc71cb3e0886944832aaf8d = Germany/NRW/Düsseldorf
     ```
+
+
+### Cluster router:
+Not yet implemented
+
+
+### Announcement of the group:
+- `config.cfg.owr`
+  ```
+  [lxmf]
+  announce_startup = Yes
+  announce_startup_delay = 0 #Seconds
+  announce_periodic = Yes
+  announce_periodic_interval = 120 #Minutes
+  ```
+
+
+### Message propagation - Send:
+- `config.cfg.owr`
+  ```
+  [lxmf]
+  desired_method = direct #direct/propagated
+  propagation_node = ca2762fe5283873719aececfb9e18835
+  try_propagation_on_fail = Yes
+  ```
+
+
+### Message propagation - Receive (Sync from node):
+- `config.cfg.owr`
+  ```
+  [lxmf]
+  propagation_node = ca2762fe5283873719aececfb9e18835
+  sync_startup = Yes
+  sync_startup_delay = 30 #Seconds
+  sync_periodic = Yes
+  sync_periodic_interval = 30 #Minutes
+  sync_limit = 8
+  ```
 
 
 ### Waiting room for new members:

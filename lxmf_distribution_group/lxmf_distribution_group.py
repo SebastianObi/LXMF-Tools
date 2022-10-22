@@ -2113,6 +2113,33 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
             content = config_get(CONFIG, "interface_menu", "cmd_error", "", lng_key)
 
 
+    # "/user" command.
+    elif cmd.startswith("rename ") and "rename" in source_rights:
+        try:
+            cmd, key, value = cmd.split(" ", 2)
+            key = LXMF_CONNECTION.destination_correct(key)
+            if key != "":
+                executed = False
+                for section in sections:
+                    if DATA.has_option(section, key):
+                        content = config_get(CONFIG, "interface_menu", "user_rename", "", lng_key) + " " + DATA[section][key] + " -> " + value
+                        DATA[section][key] = value
+                        executed = True
+                if executed:
+                    if CONFIG["main"].getboolean("auto_save_data"):
+                        DATA.remove_option("main", "unsaved")
+                        if not data_save(PATH + "/data.cfg"):
+                            DATA["main"]["unsaved"] = "True"
+                    else:
+                        DATA["main"]["unsaved"] = "True"
+                else:
+                    content = config_get(CONFIG, "interface_menu", "user_found_error", "", lng_key) 
+            else:
+                content = config_get(CONFIG, "interface_menu", "user_format_error", "", lng_key)
+        except:
+           content = config_get(CONFIG, "interface_menu", "cmd_error", "", lng_key)
+
+
     # "/invite" command.
     elif cmd.startswith("invite ") and "invite" in source_rights:
         if DATA["main"].getboolean("invite_user"):
@@ -3843,8 +3870,8 @@ user = True
 # Delimiter for different rights: ,
 [rights]
 
-admin = interface,receive_local,receive_cluster,receive_cluster_pin_add,receive_cluster_loop,receive_cluster_join,receive_join,receive_leave,receive_invite,receive_kick,receive_block,receive_unblock,receive_allow,receive_deny,receive_description,receive_rules,receive_pin_add,receive_pin_remove,receive_name_def,receive_name_change,receive_auto_name_def,receive_auto_name_change,reply_signature,reply_cluster_enabled,reply_cluster_right,reply_interface_enabled,reply_interface_right,reply_local_enabled,reply_local_right,reply_block,reply_length_min,reply_length_max,send_local,send_cluster,help,leave,name,address,info,pin,pin_add,pin_remove,cluster_pin_add,description,rules,readme,time,version,groups,members,admins,moderators,users,guests,search,activitys,statistic,statistic_min,statistic_full,statistic_cluster,statistic_router,statistic_local,statistic_interface,statistic_self,statistic_user,status,delivery,enable_local,enable_cluster,auto_add_user,auto_add_user_type,auto_add_cluster,auto_add_router,invite_user,invite_user_type,allow_user,allow_user_type,deny_user,deny_user_type,description_set,rules_set,announce,sync,show_run,show,add,del,move,invite,kick,block,unblock,allow,deny,load,save,reload,reset,unsaved
-mod = interface,receive_local,receive_cluster,receive_cluster_pin_add,receive_cluster_loop,receive_join,receive_leave,receive_invite,receive_kick,receive_block,receive_unblock,receive_allow,receive_deny,receive_description,receive_rules,receive_pin_add,reply_signature,reply_cluster_enabled,reply_cluster_right,reply_interface_enabled,reply_interface_right,reply_local_enabled,reply_local_right,reply_block,reply_length_min,reply_length_max,send_local,send_cluster,help,leave,name,address,info,pin,pin_add,pin_remove,cluster_pin_add,description,rules,readme,time,version,groups,members,admins,moderators,users,guests,search,activitys,statistic,statistic_min,statistic_cluster,statistic_router,statistic_local,statistic_self,delivery,show,add,del,move,invite,kick,block,unblock,allow,deny
+admin = interface,receive_local,receive_cluster,receive_cluster_pin_add,receive_cluster_loop,receive_cluster_join,receive_join,receive_leave,receive_invite,receive_kick,receive_block,receive_unblock,receive_allow,receive_deny,receive_description,receive_rules,receive_pin_add,receive_pin_remove,receive_name_def,receive_name_change,receive_auto_name_def,receive_auto_name_change,reply_signature,reply_cluster_enabled,reply_cluster_right,reply_interface_enabled,reply_interface_right,reply_local_enabled,reply_local_right,reply_block,reply_length_min,reply_length_max,send_local,send_cluster,help,leave,name,address,info,pin,pin_add,pin_remove,cluster_pin_add,description,rules,readme,time,version,groups,members,admins,moderators,users,guests,search,activitys,statistic,statistic_min,statistic_full,statistic_cluster,statistic_router,statistic_local,statistic_interface,statistic_self,statistic_user,status,delivery,enable_local,enable_cluster,auto_add_user,auto_add_user_type,auto_add_cluster,auto_add_router,invite_user,invite_user_type,allow_user,allow_user_type,deny_user,deny_user_type,description_set,rules_set,announce,sync,show_run,show,add,del,move,rename,invite,kick,block,unblock,allow,deny,load,save,reload,reset,unsaved
+mod = interface,receive_local,receive_cluster,receive_cluster_pin_add,receive_cluster_loop,receive_join,receive_leave,receive_invite,receive_kick,receive_block,receive_unblock,receive_allow,receive_deny,receive_description,receive_rules,receive_pin_add,reply_signature,reply_cluster_enabled,reply_cluster_right,reply_interface_enabled,reply_interface_right,reply_local_enabled,reply_local_right,reply_block,reply_length_min,reply_length_max,send_local,send_cluster,help,leave,name,address,info,pin,pin_add,pin_remove,cluster_pin_add,description,rules,readme,time,version,groups,members,admins,moderators,users,guests,search,activitys,statistic,statistic_min,statistic_cluster,statistic_router,statistic_local,statistic_self,delivery,show,add,del,move,rename,invite,kick,block,unblock,allow,deny
 user = interface,receive_local,receive_cluster,receive_cluster_pin_add,receive_cluster_loop,receive_join,receive_leave,receive_invite,receive_kick,receive_block,receive_unblock,receive_allow,receive_description,receive_rules,receive_pin_add,reply_signature,reply_cluster_enabled,reply_cluster_right,reply_interface_enabled,reply_interface_right,reply_local_enabled,reply_local_right,reply_block,reply_length_min,reply_length_max,send_local,send_cluster,help,leave,name,address,info,pin,pin_add,pin_remove,cluster_pin_add,description,rules,readme,time,version,groups,members,admins,moderators,users,guests,search,activitys,statistic,statistic_min,statistic_cluster,statistic_router,statistic_local,statistic_self,delivery,invite
 guest = interface,receive_local,receive_cluster,receive_cluster_loop,leave
 wait = 
@@ -3940,6 +3967,7 @@ wait =
 # add = Use of the "/add" command allowed.
 # del = Use of the "/del" command allowed.
 # move = Use of the "/move" command allowed.
+# rename = Use of the "/rename" command allowed.
 # invite = Use of the "/invite" command allowed.
 # kick = Use of the "/kick" command allowed.
 # block = Use of the "/block" command allowed.
@@ -4417,8 +4445,12 @@ user_del = OK: Removed user -> group:
 user_del-de = OK: Entfernter Benutzer -> Gruppe:
 user_move = OK: Moved user -> group:
 user_move-de = OK: Benutzer -> Gruppe verschoben:
+user_rename = OK: Renamed user:
+user_rename-de = OK: Umbenannter Benutzer:
 user_error = ERROR: Unknown user -> group:
 user_error-de = FEHLER: Unbekannter Benutzer -> Gruppe:
+user_found_error = ERROR: User not found
+user_found_error-de = FEHLER: Benutzer nicht gefunden
 user_format_error = ERROR: Wrong user format
 user_format_error-de = FEHLER: Falsches Benutzerformat
 user_type_error = ERROR: Unknown user type
@@ -4674,6 +4706,9 @@ del-de = /del oder /rm <admin/mod/user/guest> <user_address>!n!/del oder /rm <us
 
 move = /move <admin/mod/user/guest> <user_address>!n!
 move-de = /move <admin/mod/user/guest> <user_address>!n!
+
+rename = /rename <user_address> <new nickname> = Change nickname!n!
+rename-de = /rename <user_address> <new nickname> = Ändern des Nickname!n!
 
 invite = /invite <user_address> = Invites user to group!n!
 invite-de = /invite <user_address> = Lädt Benutzer zur Gruppe ein!n!
