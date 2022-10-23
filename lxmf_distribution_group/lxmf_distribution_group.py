@@ -2607,7 +2607,7 @@ def replace(text, source_hash, source_name, source_right, lng_key):
 
     if delimiter+"count_members"+delimiter in text:
         count = 0
-        for (section) in CONFIG.items("rights"):
+        for (section, section_val) in CONFIG.items("rights"):
             if DATA.has_section(section):
                 for (key, val) in DATA.items(section):
                     count += 1
