@@ -256,7 +256,7 @@ class lxmf_connection:
         return ""
 
 
-    def send(self, destination, content="", title=None, fields=None, timestamp=None, app_data=""):
+    def send(self, destination, content="", title="", fields=None, timestamp=None, app_data=""):
         if type(destination) is not bytes:
             if len(destination) == ((RNS.Reticulum.TRUNCATED_HASHLENGTH//8)*2)+2:
                 destination = destination[1:-1]
@@ -276,7 +276,7 @@ class lxmf_connection:
         self.send_message(destination, self.destination, content, title, fields, timestamp, app_data)
 
 
-    def send_message(self, destination, source, content="", title=None, fields=None, timestamp=None, app_data=""):
+    def send_message(self, destination, source, content="", title="", fields=None, timestamp=None, app_data=""):
         if self.desired_method_direct:
             desired_method = LXMF.LXMessage.DIRECT
         else:
