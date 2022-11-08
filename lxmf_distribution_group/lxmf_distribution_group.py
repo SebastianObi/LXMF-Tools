@@ -89,6 +89,11 @@ RNS_MAIN_CONNECTION = None
 LXMF_CONNECTION = None
 RNS_CONNECTION = None
 
+CONV_P2P                = 0x01
+CONV_GROUP              = 0x02
+CONV_BROADCAST          = 0x03
+CONV_DISTRIBUTION_GROUP = 0x04
+
 
 ##############################################################################################################
 # LXMF Class
@@ -706,7 +711,7 @@ class lxmf_announce_callback:
                                             if "receive_auto_"+content_type in config_get(CONFIG, "rights", section).split(","):
                                                 for (key, val) in DATA.items(section):
                                                     if key != source_hash:
-                                                        LXMF_CONNECTION.send(key, content_group, "", None, None, "interface_send")
+                                                        LXMF_CONNECTION.send(key, content_group, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
 
                                     if CONFIG["main"].getboolean("auto_save_data"):
                                         DATA.remove_option("main", "unsaved")
@@ -757,7 +762,7 @@ def lxmf_message_received_callback(message):
                     content_user = config_get(CONFIG, "interface_messages", "reply_block", "", lng_key)
                     content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                     if content_user != "":
-                        LXMF_CONNECTION.send(source_hash, content_user, "", None, None, "interface_send")
+                        LXMF_CONNECTION.send(source_hash, content_user, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
                 return
 
     source_rights = []
@@ -808,7 +813,7 @@ def lxmf_message_received_callback(message):
                         if "receive_cluster" in config_get(CONFIG, "rights", section).split(","):
                             for (key, val) in DATA.items(section):
                                 if key != source_hash:
-                                    LXMF_CONNECTION.send(key, content, title, None, timestamp, "cluster_send")
+                                    LXMF_CONNECTION.send(key, content, title, {"type": CONFIG["lxmf"]["destination_type_conv"]}, timestamp, "cluster_send")
                 elif fields["m_t"] == "pin":
                     delimiter = CONFIG["interface"]["delimiter_output"]
 
@@ -835,7 +840,7 @@ def lxmf_message_received_callback(message):
                             if "receive_cluster_pin_add" in config_get(CONFIG, "rights", section).split(","):
                                 for (key, val) in DATA.items(section):
                                     if key != source_hash:
-                                        LXMF_CONNECTION.send(key, content_group, "", None, None, "cluster_send")
+                                        LXMF_CONNECTION.send(key, content_group, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "cluster_send")
 
                     if CONFIG["main"].getboolean("auto_save_data"):
                         DATA.remove_option("main", "unsaved")
@@ -853,7 +858,11 @@ def lxmf_message_received_callback(message):
 
         key = DATA["main"]["auto_add_user_type"]
         if DATA.has_section(key) and key != "main":
-            DATA[key][source_hash] = ""
+            if CONFIG["main"].getboolean("auto_name_add"):
+                app_data = RNS.Identity.recall_app_data(message.source_hash)
+                if app_data != None:
+                    source_name = app_data.decode('utf-8')
+            DATA[key][source_hash] = source_name
             DATA.remove_option("main", "unsaved")
             content = config_get(CONFIG, "interface_messages", "auto_add_"+key, "", lng_key)
             content_group = config_get(CONFIG, "interface_messages", "member_join", "", lng_key)
@@ -863,7 +872,7 @@ def lxmf_message_received_callback(message):
                     if "receive_join" in config_get(CONFIG, "rights", section).split(","):
                         for (key, val) in DATA.items(section):
                             if key != source_hash:
-                                LXMF_CONNECTION.send(key, content_group, title, None, None, "interface_send")
+                                LXMF_CONNECTION.send(key, content_group, title, {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
             if CONFIG["main"].getboolean("auto_save_data"):
                 DATA.remove_option("main", "unsaved")
                 if not data_save(PATH + "/data.cfg"):
@@ -872,7 +881,7 @@ def lxmf_message_received_callback(message):
                 DATA["main"]["unsaved"] = "True"
             content = replace(content, source_hash, source_name, source_right, lng_key)
             if content != "":
-                LXMF_CONNECTION.send(source_hash, content, title, None, None, "interface_send")
+                LXMF_CONNECTION.send(source_hash, content, title, {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
         return
     elif source_right == "":
         log("LXMF - Source " + RNS.prettyhexrep(message.source_hash) + " not exist (auto add disabled)", LOG_DEBUG)
@@ -892,7 +901,7 @@ def lxmf_message_received_callback(message):
             content_user = config_get(CONFIG, "interface_messages", "reply_signature", "", lng_key)
             content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
             if content_user != "":
-                LXMF_CONNECTION.send(source_hash, content_user, "", None, None, "interface_send")
+                LXMF_CONNECTION.send(source_hash, content_user, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
         return
 
 
@@ -903,7 +912,7 @@ def lxmf_message_received_callback(message):
                 content_user = config_get(CONFIG, "interface_messages", "reply_length_min", "", lng_key)
                 content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                 if content_user != "":
-                    LXMF_CONNECTION.send(source_hash, content_user, "", None, None, "interface_send")
+                    LXMF_CONNECTION.send(source_hash, content_user, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
             return
 
 
@@ -914,7 +923,7 @@ def lxmf_message_received_callback(message):
                 content_user = config_get(CONFIG, "interface_messages", "reply_length_max", "", lng_key)
                 content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                 if content_user != "":
-                    LXMF_CONNECTION.send(source_hash, content_user, "", None, None, "interface_send")
+                    LXMF_CONNECTION.send(source_hash, content_user, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
             return
 
 
@@ -940,7 +949,7 @@ def lxmf_message_received_callback(message):
                 content_user = config_get(CONFIG, "interface_messages", "reply_interface_enabled", "", lng_key)
                 content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                 if content_user != "":
-                    LXMF_CONNECTION.send(source_hash, content_user, "", None, None, "interface_send")
+                    LXMF_CONNECTION.send(source_hash, content_user, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
             return
 
         if "interface" not in source_rights:
@@ -949,7 +958,7 @@ def lxmf_message_received_callback(message):
                 content_user = config_get(CONFIG, "interface_messages", "reply_interface_right", "", lng_key)
                 content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                 if content_user != "":
-                    LXMF_CONNECTION.send(source_hash, content_user, "", None, None, "interface_send")
+                    LXMF_CONNECTION.send(source_hash, content_user, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
             return
 
         content = interface(content[len(CONFIG["interface"]["delimiter_input"]):], source_hash, source_name, source_right, source_rights, lng_key)
@@ -964,7 +973,7 @@ def lxmf_message_received_callback(message):
                 statistic("value_set", source_hash, "activity", time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time())))
                 statistic("value_set", source_hash, "activity_receive", time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time())))
 
-        LXMF_CONNECTION.send(source_hash, content, "", None, None, "interface_send")
+        LXMF_CONNECTION.send(source_hash, content, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
         return
 
 
@@ -976,7 +985,7 @@ def lxmf_message_received_callback(message):
                content_user = config_get(CONFIG, "interface_messages", "reply_cluster_enabled", "", lng_key)
                content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                if content_user != "":
-                   LXMF_CONNECTION.send(source_hash, content_user, "", None, None, "interface_send")
+                   LXMF_CONNECTION.send(source_hash, content_user, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
            return
 
         if "send_cluster" not in source_rights:
@@ -985,14 +994,14 @@ def lxmf_message_received_callback(message):
                 content_user = config_get(CONFIG, "interface_messages", "reply_cluster_right", "", lng_key)
                 content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                 if content_user != "":
-                    LXMF_CONNECTION.send(source_hash, content_user, "", None, None, "interface_send")
+                    LXMF_CONNECTION.send(source_hash, content_user, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
             return
 
         try:
             content = content[len(CONFIG["cluster"]["delimiter_input"]):]
             destination, content = content.split(" ", 1)
         except:
-            LXMF_CONNECTION.send(source_hash, config_get(CONFIG, "interface_menu", "cluster_format_error", "", lng_key) , "", None, None, "interface_send")
+            LXMF_CONNECTION.send(source_hash, config_get(CONFIG, "interface_menu", "cluster_format_error", "", lng_key) , "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
             return
 
         destinations = []
@@ -1001,7 +1010,7 @@ def lxmf_message_received_callback(message):
                 destinations.append(key)
 
         if len(destinations) == 0:
-            LXMF_CONNECTION.send(source_hash, config_get(CONFIG, "interface_menu", "cluster_found_error", "", lng_key) , "", None, None, "interface_send")
+            LXMF_CONNECTION.send(source_hash, config_get(CONFIG, "interface_menu", "cluster_found_error", "", lng_key) , "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
             return
 
         length = config_getint(CONFIG, "message", "cluster_send_length_min", 0, lng_key)
@@ -1011,7 +1020,7 @@ def lxmf_message_received_callback(message):
                     content_user = config_get(CONFIG, "interface_messages", "reply_length_min", "", lng_key)
                     content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                     if content_user != "":
-                        LXMF_CONNECTION.send(source_hash, content_user, "", None, None, "interface_send")
+                        LXMF_CONNECTION.send(source_hash, content_user, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
                 return
 
         length = config_getint(CONFIG, "message", "cluster_send_length_max", 0, lng_key)
@@ -1021,7 +1030,7 @@ def lxmf_message_received_callback(message):
                     content_user = config_get(CONFIG, "interface_messages", "reply_length_max", "", lng_key)
                     content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                     if content_user != "":
-                        LXMF_CONNECTION.send(source_hash, content_user, "", None, None, "interface_send")
+                        LXMF_CONNECTION.send(source_hash, content_user, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
                 return
 
         content_prefix = config_get(CONFIG, "message", "cluster_send_prefix", "", lng_key)
@@ -1082,7 +1091,7 @@ def lxmf_message_received_callback(message):
             if "receive_cluster_send" in config_get(CONFIG, "rights", section).split(",") or (cluster_loop and "receive_cluster_loop" in config_get(CONFIG, "rights", section).split(",")):
                 for (key, val) in DATA.items(section):
                     if key != source_hash:
-                        LXMF_CONNECTION.send(key, content, title, None, timestamp, "local_send")
+                        LXMF_CONNECTION.send(key, content, title, {"type": CONFIG["lxmf"]["destination_type_conv"]}, timestamp, "local_send")
 
         return
 
@@ -1098,7 +1107,7 @@ def lxmf_message_received_callback(message):
                         content_user = config_get(CONFIG, "interface_messages", "reply_length_min", "", lng_key)
                         content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                         if content_user != "":
-                            LXMF_CONNECTION.send(source_hash, content_user, "", None, None, "interface_send")
+                            LXMF_CONNECTION.send(source_hash, content_user, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
                     return
 
             length = config_getint(CONFIG, "message", "send_length_max", 0, lng_key)
@@ -1108,7 +1117,7 @@ def lxmf_message_received_callback(message):
                         content_user = config_get(CONFIG, "interface_messages", "reply_length_max", "", lng_key)
                         content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                         if content_user != "":
-                            LXMF_CONNECTION.send(source_hash, content_user, "", None, None, "interface_send")
+                            LXMF_CONNECTION.send(source_hash, content_user, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
                     return
 
             content_prefix = config_get(CONFIG, "message", "send_prefix", "", lng_key)
@@ -1144,7 +1153,7 @@ def lxmf_message_received_callback(message):
                 if "receive_local" in config_get(CONFIG, "rights", section).split(","):
                     for (key, val) in DATA.items(section):
                         if key != source_hash:
-                            LXMF_CONNECTION.send(key, content, title, None, timestamp, "local_send")
+                            LXMF_CONNECTION.send(key, content, title, {"type": CONFIG["lxmf"]["destination_type_conv"]}, timestamp, "local_send")
             return
         else:
             log("LXMF - Source " + RNS.prettyhexrep(message.source_hash) + " 'send' not allowed", LOG_DEBUG)
@@ -1152,13 +1161,13 @@ def lxmf_message_received_callback(message):
                 content_user = config_get(CONFIG, "interface_messages", "reply_local_right", "", lng_key)
                 content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                 if content_user != "":
-                    LXMF_CONNECTION.send(source_hash, content_user, "", None, None, "interface_send")
+                    LXMF_CONNECTION.send(source_hash, content_user, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
     else:
         if "reply_local_enabled" in source_rights:
             content_user = config_get(CONFIG, "interface_messages", "reply_local_enabled", "", lng_key)
             content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
             if content_user != "":
-                LXMF_CONNECTION.send(source_hash, content_user, "", None, None, "interface_send")
+                LXMF_CONNECTION.send(source_hash, content_user, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
 
 
     return
@@ -1238,7 +1247,7 @@ class rns_announce_callback:
                                 for section in sections:
                                     if "receive_cluster_join" in config_get(CONFIG, "rights", section).split(","):
                                         for (key, val) in DATA.items(section):
-                                                LXMF_CONNECTION.send(key, content_group, "", None, None, "interface_send")
+                                                LXMF_CONNECTION.send(key, content_group, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
                         DATA["cluster"][receive["h"]] = receive["c_n"]
                         executed = True
 
@@ -1303,7 +1312,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                 for section in sections:
                     if "receive_leave" in config_get(CONFIG, "rights", section).split(","):
                         for (key, val) in DATA.items(section):
-                            LXMF_CONNECTION.send(key, content_group, "", None, None, "interface_send")
+                            LXMF_CONNECTION.send(key, content_group, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
 
             content = config_get(CONFIG, "interface_menu", "leave_ok", "", lng_key)
 
@@ -1345,7 +1354,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                     if "receive_"+content_type in config_get(CONFIG, "rights", section).split(","):
                         for (key, val) in DATA.items(section):
                             if key != source_hash:
-                                LXMF_CONNECTION.send(key, content_group, "", None, None, "interface_send")
+                                LXMF_CONNECTION.send(key, content_group, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
 
             content = config_get(CONFIG, "interface_menu", "name_ok", "", lng_key) + " " + value
 
@@ -1407,7 +1416,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                     if "receive_pin_add" in config_get(CONFIG, "rights", section).split(","):
                         for (key, val) in DATA.items(section):
                             if key != source_hash:
-                                LXMF_CONNECTION.send(key, content_group, "", None, None, "interface_send")
+                                LXMF_CONNECTION.send(key, content_group, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
 
             content = config_get(CONFIG, "interface_menu", "pin_add_ok", "", lng_key)
 
@@ -1438,7 +1447,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                         if "receive_pin_add" in config_get(CONFIG, "rights", section).split(","):
                             for (key, val) in DATA.items(section):
                                 if key != source_hash:
-                                    LXMF_CONNECTION.send(key, content_group, "", None, None, "interface_send")
+                                    LXMF_CONNECTION.send(key, content_group, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
 
                 content = config_get(CONFIG, "interface_menu", "pin_remove_ok", "", lng_key)
 
@@ -1931,7 +1940,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                     if "receive_description" in config_get(CONFIG, "rights", section).split(","):
                         for (key, val) in DATA.items(section):
                             if key != source_hash:
-                                LXMF_CONNECTION.send(key, content_group, "", None, None, "interface_send")
+                                LXMF_CONNECTION.send(key, content_group, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
 
             content = config_get(CONFIG, "interface_menu", "description", "", lng_key) + " " + value
             DATA["main"]["unsaved"] = "True"
@@ -1956,7 +1965,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                     if "receive_rules" in config_get(CONFIG, "rights", section).split(","):
                         for (key, val) in DATA.items(section):
                             if key != source_hash:
-                                LXMF_CONNECTION.send(key, content_group, "", None, None, "interface_send")
+                                LXMF_CONNECTION.send(key, content_group, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
 
             content = config_get(CONFIG, "interface_menu", "rules", "", lng_key) + " " + value
             DATA["main"]["unsaved"] = "True"
@@ -2149,22 +2158,29 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                 if DATA.has_section(key) and key != "main":
                     value = LXMF_CONNECTION.destination_correct(value)
                     if value != "":
-                        DATA[key][value] = ""
+                        user_name = ""
+                        if CONFIG["main"].getboolean("auto_name_add"):
+                            app_data = RNS.Identity.recall_app_data(bytes.fromhex(value))
+                            if app_data != None:
+                                user_name = app_data.decode('utf-8')
+                        DATA[key][value] = user_name
 
                         content_user = config_get(CONFIG, "interface_messages", "invite_"+key, "", lng_key)
                         content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
+                        content_user = content_user.replace(delimiter+"user_name"+delimiter, user_name)
                         if content_user != "":
-                            LXMF_CONNECTION.send(value, content_user, "", None, None, "interface_send")
+                            LXMF_CONNECTION.send(value, content_user, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
 
                         content_group = config_get(CONFIG, "interface_messages", "member_invite", "", lng_key)
                         content_group = replace(content_group, source_hash, source_name, source_right, lng_key)
                         content_group = content_group.replace(delimiter+"user_address"+delimiter, value)
+                        content_group = content_group.replace(delimiter+"user_name"+delimiter, user_name)
                         if content_group != "":
                             for section in sections:
                                 if "receive_invite" in config_get(CONFIG, "rights", section).split(","):
                                     for (key, val) in DATA.items(section):
                                         if key != source_hash:
-                                            LXMF_CONNECTION.send(key, content_group, "", None, None, "interface_send")
+                                            LXMF_CONNECTION.send(key, content_group, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
 
                         content = config_get(CONFIG, "interface_menu", "invite_ok", "", lng_key) + " <" + value + ">"
 
@@ -2205,7 +2221,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                     content_user = config_get(CONFIG, "interface_messages", "kick_"+user_section, "", lng_key)
                     content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                     if content_user != "":
-                        LXMF_CONNECTION.send(value, content_user, "", None, None, "interface_send")
+                        LXMF_CONNECTION.send(value, content_user, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
 
                     content_group = config_get(CONFIG, "interface_messages", "member_kick", "", lng_key)
                     content_group = replace(content_group, source_hash, source_name, source_right, lng_key)
@@ -2215,7 +2231,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                         for section in sections:
                             if "receive_kick" in config_get(CONFIG, "rights", section).split(","):
                                 for (key, val) in DATA.items(section):
-                                    LXMF_CONNECTION.send(key, content_group, "", None, None, "interface_send")
+                                    LXMF_CONNECTION.send(key, content_group, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
 
                     content = config_get(CONFIG, "interface_menu", "kick_ok", "", lng_key)
                     content = content.replace(delimiter+"user_address"+delimiter, value)
@@ -2256,7 +2272,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                     content_user = config_get(CONFIG, "interface_messages", "block_"+user_section, "", lng_key)
                     content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                     if content_user != "":
-                        LXMF_CONNECTION.send(value, content_user, "", None, None, "interface_send")
+                        LXMF_CONNECTION.send(value, content_user, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
 
                     content_group = config_get(CONFIG, "interface_messages", "member_block", "", lng_key)
                     content_group = replace(content_group, source_hash, source_name, source_right, lng_key)
@@ -2266,7 +2282,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                         for section in sections:
                             if "receive_block" in config_get(CONFIG, "rights", section).split(","):
                                 for (key, val) in DATA.items(section):
-                                    LXMF_CONNECTION.send(key, content_group, "", None, None, "interface_send")
+                                    LXMF_CONNECTION.send(key, content_group, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
 
                     content = config_get(CONFIG, "interface_menu", "block_ok", "", lng_key)
                     content = content.replace(delimiter+"user_address"+delimiter, value)
@@ -2308,7 +2324,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                     content_user = config_get(CONFIG, "interface_messages", "unblock_"+user_section, "", lng_key)
                     content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                     if content_user != "":
-                        LXMF_CONNECTION.send(value, content_user, "", None, None, "interface_send")
+                        LXMF_CONNECTION.send(value, content_user, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
 
                     content_group = config_get(CONFIG, "interface_messages", "member_unblock", "", lng_key)
                     content_group = replace(content_group, source_hash, source_name, source_right, lng_key)
@@ -2318,7 +2334,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                         for section in sections:
                             if "receive_block" in config_get(CONFIG, "rights", section).split(","):
                                 for (key, val) in DATA.items(section):
-                                    LXMF_CONNECTION.send(key, content_group, "", None, None, "interface_send")
+                                    LXMF_CONNECTION.send(key, content_group, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
 
                     content = config_get(CONFIG, "interface_menu", "unblock_ok", "", lng_key)
                     content = content.replace(delimiter+"user_address"+delimiter, value)
@@ -2359,7 +2375,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                         content_user = config_get(CONFIG, "interface_messages", "allow_"+user_section, "", lng_key)
                         content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                         if content_user != "":
-                            LXMF_CONNECTION.send(value, content_user, "", None, None, "interface_send")
+                            LXMF_CONNECTION.send(value, content_user, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
 
                         content_group = config_get(CONFIG, "interface_messages", "member_allow", "", lng_key)
                         content_group = replace(content_group, source_hash, source_name, source_right, lng_key)
@@ -2369,7 +2385,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                             for section in sections:
                                 if "receive_block" in config_get(CONFIG, "rights", section).split(","):
                                     for (key, val) in DATA.items(section):
-                                        LXMF_CONNECTION.send(key, content_group, "", None, None, "interface_send")
+                                        LXMF_CONNECTION.send(key, content_group, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
 
                         content = config_get(CONFIG, "interface_menu", "allow_ok", "", lng_key)
                         content = content.replace(delimiter+"user_address"+delimiter, value)
@@ -2411,7 +2427,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                         content_user = config_get(CONFIG, "interface_messages", "deny_"+user_section, "", lng_key)
                         content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                         if content_user != "":
-                            LXMF_CONNECTION.send(value, content_user, "", None, None, "interface_send")
+                            LXMF_CONNECTION.send(value, content_user, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
 
                         content_group = config_get(CONFIG, "interface_messages", "member_deny", "", lng_key)
                         content_group = replace(content_group, source_hash, source_name, source_right, lng_key)
@@ -2421,7 +2437,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                             for section in sections:
                                 if "receive_block" in config_get(CONFIG, "rights", section).split(","):
                                     for (key, val) in DATA.items(section):
-                                        LXMF_CONNECTION.send(key, content_group, "", None, None, "interface_send")
+                                        LXMF_CONNECTION.send(key, content_group, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
 
                         content = config_get(CONFIG, "interface_menu", "deny_ok", "", lng_key)
                         content = content.replace(delimiter+"user_address"+delimiter, value)
@@ -3347,13 +3363,20 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
     if path is None:
         path = PATH
 
+    display_name = CONFIG["lxmf"]["display_name"]
+    if CONFIG["lxmf"]["destination_type_conv"] != "":
+        try:
+            display_name += chr(int(CONFIG["lxmf"]["destination_type_conv"]))
+        except:
+            pass
+
     LXMF_CONNECTION = lxmf_connection(
         storage_path=path,
         identity_file="identity",
         identity=None,
         destination_name=CONFIG["lxmf"]["destination_name"],
         destination_type=CONFIG["lxmf"]["destination_type"],
-        display_name=CONFIG["lxmf"]["display_name"],
+        display_name=display_name,
         send_delay=CONFIG["lxmf"]["send_delay"],
         desired_method=CONFIG["lxmf"]["desired_method"],
         propagation_node=config_propagation_node,
@@ -3597,7 +3620,7 @@ periodic_save_statistic_interval = 30 #Minutes
 
 # Auto apply name from announces.
 # As an alternative to defining the nickname manually, it can be used automatically from the announce.
-# This works only after the user has joined the group and then an announce is received.
+auto_name_add = True
 auto_name_def = True
 auto_name_change = False
 
@@ -3611,6 +3634,7 @@ auto_name_change = False
 # to be compatibel with other LXMF programs.
 destination_name = lxmf
 destination_type = delivery
+destination_type_conv = 4
 
 # The name will be visible to other peers
 # on the network, and included in announces.
@@ -4007,12 +4031,12 @@ delimiter_output = !
 auto_error = ERROR: Joining the group is not possible.
 auto_error-de = FEHLER: Beitritt zur Gruppe ist nicht möglich.
 
-auto_add_admin = Welcome to the group "!display_name!"!!n!!n!!description!!n!!n!The messages sent here are distributed to all group members.!n!!n!For help enter /?!n!!n!To read the group rules use the command /rules!n!!n!Pinned messages: !count_pin!!n!Use the command /pin to display them.!n!!n!Please assign a nickname with the command /name
-auto_add_admin-de = Willkommen in der Gruppe "!display_name!"!!n!!n!!description!!n!!n!Die hier gesendeten Nachrichten werden an alle Gruppenmitglieder verteilt.!n!!n!Für Hilfe geben Sie /? ein.!n!!n!Um die Gruppenregeln zu lesen verwenden Sie den Befehl /rules!n!!n!Angepinnte Nachrichten: !count_pin!!n!Verwenden Sie den Befehl /pin um sie anzuzeigen.!n!!n!Bitte vergeben Sie einen Nickname mit dem Befehl /name
-auto_add_mod = Welcome to the group "!display_name!"!!n!!n!!description!!n!!n!The messages sent here are distributed to all group members.!n!!n!For help enter /?!n!!n!To read the group rules use the command /rules!n!!n!Pinned messages: !count_pin!!n!Use the command /pin to display them.!n!!n!Please assign a nickname with the command /name
-auto_add_mod-de = Willkommen in der Gruppe "!display_name!"!!n!!n!!description!!n!!n!Die hier gesendeten Nachrichten werden an alle Gruppenmitglieder verteilt.!n!!n!Für Hilfe geben Sie /? ein.!n!!n!Um die Gruppenregeln zu lesen verwenden Sie den Befehl /rules!n!!n!Angepinnte Nachrichten: !count_pin!!n!Verwenden Sie den Befehl /pin um sie anzuzeigen.!n!!n!Bitte vergeben Sie einen Nickname mit dem Befehl /name
-auto_add_user = Welcome to the group "!display_name!"!!n!!n!!description!!n!!n!The messages sent here are distributed to all group members.!n!!n!For help enter /?!n!!n!To read the group rules use the command /rules!n!!n!Pinned messages: !count_pin!!n!Use the command /pin to display them.!n!!n!Please assign a nickname with the command /name
-auto_add_user-de = Willkommen in der Gruppe "!display_name!"!!n!!n!!description!!n!!n!Die hier gesendeten Nachrichten werden an alle Gruppenmitglieder verteilt.!n!!n!Für Hilfe geben Sie /? ein.!n!!n!Um die Gruppenregeln zu lesen verwenden Sie den Befehl /rules!n!!n!Angepinnte Nachrichten: !count_pin!!n!Verwenden Sie den Befehl /pin um sie anzuzeigen.!n!!n!Bitte vergeben Sie einen Nickname mit dem Befehl /name
+auto_add_admin = Welcome to the group "!display_name!"!!n!!n!!description!!n!!n!The messages sent here are distributed to all group members.!n!!n!For help enter /?!n!!n!To read the group rules use the command /rules!n!!n!Pinned messages: !count_pin!!n!Use the command /pin to display them.!n!!n!Your current nickname is "!source_name!". Please change your nickname with the command /name
+auto_add_admin-de = Willkommen in der Gruppe "!display_name!"!!n!!n!!description!!n!!n!Die hier gesendeten Nachrichten werden an alle Gruppenmitglieder verteilt.!n!!n!Für Hilfe geben Sie /? ein.!n!!n!Um die Gruppenregeln zu lesen verwenden Sie den Befehl /rules!n!!n!Angepinnte Nachrichten: !count_pin!!n!Verwenden Sie den Befehl /pin um sie anzuzeigen.!n!!n!Dein aktueller Nickname ist "!source_name!" Bitte ändern Sie ihren Nickname mit dem Befehl /name
+auto_add_mod = Welcome to the group "!display_name!"!!n!!n!!description!!n!!n!The messages sent here are distributed to all group members.!n!!n!For help enter /?!n!!n!To read the group rules use the command /rules!n!!n!Pinned messages: !count_pin!!n!Use the command /pin to display them.!n!!n!Your current nickname is "!source_name!". Please change your nickname with the command /name
+auto_add_mod-de = Willkommen in der Gruppe "!display_name!"!!n!!n!!description!!n!!n!Die hier gesendeten Nachrichten werden an alle Gruppenmitglieder verteilt.!n!!n!Für Hilfe geben Sie /? ein.!n!!n!Um die Gruppenregeln zu lesen verwenden Sie den Befehl /rules!n!!n!Angepinnte Nachrichten: !count_pin!!n!Verwenden Sie den Befehl /pin um sie anzuzeigen.!n!!n!Dein aktueller Nickname ist "!source_name!" Bitte ändern Sie ihren Nickname mit dem Befehl /name
+auto_add_user = Welcome to the group "!display_name!"!!n!!n!!description!!n!!n!The messages sent here are distributed to all group members.!n!!n!For help enter /?!n!!n!To read the group rules use the command /rules!n!!n!Pinned messages: !count_pin!!n!Use the command /pin to display them.!n!!n!Your current nickname is "!source_name!". Please change your nickname with the command /name
+auto_add_user-de = Willkommen in der Gruppe "!display_name!"!!n!!n!!description!!n!!n!Die hier gesendeten Nachrichten werden an alle Gruppenmitglieder verteilt.!n!!n!Für Hilfe geben Sie /? ein.!n!!n!Um die Gruppenregeln zu lesen verwenden Sie den Befehl /rules!n!!n!Angepinnte Nachrichten: !count_pin!!n!Verwenden Sie den Befehl /pin um sie anzuzeigen.!n!!n!Dein aktueller Nickname ist "!source_name!" Bitte ändern Sie ihren Nickname mit dem Befehl /name
 auto_add_guest = Welcome to the group "!display_name!"!!n!!n!!description!!n!!n!You can only receive messages.!n!!n!Pinned messages: !count_pin!!n!Use the command /pin to display them.!n!!n!To leave the group use the following command: /leave
 auto_add_guest-de = Willkommen in der Gruppe "!display_name!"!!n!!n!!description!!n!!n!Sie können nur Nachrichten empfangen.!n!!n!Angepinnte Nachrichten: !count_pin!!n!Verwenden Sie den Befehl /pin um sie anzuzeigen.!n!!n!Um die Gruppe zu verlassen verwenden Sie folgenden Befehl: /leave
 auto_add_wait = Welcome to the group "!display_name!"!!n!!n!You still need to be allowed to join. You will be notified automatically.
@@ -4031,12 +4055,12 @@ add_wait =
 add_wait-de = 
 
 # Invite user. (Single message to the user.)
-invite_admin = You have been invited by !source_name! <!source_address!> to the group "!display_name!"!!n!!n!!description!!n!!n!The messages sent here are distributed to all group members.!n!!n!For help enter /?!n!!n!To read the group rules use the command /rules!n!!n!Please assign a nickname with the command /name
-invite_admin-de = Sie wurden von !source_name! <!source_address!> in die Gruppe "!display_name!" eingeladen!!n!!n!!description!!n!!n!Die hier gesendeten Nachrichten werden an alle Gruppenmitglieder verteilt.!n!!n!Für Hilfe geben Sie /? ein.!n!!n!Um die Gruppenregeln zu lesen verwenden Sie den Befehl /rules!n!!n!Bitte vergeben Sie einen Nickname mit dem Befehl /name
-invite_mod = You have been invited by !source_name! <!source_address!> to the group "!display_name!"!!n!!n!!description!!n!!n!The messages sent here are distributed to all group members.!n!!n!For help enter /?!n!!n!To read the group rules use the command /rules!n!!n!Please assign a nickname with the command /name
-invite_mod-de = Sie wurden von !source_name! <!source_address!> in die Gruppe "!display_name!" eingeladen!!n!!n!!description!!n!!n!Die hier gesendeten Nachrichten werden an alle Gruppenmitglieder verteilt.!n!!n!Für Hilfe geben Sie /? ein.!n!!n!Um die Gruppenregeln zu lesen verwenden Sie den Befehl /rules!n!!n!Bitte vergeben Sie einen Nickname mit dem Befehl /name
-invite_user = You have been invited by !source_name! <!source_address!> to the group "!display_name!"!!n!!n!!description!!n!!n!The messages sent here are distributed to all group members.!n!!n!For help enter /?!n!!n!To read the group rules use the command /rules!n!!n!Please assign a nickname with the command /name
-invite_user-de = Sie wurden von !source_name! <!source_address!> in die Gruppe "!display_name!" eingeladen!!n!!n!!description!!n!!n!Die hier gesendeten Nachrichten werden an alle Gruppenmitglieder verteilt.!n!!n!Für Hilfe geben Sie /? ein.!n!!n!Um die Gruppenregeln zu lesen verwenden Sie den Befehl /rules!n!!n!Bitte vergeben Sie einen Nickname mit dem Befehl /name
+invite_admin = You have been invited by !source_name! <!source_address!> to the group "!display_name!"!!n!!n!!description!!n!!n!The messages sent here are distributed to all group members.!n!!n!For help enter /?!n!!n!To read the group rules use the command /rules!n!!n!Your current nickname is "!user_name!". Please change your nickname with the command /name
+invite_admin-de = Sie wurden von !source_name! <!source_address!> in die Gruppe "!display_name!" eingeladen!!n!!n!!description!!n!!n!Die hier gesendeten Nachrichten werden an alle Gruppenmitglieder verteilt.!n!!n!Für Hilfe geben Sie /? ein.!n!!n!Um die Gruppenregeln zu lesen verwenden Sie den Befehl /rules!n!!n!Dein aktueller Nickname ist "!user_name!" Bitte ändern Sie ihren Nickname mit dem Befehl /name
+invite_mod = You have been invited by !source_name! <!source_address!> to the group "!display_name!"!!n!!n!!description!!n!!n!The messages sent here are distributed to all group members.!n!!n!For help enter /?!n!!n!To read the group rules use the command /rules!n!!n!Your current nickname is "!user_name!". Please change your nickname with the command /name
+invite_mod-de = Sie wurden von !source_name! <!source_address!> in die Gruppe "!display_name!" eingeladen!!n!!n!!description!!n!!n!Die hier gesendeten Nachrichten werden an alle Gruppenmitglieder verteilt.!n!!n!Für Hilfe geben Sie /? ein.!n!!n!Um die Gruppenregeln zu lesen verwenden Sie den Befehl /rules!n!!n!Dein aktueller Nickname ist "!user_name!" Bitte ändern Sie ihren Nickname mit dem Befehl /name
+invite_user = You have been invited by !source_name! <!source_address!> to the group "!display_name!"!!n!!n!!description!!n!!n!The messages sent here are distributed to all group members.!n!!n!For help enter /?!n!!n!To read the group rules use the command /rules!n!!n!Your current nickname is "!user_name!". Please change your nickname with the command /name
+invite_user-de = Sie wurden von !source_name! <!source_address!> in die Gruppe "!display_name!" eingeladen!!n!!n!!description!!n!!n!Die hier gesendeten Nachrichten werden an alle Gruppenmitglieder verteilt.!n!!n!Für Hilfe geben Sie /? ein.!n!!n!Um die Gruppenregeln zu lesen verwenden Sie den Befehl /rules!n!!n!Dein aktueller Nickname ist "!user_name!" Bitte ändern Sie ihren Nickname mit dem Befehl /name
 invite_guest = You have been invited by !source_name! <!source_address!> to the group "!display_name!"!!n!!n!!description!!n!!n!You can only receive messages.!n!!n!To leave the group use the following command: /leave
 invite_guest-de = Sie wurden von !source_name! <!source_address!> in die Gruppe "!display_name!" eingeladen!!n!!n!!description!!n!!n!Sie können nur Nachrichten empfangen.!n!!n!Um die Gruppe zu verlassen verwenden Sie folgenden Befehl: /leave
 invite_wait = You have been invited by !source_name! <!source_address!> to the group "!display_name!"!!n!!n!You still need to be allowed to join. You will be notified automatically.
@@ -4107,8 +4131,8 @@ member_join = !source_name! <!source_address!> joins the group.
 member_join-de = !source_name! <!source_address!> tritt der Gruppe bei.
 member_leave = !source_name! <!source_address!> leave the group.
 member_leave-de = !source_name! <!source_address!> verlässt die Gruppe.
-member_invite = <!user_address!> was invited to the group by !source_name! <!source_address!>
-member_invite-de = <!user_address!> wurde in die Gruppe eingeladen von !source_name! <!source_address!>
+member_invite = !user_name! <!user_address!> was invited to the group by !source_name! <!source_address!>
+member_invite-de = !user_name! <!user_address!> wurde in die Gruppe eingeladen von !source_name! <!source_address!>
 member_kick = !user_name! <!user_address!> was kicked out of the group by !source_name! <!source_address!>
 member_kick-de = !user_name! <!user_address!> wurde aus der Gruppe geworfen von !source_name! <!source_address!>
 member_block = !user_name! <!user_address!> was blocked by !source_name! <!source_address!>
