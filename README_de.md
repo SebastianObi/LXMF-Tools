@@ -77,7 +77,8 @@ Die vollständige Dokumentation ist noch nicht verfügbar. Aus Zeitmangel kann i
 
 
 ### Installation:
-- Installieren Sie alle erforderlichen Voraussetzungen. (Standardinstallation von Reticulum. Nur erforderlich, wenn Reticulum noch nicht installiert ist).
+- Installieren Sie alle erforderlichen Voraussetzungen. 
+(Standardinstallation von Reticulum. Nur erforderlich, wenn Reticulum noch nicht installiert ist).
   ```bash
   apt update
   apt upgrade
