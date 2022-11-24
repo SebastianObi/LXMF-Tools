@@ -1,4 +1,4 @@
-lxmf_bridge_meshtastic
+# lxmf_bridge_meshtastic
 
 Weitere Informationen finden Sie in den Konfigurationsoptionen (am Ende der Programmdateien). 
 Alles Weitere ist dort kurz dokumentiert. 
