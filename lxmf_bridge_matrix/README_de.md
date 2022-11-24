@@ -1,4 +1,4 @@
-lxmf_bridge_matrix
+# lxmf_bridge_matrix
 
 Weitere Informationen finden Sie in den Konfigurationsoptionen (am Ende der Programmdateien). 
 Alles Weitere ist dort kurz dokumentiert. 
