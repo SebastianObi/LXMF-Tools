@@ -91,7 +91,7 @@ class lxmf_connection:
     message_notification_failed_callback = None
 
 
-    def __init__(self, storage_path=None, identity_file="identity", identity=None, destination_name="lxmf", destination_type="delivery", display_name="", send_delay=0, desired_method="direct", propagation_node=None, try_propagation_on_fail=False, announce_startup=False, announce_startup_delay=0, announce_periodic=False, announce_periodic_interval=360, sync_startup=False, sync_startup_delay=0, sync_limit=8, sync_periodic=False, sync_periodic_interval=360):
+    def __init__(self, storage_path=None, identity_file="identity", identity=None, destination_name="lxmf", destination_type="delivery", display_name="", announce_data=None, send_delay=0, desired_method="direct", propagation_node=None, try_propagation_on_fail=False, announce_startup=False, announce_startup_delay=0, announce_periodic=False, announce_periodic_interval=360, sync_startup=False, sync_startup_delay=0, sync_limit=8, sync_periodic=False, sync_periodic_interval=360):
         self.storage_path = storage_path
 
         self.identity_file = identity_file
@@ -103,6 +103,7 @@ class lxmf_connection:
         self.aspect_filter = self.destination_name + "." + self.destination_type
 
         self.display_name = display_name
+        self.announce_data = announce_data
 
         self.send_delay = int(send_delay)
 
@@ -158,9 +159,11 @@ class lxmf_connection:
 
         self.message_router = LXMF.LXMRouter(identity=self.identity, storagepath=self.storage_path)
 
-        self.destination = self.message_router.register_delivery_identity(self.identity, display_name=self.display_name)
-
-        self.message_router.register_delivery_callback(self.process_lxmf_message_propagated)
+        if self.destination_name == "lxmf" and self.destination_type == "delivery":
+            self.destination = self.message_router.register_delivery_identity(self.identity, display_name=self.display_name)
+            self.message_router.register_delivery_callback(self.process_lxmf_message_propagated)
+        else:
+            self.destination = RNS.Destination(self.identity, RNS.Destination.IN, RNS.Destination.SINGLE, self.destination_name, self.destination_type)
 
         if self.display_name == "":
             self.display_name = RNS.prettyhexrep(self.destination_hash())
@@ -360,8 +363,19 @@ class lxmf_connection:
 
     def announce_now(self, app_data=None):
         if app_data:
-            self.destination.announce(app_data.encode("utf-8"))
-            log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()) + ":" + app_data, LOG_DEBUG)
+            if isinstance(app_data, str):
+                self.destination.announce(app_data.encode("utf-8"))
+                log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()) +":" + announce_data, LOG_DEBUG)
+            else:
+                self.destination.announce(app_data)
+                log("LMF - Announced: " + RNS.prettyhexrep(self.destination_hash()), LOG_DEBUG)
+        elif self.announce_data:
+            if isinstance(self.announce_data, str):
+                self.destination.announce(self.announce_data.encode("utf-8"))
+                log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()) +":" + self.announce_data, LOG_DEBUG)
+            else:
+                self.destination.announce(self.announce_data)
+                log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()), LOG_DEBUG)
         else:
             self.destination.announce()
             log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()) + ": " + self.display_name, LOG_DEBUG)
@@ -581,7 +595,18 @@ def lxmf_message_received_callback(message):
 
         content = content_prefix + content + content_suffix
 
-        LXMF_CONNECTION.send(message.source_hash, content, message.title.decode('utf-8').strip())
+        if CONFIG["message"].getboolean("title"):
+            title = message.title.decode('utf-8')
+            title = title.strip()
+        else:
+            title = ""
+
+        if CONFIG["message"].getboolean("fields"):
+            fields = message.fields
+        else:
+            fields = None
+
+        LXMF_CONNECTION.send(message.source_hash, content, title, fields)
     else:
         log("LXMF - Source " + RNS.prettyhexrep(message.source_hash) + " not allowed", LOG_DEBUG)
         return
@@ -1105,6 +1130,10 @@ send_regex_replace =
 # Length limitation.
 send_length_min = 0 #0=any length
 send_length_max = 0 #0=any length
+
+# Use title/fields.
+title = Yes
+fields = Yes
 
 
 

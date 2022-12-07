@@ -35,7 +35,6 @@
 import sys
 import os
 import time
-import datetime
 import argparse
 
 #### Config ####
@@ -59,15 +58,21 @@ import RNS
 import LXMF
 import RNS.vendor.umsgpack as umsgpack
 
+#### PostgreSQL ####
+# Install: pip3 install psycopg2
+# Install: pip3 install psycopg2-binary
+# Source: https://pypi.org/project/psycopg2/
+import psycopg2
+
 
 ##############################################################################################################
 # Globals
 
 
 #### Global Variables - Configuration ####
-NAME = "LXMF Distribution Group"
-DESCRIPTION = "Server-Side group functions for LXMF based apps"
-VERSION = "0.0.1 (2022-10-21)"
+NAME = "LXMF Provisioning Server"
+DESCRIPTION = ""
+VERSION = "0.0.1 (2022-12-05)"
 COPYRIGHT = "(c) 2022 Sebastian Obele  /  obele.eu"
 PATH = os.path.expanduser("~") + "/." + os.path.splitext(os.path.basename(__file__))[0]
 PATH_RNS = None
@@ -76,10 +81,11 @@ PATH_RNS = None
 
 
 #### Global Variables - System (Not changeable) ####
-DATA = None
+CACHE = []
 CONFIG = None
 RNS_CONNECTION = None
 LXMF_CONNECTION = None
+DB_CONNECTION = None
 
 
 ##############################################################################################################
@@ -543,108 +549,42 @@ class lxmf_announce_callback:
 
 #### LXMF - Message ####
 def lxmf_message_received_callback(message):
+    global CACHE
+
     if CONFIG["lxmf"].getboolean("signature_validated") and not message.signature_validated:
         log("LXMF - Source " + RNS.prettyhexrep(message.source_hash) + " have no valid signature", LOG_DEBUG)
         return
 
-    content = message.content.decode('utf-8')
-    content = content.strip()
-    if content == "":
+    if not message.fields:
         return
 
-    if CONFIG["message"].getboolean("title"):
-        title = message.title.decode('utf-8')
-        title = title.strip()
-    else:
-        title = ""
-
-    if CONFIG["message"].getboolean("fields"):
-        fields = message.fields
-    else:
-        fields = None
-
-    source_hash = RNS.hexrep(message.source_hash, False)
-    source_name = ""
-    source_right = ""
-
-    for section in DATA.sections():
-        for (key, val) in DATA.items(section):
-            if key == source_hash:
-                source_name = val
-                source_right = section
-
-    if source_right == "":
-        for section in DATA.sections():
-            if "send" in section:
-                if DATA.has_option(section, "any") or DATA.has_option(section, "all") or DATA.has_option(section, "anybody"):
-                    source_right = section
-                    log("LXMF - Source " + RNS.prettyhexrep(message.source_hash) + " not exist -> any allowed", LOG_DEBUG)
-                    break
-        if source_right == "":
-            log("LXMF - Source " + RNS.prettyhexrep(message.source_hash) + " not exist", LOG_DEBUG)
-            return
-
-    length = config_getint(CONFIG, "message", "receive_length_min", 0)
-    if length> 0:
-        if len(content) < length:
-            return
-
-    length = config_getint(CONFIG, "message", "receive_length_max", 0)
-    if length > 0:
-        if len(content) > length:
-            return
-
-    if "send" in source_right:
-        length = config_getint(CONFIG, "message", "send_length_min", 0)
-        if length> 0:
-            if len(content) < length:
-                return
-
-        length = config_getint(CONFIG, "message", "send_length_max", 0)
-        if length > 0:
-            if len(content) > length:
-                return
-
-        content_prefix = config_get(CONFIG, "message", "send_prefix")
-        content_suffix = config_get(CONFIG, "message", "send_suffix")
-
-        content_prefix = content_prefix.replace("!source_address!", source_hash)
-        content_prefix = content_prefix.replace("!source_name!", source_name)
-        content_prefix = content_prefix.replace("!name!", config_get(CONFIG, "main", "name"))
-        content_prefix = content_prefix.replace("!display_name!", config_get(CONFIG, "lxmf", "display_name"))
-        content_prefix = content_prefix.replace("!n!", "\n")
-
-        content_suffix = content_suffix.replace("!source_address!", source_hash)
-        content_suffix = content_suffix.replace("!source_name!", source_name)
-        content_suffix = content_suffix.replace("!name!", config_get(CONFIG, "main", "name"))
-        content_suffix = content_suffix.replace("!display_name!", config_get(CONFIG, "lxmf", "display_name"))
-        content_suffix = content_suffix.replace("!n!", "\n")
-
-        search = config_get(CONFIG, "message", "send_search")
-        if search != "":
-            content = content.replace(search, config_get(CONFIG, "message", "send_replace"))
-
-        search = config_get(CONFIG, "message", "send_regex_search")
-        if search != "":
-            content = re.sub(search, config_get(CONFIG, "message", "send_regex_replace"), content)
-
-        content = content_prefix + content + content_suffix
-
-        if config_get(CONFIG, "message", "timestamp") == "client":
-            timestamp = message.timestamp
-        else:
-            timestamp = time.time()
-
-        for section in DATA.sections():
-            if "receive" in section:
-                for (key, val) in DATA.items(section):
-                    if key != source_hash:
-                        LXMF_CONNECTION.send(key, content, title, fields, timestamp)
+    if not "registration_request" in message.fields and not "telemetry" in message.fields:
         return
-    else:
-        log("LXMF - Source " + RNS.prettyhexrep(message.source_hash) + " 'send' not allowed", LOG_DEBUG)
 
-    return
+    db = None
+    try:
+        db = psycopg2.connect(user=CONFIG["database"]["user"], password=CONFIG["database"]["password"], host=CONFIG["database"]["host"], port=CONFIG["database"]["port"], database=CONFIG["database"]["database"])
+        dbc = db.cursor()
+
+        if "registration_request" in message.fields:
+            dbc.execute("INSERT INTO "+CONFIG["database"]["table_registration"]+" (hash, data) VALUES(%s, %s)", (
+                RNS.hexrep(message.source_hash, delimit=False),
+                umsgpack.packb(message.fields["registration_request"]))
+            )
+
+        if "telemetry" in message.fields:
+            dbc.execute("INSERT INTO "+CONFIG["database"]["table_telemetry"]+" (hash, data) VALUES(%s, %s)", (
+                RNS.hexrep(message.source_hash, delimit=False),
+                umsgpack.packb(message.fields["telemetry"]))
+            )
+
+        db.commit()
+    except psycopg2.DatabaseError as e:
+        log("DB - Error: "+str(e), LOG_ERROR)
+    if db:
+        dbc.close()
+        db.close()
+        db = None
 
 
 ##############################################################################################################
@@ -790,96 +730,6 @@ def config_default(file=None, file_override=None):
 
     if not CONFIG.has_section("main"): CONFIG.add_section("main")
     CONFIG["main"]["default_config"] = "True"
-    return True
-
-
-##############################################################################################################
-# Data
-
-
-#### Data - Read #####
-def data_read(file=None):
-    global DATA
-
-    if file is None:
-        return False
-    else:
-        DATA = configparser.ConfigParser(allow_no_value=True, inline_comment_prefixes="#")
-        DATA.sections()
-        if os.path.isfile(file):
-            try:
-                DATA.read(file)
-            except Exception as e:
-                return False
-        else:
-            if not data_default(file=file):
-                return False
-    return True
-
-
-
-
-#### Data - Save #####
-def data_save(file=None):
-    global DATA
-
-    if file is None:
-        return False
-    else:
-        if os.path.isfile(file):
-            try:
-                with open(file,"w") as file:
-                    DATA.write(file)
-            except Exception as e:
-                return False
-        else:
-            return False
-    return True
-
-
-
-
-#### Data - Save #####
-def data_save_periodic(initial=False):
-    data_timer = threading.Timer(CONFIG.getint("main", "periodic_save_data_interval")*60, data_save_periodic)
-    data_timer.daemon = True
-    data_timer.start()
-
-    if initial:
-        return
-
-    global DATA
-    if DATA.has_section("main"):
-        if DATA["main"].getboolean("unsaved"):
-            DATA.remove_option("main", "unsaved")
-            if not data_save(PATH + "/data.cfg"):
-                DATA["main"]["unsaved"] = "True"
-
-
-
-
-#### Data - Default #####
-def data_default(file=None):
-    global DATA
-
-    if file is None:
-        return False
-    elif DEFAULT_DATA != "":
-        if not os.path.isdir(os.path.dirname(file)):
-            try:
-                os.makedirs(os.path.dirname(file))
-            except Exception:
-                return False
-        try:
-            data_file = open(file, "w")
-            data_file.write(DEFAULT_DATA)
-            data_file.close()
-            if not data_read(file=file):
-                return False
-        except:
-            return False
-    else:
-        return False
     return True
 
 
@@ -1031,10 +881,6 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
         print("Config - Error reading config file " + PATH + "/config.cfg")
         panic()
 
-    if not data_read(PATH + "/data.cfg"):
-        print("Data - Error reading data file " + PATH + "/data.cfg")
-        panic()
-
     if CONFIG["main"].getboolean("default_config"):
         print("Exit!")
         print("First start with the default config!")
@@ -1053,7 +899,6 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
     log("        Name: " + CONFIG["main"]["name"], LOG_INFO)
     log("Program File: " + __file__, LOG_INFO)
     log(" Config File: " + PATH + "/config", LOG_INFO)
-    log(" Data File: " + PATH + "/data.cfg", LOG_INFO)
     log("     Version: " + VERSION, LOG_INFO)
     log("   Copyright: " + COPYRIGHT, LOG_INFO)
     log("...............................................................................", LOG_INFO)
@@ -1068,11 +913,18 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
     if path is None:
         path = PATH
 
+    announce_data = {}
+    section = "data"
+    if CONFIG.has_section(section):
+        for (key, val) in CONFIG.items(section):
+            announce_data[key] = val
+
     LXMF_CONNECTION = lxmf_connection(
         storage_path=path,
         destination_name=CONFIG["lxmf"]["destination_name"],
         destination_type=CONFIG["lxmf"]["destination_type"],
         display_name=CONFIG["lxmf"]["display_name"],
+        announce_data = umsgpack.packb(announce_data),
         send_delay=CONFIG["lxmf"]["send_delay"],
         desired_method=CONFIG["lxmf"]["desired_method"],
         propagation_node=config_propagation_node,
@@ -1096,6 +948,7 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
     log("LXMF - Address: " + RNS.prettyhexrep(LXMF_CONNECTION.destination_hash()), LOG_FORCE)
     log("...............................................................................", LOG_FORCE)
 
+
     while True:
         time.sleep(1)
 
@@ -1115,7 +968,6 @@ def main():
         parser.add_argument("-s", "--service", action="store_true", default=False, help="Running as a service and should log to file")
         parser.add_argument("--exampleconfig", action="store_true", default=False, help="Print verbose configuration example to stdout and exit")
         parser.add_argument("--exampleconfigoverride", action="store_true", default=False, help="Print verbose configuration example to stdout and exit")
-        parser.add_argument("--exampledata", action="store_true", default=False, help="Print verbose configuration example to stdout and exit")
 
         params = parser.parse_args()
 
@@ -1129,12 +981,6 @@ def main():
             print("Config Override File: " + PATH + "/config.cfg.owr")
             print("Content:")
             print(DEFAULT_CONFIG_OVERRIDE)
-            exit()
-
-        if params.exampledata:
-            print("Data File: " + PATH + "/data.cfg")
-            print("Content:")
-            print(DEFAULT_DATA)
             exit()
 
         setup(path=params.path, path_rns=params.path_rns, path_log=params.path_log, loglevel=params.loglevel, service=params.service)
@@ -1154,20 +1000,16 @@ DEFAULT_CONFIG_OVERRIDE = '''# This is the user configuration file to override t
 # This file can be used to clearly summarize all settings that deviate from the default.
 # This also has the advantage that all changed settings can be kept when updating the program.
 
-#### LXMF connection settings ####
 [lxmf]
+announce_periodic = Yes
+announce_periodic_interval = 15 #Minutes
 
-# The name will be visible to other peers
-# on the network, and included in announces.
-# It is also used in the group description/info.
-display_name = Distribution Group
-
-# Propagation node address/hash.
-propagation_node = ca2762fe5283873719aececfb9e18835
-
-# Try to deliver a message via the LXMF propagation network,
-# if a direct delivery to the recipient is not possible.
-try_propagation_on_fail = Yes
+[data]
+v_s = 0.0.0 #Version software
+v_c = 2022-01-01 00:00 #Version config
+v_d = 2022-01-01 00:00 #Version data
+v_a = 2022-01-01 00:00 #Version auth
+u_s = #URL Software
 '''
 
 
@@ -1184,7 +1026,7 @@ DEFAULT_CONFIG = '''# This is the default config file.
 enabled = True
 
 # Name of the program. Only for display in the log or program startup.
-name = Distribution Group
+name = LXMF Provisioning Server
 
 
 
@@ -1195,21 +1037,21 @@ name = Distribution Group
 # Destination name & type need to fits the LXMF protocoll
 # to be compatibel with other LXMF programs.
 destination_name = lxmf
-destination_type = delivery
+destination_type = provisioning
 
 # The name will be visible to other peers
 # on the network, and included in announces.
-display_name = Distribution Group
+display_name = LXMF Provisioning Server
 
 # Default send method.
 desired_method = direct #direct/propagated
 
 # Propagation node address/hash.
-propagation_node = ca2762fe5283873719aececfb9e18835
+#propagation_node = 
 
 # Try to deliver a message via the LXMF propagation network,
 # if a direct delivery to the recipient is not possible.
-try_propagation_on_fail = Yes
+try_propagation_on_fail = No
 
 # The peer is announced at startup
 # to let other peers reach it immediately.
@@ -1219,7 +1061,7 @@ announce_startup_delay = 0 #Seconds
 # The peer is announced periodically
 # to let other peers reach it.
 announce_periodic = Yes
-announce_periodic_interval = 120 #Minutes
+announce_periodic_interval = 360 #Minutes
 
 # Some waiting time after message send
 # for LXMF/Reticulum processing.
@@ -1242,74 +1084,33 @@ sync_periodic_interval = 360 #Minutes
 sync_limit = 8
 
 # Allow only messages with valid signature.
-signature_validated = No
+signature_validated = Yes
 
 
 
 
-#### Message settings ####
-[message]
-## Each message received (message and command) ##
+#### Database connection settings ####
+[database]
 
-# Text is added.
-receive_prefix = 
-receive_suffix = 
-
-# Text is replaced.
-receive_search = 
-receive_replace = 
-
-# Text is replaced by regular expression.
-receive_regex_search = 
-receive_regex_replace = 
-
-# Length limitation.
-receive_length_min = 0 #0=any length
-receive_length_max = 0 #0=any length
+host = 127.0.0.1
+port = 5432
+user = postgres
+password = password
+database = database
+table_registration = tbl_account
+table_telemetry = tbl_telemetry
 
 
-## Each message send (message) ##
-
-# Text is added.
-send_prefix = !source_name!!n!<!source_address!>!n!
-send_suffix = 
-
-# Text is replaced.
-send_search = 
-send_replace = 
-
-# Text is replaced by regular expression.
-send_regex_search = 
-send_regex_replace = 
-
-# Length limitation.
-send_length_min = 0 #0=any length
-send_length_max = 0 #0=any length
 
 
-# Define which message timestamp should be used.
-timestamp = client #client/server
+#### Data settings ####
+[data]
 
-# Use title/fields.
-title = Yes
-fields = Yes
-'''
-
-
-#### Default data file ####
-DEFAULT_DATA = '''# This is the data file. It is automatically created and saved/overwritten.
-# It contains data managed by the software itself.
-# If manual adjustments are made here, the program must be shut down first!
-
-
-#### User with send only rights ####
-[send]
-
-#### User with receive only rights ####
-[receive]
-
-#### User with receive and send rights ####
-[receive_send]
+v_s = 0.0.0 #Version software
+v_c = 2022-01-01 00:00 #Version config
+v_d = 2022-01-01 00:00 #Version data
+v_a = 2022-01-01 00:00 #Version auth
+u_s = #URL Software
 '''
 
 
