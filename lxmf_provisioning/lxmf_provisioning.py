@@ -566,13 +566,13 @@ def lxmf_message_received_callback(message):
         db = psycopg2.connect(user=CONFIG["database"]["user"], password=CONFIG["database"]["password"], host=CONFIG["database"]["host"], port=CONFIG["database"]["port"], database=CONFIG["database"]["database"])
         dbc = db.cursor()
 
-        if "registration_request" in message.fields:
+        if CONFIG["features"].getboolean("registration") and "registration_request" in message.fields:
             dbc.execute("INSERT INTO "+CONFIG["database"]["table_registration"]+" (hash, data) VALUES(%s, %s)", (
                 RNS.hexrep(message.source_hash, delimit=False),
                 umsgpack.packb(message.fields["registration_request"]))
             )
 
-        if "telemetry" in message.fields:
+        if CONFIG["features"].getboolean("telemetry") and "telemetry" in message.fields:
             dbc.execute("INSERT INTO "+CONFIG["database"]["table_telemetry"]+" (hash, data) VALUES(%s, %s)", (
                 RNS.hexrep(message.source_hash, delimit=False),
                 umsgpack.packb(message.fields["telemetry"]))
@@ -914,10 +914,11 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
         path = PATH
 
     announce_data = {}
-    section = "data"
-    if CONFIG.has_section(section):
-        for (key, val) in CONFIG.items(section):
-            announce_data[key] = val
+    if CONFIG["features"].getboolean("announce_versions"):
+        section = "data"
+        if CONFIG.has_section(section):
+            for (key, val) in CONFIG.items(section):
+                announce_data[key] = val
 
     LXMF_CONNECTION = lxmf_connection(
         storage_path=path,
@@ -1003,6 +1004,11 @@ DEFAULT_CONFIG_OVERRIDE = '''# This is the user configuration file to override t
 [lxmf]
 announce_periodic = Yes
 announce_periodic_interval = 15 #Minutes
+
+[features]
+announce_versions = True
+registration = True
+telemetry = False
 
 [data]
 v_s = 0.0.0 #Version software
@@ -1099,6 +1105,16 @@ password = password
 database = database
 table_registration = tbl_account
 table_telemetry = tbl_telemetry
+
+
+
+
+#### Features enabled/disabled ####
+[features]
+
+announce_versions = True
+registration = True
+telemetry = False
 
 
 
