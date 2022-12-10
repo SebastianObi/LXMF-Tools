@@ -74,6 +74,30 @@ The full documentation is not yet available. Due to lack of time I can also not 
   nano /root/.lxmf_provisioning/config.cfg.owr
   ```
   ```bash
+  [lxmf]
+  announce_periodic = Yes
+  announce_periodic_interval = 15 #Minutes
+  
+  [database]
+  host = 127.0.0.1
+  port = 5432
+  user = postgres
+  password = password
+  database = test
+  table_registration = tbl_account
+  table_telemetry = tbl_telemetry
+  
+  [features]
+  announce_versions = True
+  registration = True
+  telemetry = True
+  
+  [data]
+  v_s = 0.1.4 #Version software
+  v_c = 2022-11-29 20:00 #Version config
+  v_d = 2022-11-29 20:00 #Version data
+  v_a = 2022-11-29 20:00 #Version auth
+  u_s = https:// #URL Software
   ```
 - Start it again. Finished!
   ```bash
@@ -223,16 +247,7 @@ All possible settings can be seen in the default configuration file `config.cfg`
   [lxmf]
   announce_periodic = Yes
   announce_periodic_interval = 15 #Minutes
-  
-  [database]
-  host = 127.0.0.1
-  port = 5432
-  user = postgres
-  password = password
-  database = test
-  table_registration = tbl_account
-  table_telemetry = tbl_telemetry
-  
+
   [features]
   announce_versions = True
   registration = False

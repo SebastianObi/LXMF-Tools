@@ -1016,6 +1016,7 @@ v_c = 2022-01-01 00:00 #Version config
 v_d = 2022-01-01 00:00 #Version data
 v_a = 2022-01-01 00:00 #Version auth
 u_s = #URL Software
+i_s = #Info Software
 '''
 
 
@@ -1127,6 +1128,7 @@ v_c = 2022-01-01 00:00 #Version config
 v_d = 2022-01-01 00:00 #Version data
 v_a = 2022-01-01 00:00 #Version auth
 u_s = #URL Software
+i_s = #Info Software
 '''
 
 
