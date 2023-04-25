@@ -1,0 +1,151 @@
+#### Main program settings ####
+[main]
+lng = de # en/de
+
+fields_announce = True
+fields_message = True
+
+
+#### LXMF connection settings ####
+[lxmf]
+destination_type_conv = 6
+
+display_name = Test Channel
+
+propagation_node_auto = True
+
+try_propagation_on_fail = Yes
+
+announce_startup = Yes
+announce_periodic = Yes
+announce_periodic_interval = 30 #Minutes
+
+sync_startup = Yes
+sync_periodic = Yes
+sync_periodic_interval = 5 #Minutes
+sync_limit = 0
+
+
+#### Cluster settings ####
+[cluster]
+enabled = False
+
+
+#### Router settings ####
+[router]
+enabled = False
+
+
+#### High availability settings ####
+[high_availability]
+enabled = False
+
+
+#### Message settings ####
+[message]
+send_title_prefix = 
+send_prefix = 
+
+cluster_receive_title_prefix = 
+cluster_receive_prefix = @!cluster_source!->
+
+cluster_send_title_prefix = !source_name! <!source_address!>
+cluster_send_prefix = @!cluster_destination!!n!
+
+fields_remove = gps
+fields_remove_anonymous = src,gps
+
+
+#### Statistic/Counter settings ####
+[statistic]
+enabled = True
+
+
+#### User rights assignment ####
+[rights]
+admin = receive_local,receive_join,receive_leave,receive_invite,receive_kick,receive_block,receive_unblock,receive_allow,send_local,anonymous,join
+mod = receive_local,receive_join,receive_leave,receive_invite,receive_kick,receive_block,receive_unblock,receive_allow,send_local,anonymous,join
+user = receive_local,join
+guest = receive_local,join
+wait = join
+
+
+#### User cmd assignment ####
+[cmds]
+admin = update,leave,invite,kick,block,unblock,allow,deny
+mod = update,leave,invite,kick,block,unblock,allow,deny
+user = update,leave
+guest = update,leave
+wait = update,leave
+
+
+#### User config assignment ####
+[configs]
+admin = tx_enabled=True,group_enabled=True
+mod = tx_enabled=True,group_enabled=True
+user = 
+guest = 
+wait = 
+
+
+#### Interface settings - Messages ####
+[interface_messages]
+auto_add_admin = Welcome to the channel "!display_name!"!!n!!n!!description!!n!!n!The messages sent here are distributed to all channel members.
+auto_add_admin-de = Willkommen in dem Kanal "!display_name!"!!n!!n!!description!!n!!n!Die hier gesendeten Nachrichten werden an alle Kanalmitglieder verteilt.
+auto_add_mod = Welcome to the channel "!display_name!"!!n!!n!!description!!n!!n!The messages sent here are distributed to all channel members.
+auto_add_mod-de = Willkommen in dem Kanal "!display_name!"!!n!!n!!description!!n!!n!Die hier gesendeten Nachrichten werden an alle Kanalmitglieder verteilt.
+auto_add_user = Welcome to the channel "!display_name!"!!n!!n!!description!
+auto_add_user-de = Willkommen in dem Kanal "!display_name!"!!n!!n!!description!
+auto_add_guest = Welcome to the channel "!display_name!"!!n!!n!!description!
+auto_add_guest-de = Willkommen in dem Kanal "!display_name!"!!n!!n!!description!
+auto_add_wait = Welcome to the channel "!display_name!"!!n!!n!You still need to be allowed to join. You will be notified automatically.
+auto_add_wait-de = Willkommen in dem Kanal "!display_name!"!!n!!n!Der Beitritt muss ihnen noch erlaubt werden. Sie werden darüber automatisch benachrichtigt.
+
+invite_admin = You have been invited to the channel "!display_name!"!!n!!n!!description!!n!!n!The messages sent here are distributed to all channel members.
+invite_admin-de = Sie wurden in den  Kanal "!display_name!" eingeladen!!n!!n!!description!!n!!n!Die hier gesendeten Nachrichten werden an alle Kanalmitglieder verteilt.
+invite_mod = You have been invited to the channel "!display_name!"!!n!!n!!description!!n!!n!The messages sent here are distributed to all channel members.
+invite_mod-de = Sie wurden in den  Kanal "!display_name!" eingeladen!!n!!n!!description!!n!!n!Die hier gesendeten Nachrichten werden an alle Kanalmitglieder verteilt.
+invite_user = You have been invited to the channel "!display_name!"!!n!!n!!description!
+invite_user-de = Sie wurden in den  Kanal "!display_name!" eingeladen!!n!!n!!description!
+invite_guest = You have been invited to the channel "!display_name!"!!n!!n!!description!
+invite_guest-de = Sie wurden in den  Kanal "!display_name!" eingeladen!!n!!n!!description!
+invite_wait = You have been invited to the channel "!display_name!"!!n!!n!You still need to be allowed to join. You will be notified automatically.
+invite_wait-de = Sie wurden in den  Kanal "!display_name!" eingeladen!!n!!n!Der Beitritt muss ihnen noch erlaubt werden. Sie werden darüber automatisch benachrichtigt.
+
+allow_admin = You have been allowed to join the channel "!display_name!"!!n!!n!!description!!n!!n!The messages sent here are distributed to all channel members.
+allow_admin-de = Sie wurden erlaubt dem Kanal "!display_name!" beizutreten!!n!!n!!description!!n!!n!Die hier gesendeten Nachrichten werden an alle Kanalmitglieder verteilt.
+allow_mod = You have been allowed to join the channel "!display_name!"!!n!!n!!description!!n!!n!The messages sent here are distributed to all channel members.
+allow_mod-de = Sie wurden erlaubt dem Kanal "!display_name!" beizutreten!!n!!n!!description!!n!!n!Die hier gesendeten Nachrichten werden an alle Kanalmitglieder verteilt.
+allow_user = You have been allowed to join the channel "!display_name!"!!n!!n!!description!
+allow_user-de = Sie wurden erlaubt dem Kanal "!display_name!" beizutreten!!n!!n!!description!
+allow_guest = You have been allowed to join the channel "!display_name!"!!n!!n!!description!
+allow_guest-de = Sie wurden erlaubt dem Kanal "!display_name!" beizutreten!!n!!n!!description!
+allow_wait = 
+allow_wait-de = 
+
+member_join = Joins the channel.
+member_join-de = Tritt dem Kanal bei.
+member_leave = Leave the channel.
+member_leave-de = Verlässt den  Kanal.
+member_invite = Was invited to the channel by !source_name!
+member_invite-de = Wurde in den  Kanal eingeladen von !source_name!
+member_kick = Was kicked out of the channel by !source_name!
+member_kick-de = Wurde aus dem Kanal geworfen von !source_name!
+member_block = Was blocked by !source_name!
+member_block-de = Wurde geblockt von !source_name!
+member_unblock = Was unblocked by !source_name!
+member_unblock-de = Wurde entsperrt von !source_name!
+member_allow = Was allowed by !source_name!
+member_allow-de = Wurde erlaubt von !source_name!
+member_deny = Was denied by !source_name!
+member_deny-de = Wurde abgelehnt von !source_name!
+member_name_def = Name defined
+member_name_def-de = Name definiert
+member_name_change = Name changed
+member_name_change-de = Namen geändert
+
+
+#### Interface settings - Menu/command ####
+[interface_menu]
+cmd_unknown = ERROR: Unknown command.
+cmd_unknown-de = FEHLER: Unbekannter Befehl.
