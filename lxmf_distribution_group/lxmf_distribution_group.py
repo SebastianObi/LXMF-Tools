@@ -51,6 +51,9 @@ import pickle
 #### String ####
 import string
 
+#### Regex ####
+import re
+
 #### Search ####
 import fnmatch
 
@@ -104,9 +107,10 @@ class lxmf_connection:
     message_notification_callback = None
     message_notification_success_callback = None
     message_notification_failed_callback = None
+    config_set_callback = None
 
 
-    def __init__(self, storage_path=None, identity_file="identity", identity=None, destination_name="lxmf", destination_type="delivery", display_name="", announce_data=None, send_delay=0, desired_method="direct", propagation_node=None, try_propagation_on_fail=False, announce_startup=False, announce_startup_delay=0, announce_periodic=False, announce_periodic_interval=360, sync_startup=False, sync_startup_delay=0, sync_limit=8, sync_periodic=False, sync_periodic_interval=360):
+    def __init__(self, storage_path=None, identity_file="identity", identity=None, destination_name="lxmf", destination_type="delivery", display_name="", announce_data=None, announce_hidden=False, send_delay=0, desired_method="direct", propagation_node=None, propagation_node_auto=False, propagation_node_active=None, try_propagation_on_fail=False, announce_startup=False, announce_startup_delay=0, announce_periodic=False, announce_periodic_interval=360, sync_startup=False, sync_startup_delay=0, sync_limit=8, sync_periodic=False, sync_periodic_interval=360):
         self.storage_path = storage_path
 
         self.identity_file = identity_file
@@ -119,6 +123,7 @@ class lxmf_connection:
 
         self.display_name = display_name
         self.announce_data = announce_data
+        self.announce_hidden = announce_hidden
 
         self.send_delay = int(send_delay)
 
@@ -127,6 +132,8 @@ class lxmf_connection:
         else:
             self.desired_method_direct = True
         self.propagation_node = propagation_node
+        self.propagation_node_auto = propagation_node_auto
+        self.propagation_node_active = propagation_node_active
         self.try_propagation_on_fail = try_propagation_on_fail
 
         self.announce_startup = announce_startup
@@ -140,6 +147,10 @@ class lxmf_connection:
         self.sync_limit = int(sync_limit)
         self.sync_periodic = sync_periodic
         self.sync_periodic_interval = int(sync_periodic_interval)
+
+        if not self.storage_path:
+            log("LXMF - No storage_path parameter", LOG_ERROR)
+            return
 
         if not os.path.isdir(self.storage_path):
             os.makedirs(self.storage_path)
@@ -195,10 +206,18 @@ class lxmf_connection:
 
         self.destination.set_link_established_callback(self.client_connected)
 
-        self.autoselect_propagation_node()
+        if self.propagation_node_auto:
+            self.propagation_callback = lxmf_connection_propagation(self, "lxmf.propagation")
+            RNS.Transport.register_announce_handler(self.propagation_callback)
+            if self.propagation_node_active:
+                self.propagation_node_set(self.propagation_node_active)
+            elif self.propagation_node:
+                self.propagation_node_set(self.propagation_node)
+        else:
+            self.propagation_node_set(self.propagation_node)
 
         if self.announce_startup or self.announce_periodic:
-            self.announce(True)
+            self.announce(initial=True)
 
         if self.sync_startup or self.sync_periodic:
             self.sync(True)
@@ -223,6 +242,10 @@ class lxmf_connection:
 
     def register_message_notification_failed_callback(self, handler_function):
         self.message_notification_failed_callback = handler_function
+
+
+    def register_config_set_callback(self, handler_function):
+        self.config_set_callback = handler_function
 
 
     def destination_hash(self):
@@ -268,7 +291,7 @@ class lxmf_connection:
         return ""
 
 
-    def send(self, destination, content="", title="", fields=None, timestamp=None, app_data=""):
+    def send(self, destination, content="", title="", fields=None, timestamp=None, app_data="", destination_name=None, destination_type=None):
         if type(destination) is not bytes:
             if len(destination) == ((RNS.Reticulum.TRUNCATED_HASHLENGTH//8)*2)+2:
                 destination = destination[1:-1]
@@ -283,8 +306,13 @@ class lxmf_connection:
                 log("LXMF - Destination is invalid", LOG_ERROR)
                 return
 
+        if destination_name == None:
+            destination_name = self.destination_name
+        if destination_type == None:
+            destination_type = self.destination_type
+
         destination_identity = RNS.Identity.recall(destination)
-        destination = RNS.Destination(destination_identity, RNS.Destination.OUT, RNS.Destination.SINGLE, self.destination_name, self.destination_type)
+        destination = RNS.Destination(destination_identity, RNS.Destination.OUT, RNS.Destination.SINGLE, destination_name, destination_type)
         self.send_message(destination, self.destination, content, title, fields, timestamp, app_data)
 
 
@@ -353,7 +381,7 @@ class lxmf_connection:
             message.desired_method_str = "propagated"
 
 
-    def announce(self, initial=False):
+    def announce(self, app_data=None, attached_interface=None, initial=False):
         announce_timer = None
 
         if self.announce_periodic and self.announce_periodic_interval > 0:
@@ -370,26 +398,29 @@ class lxmf_connection:
                     announce_timer.daemon = True
                     announce_timer.start()
                 else:
-                    self.announce_now()
+                    self.announce_now(app_data=app_data, attached_interface=attached_interface)
             return
 
-        self.announce_now()
+        self.announce_now(app_data=app_data, attached_interface=attached_interface)
 
 
-    def announce_now(self, app_data=None):
-        if app_data:
+    def announce_now(self, app_data=None, attached_interface=None):
+        if self.announce_hidden:
+            self.destination.announce("".encode("utf-8"), attached_interface=attached_interface)
+            log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()) +" (Hidden)", LOG_DEBUG)
+        elif app_data != None:
             if isinstance(app_data, str):
-                self.destination.announce(app_data.encode("utf-8"))
-                log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()) +":" + announce_data, LOG_DEBUG)
+                self.destination.announce(app_data.encode("utf-8"), attached_interface=attached_interface)
+                log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()) +":" + app_data, LOG_DEBUG)
             else:
-                self.destination.announce(app_data)
+                self.destination.announce(app_data, attached_interface=attached_interface)
                 log("LMF - Announced: " + RNS.prettyhexrep(self.destination_hash()), LOG_DEBUG)
         elif self.announce_data:
             if isinstance(self.announce_data, str):
-                self.destination.announce(self.announce_data.encode("utf-8"))
+                self.destination.announce(self.announce_data.encode("utf-8"), attached_interface=attached_interface)
                 log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()) +":" + self.announce_data, LOG_DEBUG)
             else:
-                self.destination.announce(self.announce_data)
+                self.destination.announce(self.announce_data, attached_interface=attached_interface)
                 log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()), LOG_DEBUG)
         else:
             self.destination.announce()
@@ -431,24 +462,50 @@ class lxmf_connection:
             return False
 
 
-    def autoselect_propagation_node(self):
-        if self.propagation_node is not None:
-            if len(self.propagation_node) != ((RNS.Reticulum.TRUNCATED_HASHLENGTH//8)*2):
-                    log("LXMF - Propagation node length is invalid", LOG_ERROR)
-            else:
-                try:
-                    propagation_hash = bytes.fromhex(self.propagation_node)
-                except Exception as e:
-                    log("LXMF - Propagation node is invalid", LOG_ERROR)
-                    return
+    def propagation_node_set(self, dest_str):
+        if not dest_str:
+            return False
 
-            node_identity = RNS.Identity.recall(propagation_hash)
-            if node_identity != None:
-                log("LXMF - Propagation node: " + RNS.prettyhexrep(propagation_hash), LOG_INFO)
-                propagation_hash = RNS.Destination.hash_from_name_and_identity("lxmf.propagation", node_identity)
-                self.message_router.set_outbound_propagation_node(propagation_hash)
-            else:
-                log("LXMF - Propagation node identity not known", LOG_ERROR)
+        if len(dest_str) != ((RNS.Reticulum.TRUNCATED_HASHLENGTH//8)*2):
+            log("LXMF - Propagation node length is invalid", LOG_ERROR)
+            return False
+
+        try:
+            dest_hash = bytes.fromhex(dest_str)
+        except Exception as e:
+            log("LXMF - Propagation node is invalid", LOG_ERROR)
+            return False
+
+        node_identity = RNS.Identity.recall(dest_hash)
+        if node_identity != None:
+            log("LXMF - Propagation node: " + RNS.prettyhexrep(dest_hash), LOG_INFO)
+            dest_hash = RNS.Destination.hash_from_name_and_identity("lxmf.propagation", node_identity)
+            self.message_router.set_outbound_propagation_node(dest_hash)
+            self.propagation_node_active = dest_str
+            return True
+        else:
+            log("LXMF - Propagation node identity not known", LOG_ERROR)
+            return False
+
+
+    def propagation_node_update(self, dest_str):
+        if self.propagation_node_hash_str() != dest_str:
+            if self.propagation_node_set(dest_str) and self.config_set_callback is not None:
+                 self.config_set_callback("propagation_node_active", dest_str)
+
+
+    def propagation_node_hash(self):
+        try:
+            return bytes.fromhex(self.propagation_node_active)
+        except:
+            return None
+
+
+    def propagation_node_hash_str(self):
+        if self.propagation_node_active:
+            return self.propagation_node_active
+        else:
+            return ""
 
 
     def client_connected(self, link):
@@ -536,12 +593,49 @@ class lxmf_connection:
             log("-    App Data: " + message.app_data, LOG_DEBUG)
 
 
+
+
+class lxmf_connection_propagation():
+    def __init__(self, owner, aspect_filter=None):
+        self.owner = owner
+        self.aspect_filter = aspect_filter
+
+    EMITTED_DELTA_GRACE = 300
+    EMITTED_DELTA_IGNORE = 10
+
+    def received_announce(self, destination_hash, announced_identity, app_data):
+        if app_data == None:
+            return
+
+        if len(app_data) == 0:
+            return
+
+        try:
+            unpacked = umsgpack.unpackb(app_data)
+            node_active = unpacked[0]
+            emitted = unpacked[1]
+            hop_count = RNS.Transport.hops_to(destination_hash)
+            age = time.time() - emitted
+            if age < 0:
+                if age < -1*PropDetector.EMITTED_DELTA_GRACE:
+                    return
+            log("LXMF - Received an propagation node announce from "+RNS.prettyhexrep(destination_hash)+": "+str(age)+" seconds ago, "+str(hop_count)+" hops away", LOG_INFO)
+            if self.owner.propagation_node_active == None:
+                self.owner.propagation_node_update(RNS.hexrep(destination_hash, False))
+            else:
+                prev_hop_count = RNS.Transport.hops_to(self.owner.propagation_node_hash())
+                if hop_count <= prev_hop_count:
+                    self.owner.propagation_node_update(RNS.hexrep(destination_hash, False))
+        except:
+            return
+
+
 ##############################################################################################################
 # RNS Class
 
 
 class rns_connection:
-    def __init__(self, storage_path=None, identity_file="identity", identity=None, destination_name="rns", destination_type="connect", announce_startup=False, announce_startup_delay=0, announce_periodic=False, announce_periodic_interval=360, announce_data=""):
+    def __init__(self, storage_path=None, identity_file="identity", identity=None, destination_name="rns", destination_type="connect", announce_startup=False, announce_startup_delay=0, announce_periodic=False, announce_periodic_interval=360, announce_data="", announce_hidden=False):
         self.storage_path = storage_path
 
         self.identity_file = identity_file
@@ -559,6 +653,11 @@ class rns_connection:
         self.announce_periodic_interval = int(announce_periodic_interval)
 
         self.announce_data = announce_data
+        self.announce_hidden = announce_hidden
+
+        if not self.storage_path:
+            log("RNS - No storage_path parameter", LOG_ERROR)
+            return
 
         if not os.path.isdir(self.storage_path):
             os.makedirs(self.storage_path)
@@ -596,7 +695,7 @@ class rns_connection:
         self.destination.set_proof_strategy(RNS.Destination.PROVE_ALL)
 
         if self.announce_startup or self.announce_periodic:
-            self.announce(True)
+            self.announce(initial=True)
 
 
     def register_announce_callback(self, handler_function):
@@ -647,7 +746,9 @@ class rns_connection:
         return ""
 
 
-    def announce(self, initial=False):
+    def announce(self, app_data=None, attached_interface=None, initial=False):
+        announce_timer = None
+
         if self.announce_periodic and self.announce_periodic_interval > 0:
             announce_timer = threading.Timer(self.announce_periodic_interval*60, self.announce)
             announce_timer.daemon = True
@@ -656,31 +757,35 @@ class rns_connection:
         if initial:
             if self.announce_startup:
                 if self.announce_startup_delay > 0:
-                    announce_timer.cancel()
+                    if announce_timer is not None:
+                        announce_timer.cancel()
                     announce_timer = threading.Timer(self.announce_startup_delay, self.announce)
                     announce_timer.daemon = True
                     announce_timer.start()
                 else:
-                    self.announce_now()
+                    self.announce_now(app_data=app_data, attached_interface=attached_interface)
             return
 
-        self.announce_now()
+        self.announce_now(app_data=app_data, attached_interface=attached_interface)
 
 
-    def announce_now(self, app_data=None):
-        if app_data:
+    def announce_now(self, app_data=None, attached_interface=None):
+        if self.announce_hidden:
+            self.destination.announce("".encode("utf-8"), attached_interface=attached_interface)
+            log("RNS - Announced: " + RNS.prettyhexrep(self.destination_hash()) +" (Hidden)", LOG_DEBUG)
+        elif app_data != None:
             if isinstance(app_data, str):
-                self.destination.announce(app_data.encode("utf-8"))
-                log("RNS - Announced: " + RNS.prettyhexrep(self.destination_hash()) +":" + announce_data, LOG_DEBUG)
+                self.destination.announce(app_data.encode("utf-8"), attached_interface=attached_interface)
+                log("RNS - Announced: " + RNS.prettyhexrep(self.destination_hash()) +":" + app_data, LOG_DEBUG)
             else:
-                self.destination.announce(app_data)
+                self.destination.announce(app_data, attached_interface=attached_interface)
                 log("RNS - Announced: " + RNS.prettyhexrep(self.destination_hash()), LOG_DEBUG)
         else:
             if isinstance(self.announce_data, str):
-                self.destination.announce(self.announce_data.encode("utf-8"))
+                self.destination.announce(self.announce_data.encode("utf-8"), attached_interface=attached_interface)
                 log("RNS - Announced: " + RNS.prettyhexrep(self.destination_hash()) +":" + self.announce_data, LOG_DEBUG)
             else:
-                self.destination.announce(self.announce_data)
+                self.destination.announce(self.announce_data, attached_interface=attached_interface)
                 log("RNS - Announced: " + RNS.prettyhexrep(self.destination_hash()), LOG_DEBUG)
 
 
@@ -727,13 +832,14 @@ class lxmf_announce_callback:
 
                                     content_group = config_get(CONFIG, "interface_messages", "member_"+content_type, "", lng_key)
                                     if content_group != "":
+                                        fields = fields_generate(lng_key, h=destination_hash ,n=value, tpl=content_type)
                                         content_group = replace(content_group, source_hash, value, "", lng_key)
                                         content_group = content_group + content_add
                                         for section in sections:
                                             if "receive_auto_"+content_type in config_get(CONFIG, "rights", section).split(","):
                                                 for (key, val) in DATA.items(section):
                                                     if key != source_hash:
-                                                        LXMF_CONNECTION.send(key, content_group, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
+                                                        LXMF_CONNECTION.send(key, content_group, "", fields, None, "interface_send")
 
                                     if CONFIG["main"].getboolean("auto_save_data"):
                                         DATA.remove_option("main", "unsaved")
@@ -789,7 +895,7 @@ def lxmf_message_received_callback(message):
                     content_user = config_get(CONFIG, "interface_messages", "reply_block", "", lng_key)
                     content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                     if content_user != "":
-                        LXMF_CONNECTION.send(source_hash, content_user, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
+                        LXMF_CONNECTION.send(source_hash, content_user, "", fields_generate(lng_key), None, "interface_send")
                 return
 
     source_rights = []
@@ -804,14 +910,18 @@ def lxmf_message_received_callback(message):
     if fields:
         if "c_n" in fields and "c_t" in fields and "m_t" in fields:
             if fields["c_n"] == CONFIG["cluster"]["name"] and fields["c_t"] == CONFIG["cluster"]["type"] and "cluster" in source_rights and config_getboolean(CONFIG, "cluster", "enabled"):
+                title_prefix = config_get(CONFIG, "message", "cluster_receive_title_prefix", "", lng_key)
                 content_prefix = config_get(CONFIG, "message", "cluster_receive_prefix", "", lng_key)
                 content_suffix = config_get(CONFIG, "message", "cluster_receive_suffix", "", lng_key)
 
+                title_prefix = replace(title_prefix, source_hash, source_name, source_right, lng_key)
                 content_prefix = replace(content_prefix, source_hash, source_name, source_right, lng_key)
                 content_suffix = replace(content_suffix, source_hash, source_name, source_right, lng_key)
 
                 source = source_name.rsplit('/', 1)[-1]
                 destination = config_get(CONFIG, "cluster", "display_name", "", lng_key).rsplit('/', 1)[-1]
+                title_prefix = title_prefix.replace(CONFIG["interface"]["delimiter_output"]+"cluster_source"+CONFIG["interface"]["delimiter_output"], source)
+                title_prefix = title_prefix.replace(CONFIG["interface"]["delimiter_output"]+"cluster_destination"+CONFIG["interface"]["delimiter_output"], destination)
                 content_prefix = content_prefix.replace(CONFIG["interface"]["delimiter_output"]+"cluster_source"+CONFIG["interface"]["delimiter_output"], source)
                 content_prefix = content_prefix.replace(CONFIG["interface"]["delimiter_output"]+"cluster_destination"+CONFIG["interface"]["delimiter_output"], destination)
                 content_suffix = content_suffix.replace(CONFIG["interface"]["delimiter_output"]+"cluster_source"+CONFIG["interface"]["delimiter_output"], source)
@@ -825,6 +935,7 @@ def lxmf_message_received_callback(message):
                 if search != "":
                     content = re.sub(search, config_get(CONFIG, "message", "cluster_receive_regex_replace"), content)
 
+                title = title_prefix + title
                 content = content_prefix + content + content_suffix
 
                 if config_get(CONFIG, "message", "timestamp", "", lng_key) == "client":
@@ -834,12 +945,12 @@ def lxmf_message_received_callback(message):
 
                 if CONFIG["message"].getboolean("fields"):
                     if message.fields:
-                        fields = message.fields
+                        fields = fields_remove(message.fields, "fields_remove_anonymous" if "anonymous" in source_rights else "fields_remove")
                     else:
                         fields = {}
                 else:
                     fields = {}
-                fields["type"] = CONFIG["lxmf"]["destination_type_conv"]
+                fields = fields(fields)
 
                 if CONFIG["statistic"].getboolean("enabled") and CONFIG["statistic"].getboolean("cluster"):
                     statistic("add", "cluster_in_" + message.desired_method_str)
@@ -892,23 +1003,24 @@ def lxmf_message_received_callback(message):
             log("LXMF - Source " + RNS.prettyhexrep(message.source_hash) + " have no valid signature 'new'", LOG_DEBUG)
             return
 
-        key = DATA["main"]["auto_add_user_type"]
-        if DATA.has_section(key) and key != "main":
+        source_right = DATA["main"]["auto_add_user_type"]
+        if DATA.has_section(source_right) and source_right != "main":
             if CONFIG["main"].getboolean("auto_name_add"):
                 app_data = RNS.Identity.recall_app_data(message.source_hash)
                 if app_data != None:
                     source_name = app_data.decode('utf-8')
-            DATA[key][source_hash] = source_name
+            DATA[source_right][source_hash] = source_name
             DATA.remove_option("main", "unsaved")
-            content = config_get(CONFIG, "interface_messages", "auto_add_"+key, "", lng_key)
+            content = config_get(CONFIG, "interface_messages", "auto_add_"+source_right, "", lng_key)
             content_group = config_get(CONFIG, "interface_messages", "member_join", "", lng_key)
             content_group = replace(content_group, source_hash, source_name, source_right, lng_key)
             if content_group != "":
+                fields = fields_generate(lng_key, h=message.source_hash ,n=source_name, m=True, tpl="join")
                 for section in sections:
                     if "receive_join" in config_get(CONFIG, "rights", section).split(","):
                         for (key, val) in DATA.items(section):
                             if key != source_hash:
-                                LXMF_CONNECTION.send(key, content_group, title, {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
+                                LXMF_CONNECTION.send(key, content_group, title, fields, None, "interface_send")
             if CONFIG["main"].getboolean("auto_save_data"):
                 DATA.remove_option("main", "unsaved")
                 if not data_save(PATH + "/data.cfg"):
@@ -917,7 +1029,7 @@ def lxmf_message_received_callback(message):
                 DATA["main"]["unsaved"] = "True"
             content = replace(content, source_hash, source_name, source_right, lng_key)
             if content != "":
-                LXMF_CONNECTION.send(source_hash, content, title, {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
+                LXMF_CONNECTION.send(source_hash, content, title, fields_generate(lng_key, m=True, d=True, r=True, cmd=source_right, config=source_right, tpl="info"), None, "interface_send")
         return
     elif source_right == "":
         log("LXMF - Source " + RNS.prettyhexrep(message.source_hash) + " not exist (auto add disabled)", LOG_DEBUG)
@@ -937,7 +1049,7 @@ def lxmf_message_received_callback(message):
             content_user = config_get(CONFIG, "interface_messages", "reply_signature", "", lng_key)
             content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
             if content_user != "":
-                LXMF_CONNECTION.send(source_hash, content_user, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
+                LXMF_CONNECTION.send(source_hash, content_user, "", fields_generate(lng_key), None, "interface_send")
         return
 
 
@@ -948,7 +1060,7 @@ def lxmf_message_received_callback(message):
                 content_user = config_get(CONFIG, "interface_messages", "reply_length_min", "", lng_key)
                 content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                 if content_user != "":
-                    LXMF_CONNECTION.send(source_hash, content_user, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
+                    LXMF_CONNECTION.send(source_hash, content_user, "", fields_generate(lng_key), None, "interface_send")
             return
 
 
@@ -959,10 +1071,11 @@ def lxmf_message_received_callback(message):
                 content_user = config_get(CONFIG, "interface_messages", "reply_length_max", "", lng_key)
                 content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                 if content_user != "":
-                    LXMF_CONNECTION.send(source_hash, content_user, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
+                    LXMF_CONNECTION.send(source_hash, content_user, "", fields_generate(lng_key), None, "interface_send")
             return
 
 
+    title_prefix = config_get(CONFIG, "message", "receive_title_prefix", "", lng_key)
     content_prefix = config_get(CONFIG, "message", "receive_prefix", "", lng_key)
     content_suffix = config_get(CONFIG, "message", "receive_suffix", "", lng_key)
 
@@ -974,6 +1087,7 @@ def lxmf_message_received_callback(message):
     if search != "":
         content = re.sub(search, config_get(CONFIG, "message", "receive_regex_replace"), content)
 
+    title = title_prefix + title
     content = content_prefix + content + content_suffix
 
 
@@ -985,7 +1099,7 @@ def lxmf_message_received_callback(message):
                 content_user = config_get(CONFIG, "interface_messages", "reply_interface_enabled", "", lng_key)
                 content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                 if content_user != "":
-                    LXMF_CONNECTION.send(source_hash, content_user, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
+                    LXMF_CONNECTION.send(source_hash, content_user, "", fields_generate(lng_key), None, "interface_send")
             return
 
         if "interface" not in source_rights:
@@ -994,10 +1108,10 @@ def lxmf_message_received_callback(message):
                 content_user = config_get(CONFIG, "interface_messages", "reply_interface_right", "", lng_key)
                 content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                 if content_user != "":
-                    LXMF_CONNECTION.send(source_hash, content_user, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
+                    LXMF_CONNECTION.send(source_hash, content_user, "", fields_generate(lng_key), None, "interface_send")
             return
 
-        content = interface(content[len(CONFIG["interface"]["delimiter_input"]):], source_hash, source_name, source_right, source_rights, lng_key)
+        content = interface(content[len(CONFIG["interface"]["delimiter_input"]):], source_hash, source_name, source_right, source_rights, lng_key, message)
         if content == "":
             log("LXMF - Source " + RNS.prettyhexrep(message.source_hash) + " 'interface' not allowed (empty response)", LOG_DEBUG)
             return
@@ -1009,7 +1123,7 @@ def lxmf_message_received_callback(message):
                 statistic("value_set", source_hash, "activity", time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time())))
                 statistic("value_set", source_hash, "activity_receive", time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time())))
 
-        LXMF_CONNECTION.send(source_hash, content, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
+        LXMF_CONNECTION.send(source_hash, content, "", fields_generate(lng_key), None, "interface_send")
         return
 
 
@@ -1021,7 +1135,7 @@ def lxmf_message_received_callback(message):
                content_user = config_get(CONFIG, "interface_messages", "reply_cluster_enabled", "", lng_key)
                content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                if content_user != "":
-                   LXMF_CONNECTION.send(source_hash, content_user, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
+                   LXMF_CONNECTION.send(source_hash, content_user, "", fields_generate(lng_key), None, "interface_send")
            return
 
         if "send_cluster" not in source_rights:
@@ -1030,14 +1144,14 @@ def lxmf_message_received_callback(message):
                 content_user = config_get(CONFIG, "interface_messages", "reply_cluster_right", "", lng_key)
                 content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                 if content_user != "":
-                    LXMF_CONNECTION.send(source_hash, content_user, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
+                    LXMF_CONNECTION.send(source_hash, content_user, "", fields_generate(lng_key), None, "interface_send")
             return
 
         try:
             content = content[len(CONFIG["cluster"]["delimiter_input"]):]
             destination, content = content.split(" ", 1)
         except:
-            LXMF_CONNECTION.send(source_hash, config_get(CONFIG, "interface_menu", "cluster_format_error", "", lng_key) , "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
+            LXMF_CONNECTION.send(source_hash, config_get(CONFIG, "interface_menu", "cluster_format_error", "", lng_key) , "", fields_generate(lng_key), None, "interface_send")
             return
 
         destinations = []
@@ -1046,7 +1160,7 @@ def lxmf_message_received_callback(message):
                 destinations.append(key)
 
         if len(destinations) == 0:
-            LXMF_CONNECTION.send(source_hash, config_get(CONFIG, "interface_menu", "cluster_found_error", "", lng_key) , "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
+            LXMF_CONNECTION.send(source_hash, config_get(CONFIG, "interface_menu", "cluster_found_error", "", lng_key) , "", fields_generate(lng_key), None, "interface_send")
             return
 
         length = config_getint(CONFIG, "message", "cluster_send_length_min", 0, lng_key)
@@ -1056,7 +1170,7 @@ def lxmf_message_received_callback(message):
                     content_user = config_get(CONFIG, "interface_messages", "reply_length_min", "", lng_key)
                     content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                     if content_user != "":
-                        LXMF_CONNECTION.send(source_hash, content_user, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
+                        LXMF_CONNECTION.send(source_hash, content_user, "", fields_generate(lng_key), None, "interface_send")
                 return
 
         length = config_getint(CONFIG, "message", "cluster_send_length_max", 0, lng_key)
@@ -1066,16 +1180,25 @@ def lxmf_message_received_callback(message):
                     content_user = config_get(CONFIG, "interface_messages", "reply_length_max", "", lng_key)
                     content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                     if content_user != "":
-                        LXMF_CONNECTION.send(source_hash, content_user, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
+                        LXMF_CONNECTION.send(source_hash, content_user, "", fields_generate(lng_key), None, "interface_send")
                 return
 
+        title_prefix = config_get(CONFIG, "message", "cluster_send_title_prefix", "", lng_key)
         content_prefix = config_get(CONFIG, "message", "cluster_send_prefix", "", lng_key)
         content_suffix = config_get(CONFIG, "message", "cluster_send_suffix", "", lng_key)
 
-        content_prefix = replace(content_prefix, source_hash, source_name, source_right, lng_key)
-        content_suffix = replace(content_suffix, source_hash, source_name, source_right, lng_key)
+        if "anonymous" in source_rights:
+            title_prefix = replace(title_prefix, "", "", source_right, lng_key)
+            content_prefix = replace(content_prefix, "", "", source_right, lng_key)
+            content_suffix = replace(content_suffix, "", "", source_right, lng_key)
+        else:
+            title_prefix = replace(title_prefix, source_hash, source_name, source_right, lng_key)
+            content_prefix = replace(content_prefix, source_hash, source_name, source_right, lng_key)
+            content_suffix = replace(content_suffix, source_hash, source_name, source_right, lng_key)
 
         source = config_get(CONFIG, "cluster", "display_name", "", lng_key).rsplit('/', 1)[-1]
+        title_prefix = title_prefix.replace(CONFIG["interface"]["delimiter_output"]+"cluster_source"+CONFIG["interface"]["delimiter_output"], source)
+        title_prefix = title_prefix.replace(CONFIG["interface"]["delimiter_output"]+"cluster_destination"+CONFIG["interface"]["delimiter_output"], destination)
         content_prefix = content_prefix.replace(CONFIG["interface"]["delimiter_output"]+"cluster_source"+CONFIG["interface"]["delimiter_output"], source)
         content_prefix = content_prefix.replace(CONFIG["interface"]["delimiter_output"]+"cluster_destination"+CONFIG["interface"]["delimiter_output"], destination)
         content_suffix = content_suffix.replace(CONFIG["interface"]["delimiter_output"]+"cluster_source"+CONFIG["interface"]["delimiter_output"], source)
@@ -1091,11 +1214,17 @@ def lxmf_message_received_callback(message):
 
         if CONFIG["message"].getboolean("fields"):
             if message.fields:
-                fields = message.fields
+                fields = fields_remove(message.fields, "fields_remove_anonymous" if "anonymous" in source_rights else "fields_remove")
             else:
                 fields = {}
         else:
             fields = {}
+        if CONFIG["main"].getboolean("fields_message"):
+            fields["hash"] = message.hash
+            if not "anonymous" in source_rights:
+                fields["src"] = {}
+                fields["src"]["h"] = message.source_hash
+                fields["src"]["n"] = source_name
         fields["c_n"] = CONFIG["cluster"]["name"]
         fields["c_t"] = CONFIG["cluster"]["type"]
 
@@ -1107,6 +1236,7 @@ def lxmf_message_received_callback(message):
         else:
             fields["m_t"] = "message"
 
+        title = title_prefix + title
         content = content_prefix + content + content_suffix
 
         if config_get(CONFIG, "message", "timestamp", "", lng_key) == "client":
@@ -1131,12 +1261,20 @@ def lxmf_message_received_callback(message):
 
         if CONFIG["message"].getboolean("fields"):
             if message.fields:
-                fields = message.fields
+                fields = fields_remove(message.fields, "fields_remove_anonymous" if "anonymous" in source_rights else "fields_remove")
             else:
                 fields = {}
         else:
             fields = {}
-        fields["type"] = CONFIG["lxmf"]["destination_type_conv"]
+
+        if CONFIG["main"].getboolean("fields_message"):
+            if CONFIG["lxmf"]["destination_type_conv"] != "":
+                fields["type"] = CONFIG["lxmf"].getint("destination_type_conv")
+            fields["hash"] = message.hash
+            if not "anonymous" in source_rights:
+                fields["src"] = {}
+                fields["src"]["h"] = message.source_hash
+                fields["src"]["n"] = source_name
 
         for section in sections:
             if "receive_cluster_send" in config_get(CONFIG, "rights", section).split(",") or (cluster_loop and "receive_cluster_loop" in config_get(CONFIG, "rights", section).split(",")):
@@ -1158,7 +1296,7 @@ def lxmf_message_received_callback(message):
                         content_user = config_get(CONFIG, "interface_messages", "reply_length_min", "", lng_key)
                         content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                         if content_user != "":
-                            LXMF_CONNECTION.send(source_hash, content_user, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
+                            LXMF_CONNECTION.send(source_hash, content_user, "", fields_generate(lng_key), None, "interface_send")
                     return
 
             length = config_getint(CONFIG, "message", "send_length_max", 0, lng_key)
@@ -1168,14 +1306,21 @@ def lxmf_message_received_callback(message):
                         content_user = config_get(CONFIG, "interface_messages", "reply_length_max", "", lng_key)
                         content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                         if content_user != "":
-                            LXMF_CONNECTION.send(source_hash, content_user, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
+                            LXMF_CONNECTION.send(source_hash, content_user, "", fields_generate(lng_key), None, "interface_send")
                     return
 
+            title_prefix = config_get(CONFIG, "message", "send_title_prefix", "", lng_key)
             content_prefix = config_get(CONFIG, "message", "send_prefix", "", lng_key)
             content_suffix = config_get(CONFIG, "message", "send_suffix", "", lng_key)
 
-            content_prefix = replace(content_prefix, source_hash, source_name, source_right, lng_key)
-            content_suffix = replace(content_suffix, source_hash, source_name, source_right, lng_key)
+            if "anonymous" in source_rights:
+                title_prefix = replace(title_prefix, "", "", source_right, lng_key)
+                content_prefix = replace(content_prefix, "", "", source_right, lng_key)
+                content_suffix = replace(content_suffix, "", "", source_right, lng_key)
+            else:
+                title_prefix = replace(title_prefix, source_hash, source_name, source_right, lng_key)
+                content_prefix = replace(content_prefix, source_hash, source_name, source_right, lng_key)
+                content_suffix = replace(content_suffix, source_hash, source_name, source_right, lng_key)
 
             search = config_get(CONFIG, "message", "send_search")
             if search != "":
@@ -1185,16 +1330,25 @@ def lxmf_message_received_callback(message):
             if search != "":
                 content = re.sub(search, config_get(CONFIG, "message", "send_regex_replace"), content)
 
+            title = title_prefix + title
             content = content_prefix + content + content_suffix
 
             if CONFIG["message"].getboolean("fields"):
                 if message.fields:
-                    fields = message.fields
+                    fields = fields_remove(message.fields, "fields_remove_anonymous" if "anonymous" in source_rights else "fields_remove")
                 else:
                     fields = {}
             else:
                 fields = {}
-            fields["type"] = CONFIG["lxmf"]["destination_type_conv"]
+
+            if CONFIG["main"].getboolean("fields_message"):
+                if CONFIG["lxmf"]["destination_type_conv"] != "":
+                    fields["type"] = CONFIG["lxmf"].getint("destination_type_conv")
+                fields["hash"] = message.hash
+                if not "anonymous" in source_rights:
+                    fields["src"] = {}
+                    fields["src"]["h"] = message.source_hash
+                    fields["src"]["n"] = source_name
 
             if config_get(CONFIG, "message", "timestamp", "", lng_key) == "client":
                 timestamp = message.timestamp
@@ -1221,13 +1375,13 @@ def lxmf_message_received_callback(message):
                 content_user = config_get(CONFIG, "interface_messages", "reply_local_right", "", lng_key)
                 content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                 if content_user != "":
-                    LXMF_CONNECTION.send(source_hash, content_user, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
+                    LXMF_CONNECTION.send(source_hash, content_user, "", fields_generate(lng_key), None, "interface_send")
     else:
         if "reply_local_enabled" in source_rights:
             content_user = config_get(CONFIG, "interface_messages", "reply_local_enabled", "", lng_key)
             content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
             if content_user != "":
-                LXMF_CONNECTION.send(source_hash, content_user, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
+                LXMF_CONNECTION.send(source_hash, content_user, "", fields_generate(lng_key), None, "interface_send")
 
 
     return
@@ -1307,7 +1461,7 @@ class rns_announce_callback:
                                 for section in sections:
                                     if "receive_cluster_join" in config_get(CONFIG, "rights", section).split(","):
                                         for (key, val) in DATA.items(section):
-                                                LXMF_CONNECTION.send(key, content_group, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
+                                                LXMF_CONNECTION.send(key, content_group, "", fields_generate(lng_key), None, "interface_send")
                         DATA["cluster"][receive["h"]] = receive["c_n"]
                         executed = True
 
@@ -1330,7 +1484,7 @@ class rns_announce_callback:
 
 
 #### Interface #####
-def interface(cmd, source_hash, source_name, source_right, source_rights, lng_key):
+def interface(cmd, source_hash, source_name, source_right, source_rights, lng_key, message):
     cmd = cmd.strip()
 
     content = ""
@@ -1355,8 +1509,30 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
         content = replace(content, source_hash, source_name, source_right, lng_key)
 
 
+    # "/update" command.
+    elif (cmd == "update") and "update" in source_rights:
+        try:
+            content = config_get(CONFIG, "interface_menu", "update_ok", "", lng_key)
+            LXMF_CONNECTION.send(source_hash, content, "", fields_generate(lng_key, m=True, d=True, r=True, cmd=source_right, config=source_right, tpl="update"), None, "interface_send")
+            content = ""
+        except:
+            content = config_get(CONFIG, "interface_menu", "update_error", "", lng_key)
+
+
+    # "/join" command.
+    elif (cmd == "join" or cmd == "subscribe") and "join" in source_rights:
+        try:
+            content = config_get(CONFIG, "interface_messages", "auto_add_"+source_right, "", lng_key)
+            content = replace(content, source_hash, source_name, source_right, lng_key)
+            if content != "":
+                LXMF_CONNECTION.send(source_hash, content, "", fields_generate(lng_key, m=True, d=True, r=True, cmd=source_right, config=source_right, tpl="info"), None, "interface_send")
+                content = ""
+        except:
+            content = config_get(CONFIG, "interface_menu", "join_error", "", lng_key)
+
+
     # "/leave" command.
-    elif (cmd == "leave" or cmd == "part") and "leave" in source_rights:
+    elif (cmd == "leave" or cmd == "unsubscribe" or cmd == "part") and "leave" in source_rights:
         try:
             for section in sections:
                 for (key, val) in DATA.items(section):
@@ -1369,12 +1545,17 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
             content_group = config_get(CONFIG, "interface_messages", "member_leave", "", lng_key)
             content_group = replace(content_group, source_hash, source_name, source_right, lng_key)
             if content_group != "":
+                fields = fields_generate(lng_key, h=message.source_hash ,n=source_name, m=True, tpl="leave")
                 for section in sections:
                     if "receive_leave" in config_get(CONFIG, "rights", section).split(","):
                         for (key, val) in DATA.items(section):
-                            LXMF_CONNECTION.send(key, content_group, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
+                            LXMF_CONNECTION.send(key, content_group, "", fields, None, "interface_send")
 
             content = config_get(CONFIG, "interface_menu", "leave_ok", "", lng_key)
+            content = replace(content, source_hash, source_name, source_right, lng_key)
+            if content != "":
+                LXMF_CONNECTION.send(source_hash, content, "", {"data": None, "tpl": "info"}, None, "interface_send")
+                content = ""
 
             if CONFIG["main"].getboolean("auto_save_data"):
                 DATA.remove_option("main", "unsaved")
@@ -1408,13 +1589,14 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
 
             content_group = config_get(CONFIG, "interface_messages", "member_"+content_type, "", lng_key)
             if content_group != "":
+                fields = fields_generate(lng_key, h=message.source_hash ,n=source_name, tpl=content_type)
                 content_group = replace(content_group, source_hash, source_name, source_right, lng_key)
                 content_group = content_group + content_add
                 for section in sections:
                     if "receive_"+content_type in config_get(CONFIG, "rights", section).split(","):
                         for (key, val) in DATA.items(section):
                             if key != source_hash:
-                                LXMF_CONNECTION.send(key, content_group, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
+                                LXMF_CONNECTION.send(key, content_group, "", fields, None, "interface_send")
 
             content = config_get(CONFIG, "interface_menu", "name_ok", "", lng_key) + " " + value
 
@@ -1476,7 +1658,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                     if "receive_pin_add" in config_get(CONFIG, "rights", section).split(","):
                         for (key, val) in DATA.items(section):
                             if key != source_hash:
-                                LXMF_CONNECTION.send(key, content_group, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
+                                LXMF_CONNECTION.send(key, content_group, "", fields_generate(lng_key, h=message.source_hash ,n=source_name), None, "interface_send")
 
             content = config_get(CONFIG, "interface_menu", "pin_add_ok", "", lng_key)
 
@@ -1507,7 +1689,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                         if "receive_pin_add" in config_get(CONFIG, "rights", section).split(","):
                             for (key, val) in DATA.items(section):
                                 if key != source_hash:
-                                    LXMF_CONNECTION.send(key, content_group, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
+                                    LXMF_CONNECTION.send(key, content_group, "", fields_generate(lng_key, h=message.source_hash ,n=source_name), None, "interface_send")
 
                 content = config_get(CONFIG, "interface_menu", "pin_remove_ok", "", lng_key)
 
@@ -1748,7 +1930,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
 
     # "/delivery" command.
     #elif cmd == "delivery" and "delivery" in source_rights:
-    #todo
+    # TODO
 
 
     # "/enable_local" command.
@@ -2000,7 +2182,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                     if "receive_description" in config_get(CONFIG, "rights", section).split(","):
                         for (key, val) in DATA.items(section):
                             if key != source_hash:
-                                LXMF_CONNECTION.send(key, content_group, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
+                                LXMF_CONNECTION.send(key, content_group, "", fields_generate(lng_key, h=message.source_hash ,n=source_name, tpl="description"), None, "interface_send")
 
             content = config_get(CONFIG, "interface_menu", "description", "", lng_key) + " " + value
             DATA["main"]["unsaved"] = "True"
@@ -2025,7 +2207,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                     if "receive_rules" in config_get(CONFIG, "rights", section).split(","):
                         for (key, val) in DATA.items(section):
                             if key != source_hash:
-                                LXMF_CONNECTION.send(key, content_group, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
+                                LXMF_CONNECTION.send(key, content_group, "", fields_generate(lng_key, h=message.source_hash ,n=source_name, tpl="rules"), None, "interface_send")
 
             content = config_get(CONFIG, "interface_menu", "rules", "", lng_key) + " " + value
             DATA["main"]["unsaved"] = "True"
@@ -2229,18 +2411,19 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                         content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                         content_user = content_user.replace(delimiter+"user_name"+delimiter, user_name)
                         if content_user != "":
-                            LXMF_CONNECTION.send(value, content_user, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
+                            LXMF_CONNECTION.send(value, content_user, "", fields_generate(lng_key, m=True, d=True, r=True, cmd=key, config=key), None, "interface_send")
 
                         content_group = config_get(CONFIG, "interface_messages", "member_invite", "", lng_key)
                         content_group = replace(content_group, source_hash, source_name, source_right, lng_key)
                         content_group = content_group.replace(delimiter+"user_address"+delimiter, value)
                         content_group = content_group.replace(delimiter+"user_name"+delimiter, user_name)
                         if content_group != "":
+                            fields = fields_generate(lng_key, h=bytes.fromhex(value) ,n=user_name, m=True, tpl="invite")
                             for section in sections:
                                 if "receive_invite" in config_get(CONFIG, "rights", section).split(","):
                                     for (key, val) in DATA.items(section):
                                         if key != source_hash:
-                                            LXMF_CONNECTION.send(key, content_group, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
+                                            LXMF_CONNECTION.send(key, content_group, "", fields, None, "interface_send")
 
                         content = config_get(CONFIG, "interface_menu", "invite_ok", "", lng_key) + " <" + value + ">"
 
@@ -2281,17 +2464,18 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                     content_user = config_get(CONFIG, "interface_messages", "kick_"+user_section, "", lng_key)
                     content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                     if content_user != "":
-                        LXMF_CONNECTION.send(value, content_user, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
+                        LXMF_CONNECTION.send(value, content_user, "", fields_generate(lng_key), None, "interface_send")
 
                     content_group = config_get(CONFIG, "interface_messages", "member_kick", "", lng_key)
                     content_group = replace(content_group, source_hash, source_name, source_right, lng_key)
                     content_group = content_group.replace(delimiter+"user_address"+delimiter, value)
                     content_group = content_group.replace(delimiter+"user_name"+delimiter, user_name)
                     if content_group != "":
+                        fields = fields_generate(lng_key, h=bytes.fromhex(value) ,n=user_name, m=True, tpl="kick")
                         for section in sections:
                             if "receive_kick" in config_get(CONFIG, "rights", section).split(","):
                                 for (key, val) in DATA.items(section):
-                                    LXMF_CONNECTION.send(key, content_group, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
+                                    LXMF_CONNECTION.send(key, content_group, "", fields, None, "interface_send")
 
                     content = config_get(CONFIG, "interface_menu", "kick_ok", "", lng_key)
                     content = content.replace(delimiter+"user_address"+delimiter, value)
@@ -2332,17 +2516,18 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                     content_user = config_get(CONFIG, "interface_messages", "block_"+user_section, "", lng_key)
                     content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                     if content_user != "":
-                        LXMF_CONNECTION.send(value, content_user, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
+                        LXMF_CONNECTION.send(value, content_user, "", fields_generate(lng_key), None, "interface_send")
 
                     content_group = config_get(CONFIG, "interface_messages", "member_block", "", lng_key)
                     content_group = replace(content_group, source_hash, source_name, source_right, lng_key)
                     content_group = content_group.replace(delimiter+"user_address"+delimiter, value)
                     content_group = content_group.replace(delimiter+"user_name"+delimiter, user_name)
                     if content_group != "":
+                        fields = fields_generate(lng_key, h=bytes.fromhex(value) ,n=user_name, m=True, tpl="block")
                         for section in sections:
                             if "receive_block" in config_get(CONFIG, "rights", section).split(","):
                                 for (key, val) in DATA.items(section):
-                                    LXMF_CONNECTION.send(key, content_group, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
+                                    LXMF_CONNECTION.send(key, content_group, "", fields, None, "interface_send")
 
                     content = config_get(CONFIG, "interface_menu", "block_ok", "", lng_key)
                     content = content.replace(delimiter+"user_address"+delimiter, value)
@@ -2384,17 +2569,18 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                     content_user = config_get(CONFIG, "interface_messages", "unblock_"+user_section, "", lng_key)
                     content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                     if content_user != "":
-                        LXMF_CONNECTION.send(value, content_user, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
+                        LXMF_CONNECTION.send(value, content_user, "", fields_generate(lng_key, m=True, d=True, r=True, cmd=user_section, config=user_section), None, "interface_send")
 
                     content_group = config_get(CONFIG, "interface_messages", "member_unblock", "", lng_key)
                     content_group = replace(content_group, source_hash, source_name, source_right, lng_key)
                     content_group = content_group.replace(delimiter+"user_address"+delimiter, value)
                     content_group = content_group.replace(delimiter+"user_name"+delimiter, user_name)
                     if content_group != "":
+                        fields = fields_generate(lng_key, h=bytes.fromhex(value) ,n=user_name, m=True, tpl="unblock")
                         for section in sections:
                             if "receive_block" in config_get(CONFIG, "rights", section).split(","):
                                 for (key, val) in DATA.items(section):
-                                    LXMF_CONNECTION.send(key, content_group, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
+                                    LXMF_CONNECTION.send(key, content_group, "", fields, None, "interface_send")
 
                     content = config_get(CONFIG, "interface_menu", "unblock_ok", "", lng_key)
                     content = content.replace(delimiter+"user_address"+delimiter, value)
@@ -2435,17 +2621,18 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                         content_user = config_get(CONFIG, "interface_messages", "allow_"+user_section, "", lng_key)
                         content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                         if content_user != "":
-                            LXMF_CONNECTION.send(value, content_user, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
+                            LXMF_CONNECTION.send(value, content_user, "", fields_generate(lng_key, m=True, d=True, r=True, cmd=user_section, config=user_section), None, "interface_send")
 
                         content_group = config_get(CONFIG, "interface_messages", "member_allow", "", lng_key)
                         content_group = replace(content_group, source_hash, source_name, source_right, lng_key)
                         content_group = content_group.replace(delimiter+"user_address"+delimiter, value)
                         content_group = content_group.replace(delimiter+"user_name"+delimiter, user_name)
                         if content_group != "":
+                            fields = fields_generate(lng_key, h=bytes.fromhex(value) ,n=user_name, m=True, tpl="allow")
                             for section in sections:
                                 if "receive_block" in config_get(CONFIG, "rights", section).split(","):
                                     for (key, val) in DATA.items(section):
-                                        LXMF_CONNECTION.send(key, content_group, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
+                                        LXMF_CONNECTION.send(key, content_group, "", fields, None, "interface_send")
 
                         content = config_get(CONFIG, "interface_menu", "allow_ok", "", lng_key)
                         content = content.replace(delimiter+"user_address"+delimiter, value)
@@ -2487,17 +2674,18 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                         content_user = config_get(CONFIG, "interface_messages", "deny_"+user_section, "", lng_key)
                         content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                         if content_user != "":
-                            LXMF_CONNECTION.send(value, content_user, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
+                            LXMF_CONNECTION.send(value, content_user, "", fields_generate(lng_key), None, "interface_send")
 
                         content_group = config_get(CONFIG, "interface_messages", "member_deny", "", lng_key)
                         content_group = replace(content_group, source_hash, source_name, source_right, lng_key)
                         content_group = content_group.replace(delimiter+"user_address"+delimiter, value)
                         content_group = content_group.replace(delimiter+"user_name"+delimiter, user_name)
                         if content_group != "":
+                            fields = fields_generate(lng_key, h=bytes.fromhex(value) ,n=user_name, m=True, tpl="deny")
                             for section in sections:
                                 if "receive_block" in config_get(CONFIG, "rights", section).split(","):
                                     for (key, val) in DATA.items(section):
-                                        LXMF_CONNECTION.send(key, content_group, "", {"type": CONFIG["lxmf"]["destination_type_conv"]}, None, "interface_send")
+                                        LXMF_CONNECTION.send(key, content_group, "", fields, None, "interface_send")
 
                         content = config_get(CONFIG, "interface_menu", "deny_ok", "", lng_key)
                         content = content.replace(delimiter+"user_address"+delimiter, value)
@@ -2663,6 +2851,87 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
 
 
 
+#### Fields #####
+def fields_remove(fields=None, key="fields_remove"):
+    search = config_get(CONFIG, "message", key).split(",")
+
+    delete = []
+    for field in fields:
+        if field in search:
+            delete.append(field)
+
+    for field in delete:
+        del fields[field]
+
+    return fields
+
+
+
+
+#### Fields #####
+def fields_generate(lng_key, fields=None, h=None, n=None, m=False, d=False, r=False, cmd=None, config=None, tpl=None):
+    if not CONFIG["main"].getboolean("fields_message"):
+        return fields
+
+    if not fields:
+        fields = {}
+
+    if CONFIG["lxmf"]["destination_type_conv"] != "":
+        fields["type"] = CONFIG["lxmf"].getint("destination_type_conv")
+
+    if h:
+        fields["src"] = {}
+        fields["src"]["h"] = h
+        if n:
+            fields["src"]["n"] = n
+        else:
+            fields["src"]["n"] = ""
+
+    if m or d or r or cmd or config:
+        fields["data"] = {}
+
+    if m:
+        fields["data"]["m"] = {}
+        for (key, val) in CONFIG.items("rights"):
+            if DATA.has_section(key):
+                fields["data"]["m"][key] = {}
+                for (section_key, section_val) in DATA.items(key):
+                    try:
+                        h = bytes.fromhex(LXMF_CONNECTION.destination_correct(section_key))
+                        fields["data"]["m"][key][h] = section_val
+                    except:
+                       pass
+
+    if d:
+        fields["data"]["d"] = config_get(DATA, "main", "description", "", lng_key).replace(CONFIG["interface"]["delimiter_output"]+"n"+CONFIG["interface"]["delimiter_output"], "\n")
+
+    if r:
+        fields["data"]["r"] = config_get(DATA, "main", "rules", "", lng_key).replace(CONFIG["interface"]["delimiter_output"]+"n"+CONFIG["interface"]["delimiter_output"], "\n")
+
+    if cmd:
+        fields["data"]["cmd"] = []
+        if CONFIG.has_option("cmds", cmd):
+            cmds = config_get(CONFIG, "cmds", cmd).split(",")
+            for cmd in cmds:
+                fields["data"]["cmd"].append({"c": "/"+cmd})
+
+    if config:
+        fields["data"]["config"] = {}
+        if CONFIG.has_option("configs", config):
+            configs = config_get(CONFIG, "configs", config).split(",")
+            for config in configs:
+                if config != "":
+                    key, value = config.split("=", 1)
+                    fields["data"]["config"][key] = val_to_bool(value, fallback_true=value, fallback_false=value)
+
+    if tpl:
+        fields["tpl"] = tpl
+
+    return fields
+
+
+
+
 #### Replace #####
 def replace(text, source_hash, source_name, source_right, lng_key):
     delimiter = CONFIG["interface"]["delimiter_output"]
@@ -2752,6 +3021,36 @@ def config_getoption(config, section, key, default=False, lng_key=""):
     elif config.has_option(section, key):
         return key
     return default
+
+
+
+
+#### Config - Set #####
+def config_set(key=None, value=""):
+    global PATH
+
+    try:
+        file = PATH + "/config.cfg.owr"
+        if os.path.isfile(file):
+            fh = open(file,'r')
+            data = fh.read()
+            fh.close()
+            data = re.sub(r'^#?'+key+'( +)?=( +)?(\w+)?', key+" = "+value, data, count=1, flags=re.MULTILINE)
+            fh = open(file,'w')
+            fh.write(data)
+            fh.close()
+    
+        file = PATH + "/config.cfg"
+        if os.path.isfile(file):
+            fh = open(file,'r')
+            data = fh.read()
+            fh.close()
+            data = re.sub(r'^#?'+key+'( +)?=( +)?(\w+)?', key+" = "+value, data, count=1, flags=re.MULTILINE)
+            fh = open(file,'w')
+            fh.write(data)
+            fh.close()
+    except:
+        pass
 
 
 
@@ -3238,15 +3537,15 @@ def statistic_default(section="global"):
 # Value convert
 
 
-def val_to_bool(val):
+def val_to_bool(val, fallback_true=True, fallback_false=False):
     if val == "on" or val == "On" or val == "true" or val == "True" or val == "yes" or val == "Yes" or val == "1" or val == "open" or val == "opened" or val == "up":
         return True
     elif val == "off" or val == "Off" or val == "false" or val == "False" or val == "no" or val == "No" or val == "0" or val == "close" or val == "closed" or val == "down":
         return False
     elif val != "":
-        return True
+        return fallback_true
     else:
-        return False
+        return fallback_false
 
 
 ##############################################################################################################
@@ -3351,7 +3650,7 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
     global RNS_MAIN_CONNECTION
     global LXMF_CONNECTION
     global RNS_CONNECTION
-    
+
     if path is not None:
         if path.endswith("/"):
             path = path[:-1]
@@ -3402,6 +3701,11 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
     if CONFIG["statistic"].getboolean("enabled"):
         statistic_read(PATH + "/statistic.cfg")
 
+    if CONFIG.has_section("cmds") and CONFIG.has_section("rights"):
+        for (key, val) in CONFIG.items("cmds"):
+            if val != "" and CONFIG.has_option("rights", key):
+                CONFIG["rights"][key] += ",interface,"+val
+
     RNS_MAIN_CONNECTION = RNS.Reticulum(configdir=PATH_RNS, loglevel=rns_loglevel)
 
     log("...............................................................................", LOG_INFO)
@@ -3420,13 +3724,22 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
     else:
         config_propagation_node = None
 
+    if CONFIG.has_option("lxmf", "propagation_node_active"):
+        config_propagation_node_active = CONFIG["lxmf"]["propagation_node_active"]
+    else:
+        config_propagation_node_active = None
+
     if path is None:
         path = PATH
 
     display_name = CONFIG["lxmf"]["display_name"]
+    announce_data = None
     if CONFIG["lxmf"]["destination_type_conv"] != "":
         try:
-            display_name += chr(int(CONFIG["lxmf"]["destination_type_conv"]))
+           if CONFIG["main"].getboolean("fields_announce"):
+               announce_data = umsgpack.packb({"c": CONFIG["lxmf"]["display_name"].encode("utf-8"), "t": None, "f": {"type": CONFIG["lxmf"].getint("destination_type_conv")}})
+           else:
+               display_name += chr(CONFIG["lxmf"].getint("destination_type_conv"))
         except:
             pass
 
@@ -3437,9 +3750,13 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
         destination_name=CONFIG["lxmf"]["destination_name"],
         destination_type=CONFIG["lxmf"]["destination_type"],
         display_name=display_name,
+        announce_data = announce_data,
+        announce_hidden=CONFIG["lxmf"].getboolean("announce_hidden"),
         send_delay=CONFIG["lxmf"]["send_delay"],
         desired_method=CONFIG["lxmf"]["desired_method"],
         propagation_node=config_propagation_node,
+        propagation_node_auto=CONFIG["lxmf"].getboolean("propagation_node_auto"),
+        propagation_node_active=config_propagation_node_active,
         try_propagation_on_fail=CONFIG["lxmf"].getboolean("try_propagation_on_fail"),
         announce_startup=CONFIG["lxmf"].getboolean("announce_startup"),
         announce_startup_delay=CONFIG["lxmf"]["announce_startup_delay"],
@@ -3453,6 +3770,7 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
 
     LXMF_CONNECTION.register_announce_callback(lxmf_announce_callback)
     LXMF_CONNECTION.register_message_received_callback(lxmf_message_received_callback)
+    LXMF_CONNECTION.register_config_set_callback(config_set)
 
     if CONFIG["statistic"].getboolean("enabled"):
         LXMF_CONNECTION.register_message_notification_success_callback(lxmf_message_notification_success_callback)
@@ -3498,7 +3816,8 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
             announce_startup_delay=CONFIG["rns"]["announce_startup_delay"],
             announce_periodic=CONFIG["rns"].getboolean("announce_periodic"),
             announce_periodic_interval=CONFIG["rns"]["announce_periodic_interval"],
-            announce_data = json.dumps(announce_data, separators=(',', ':'))
+            announce_data = json.dumps(announce_data, separators=(',', ':')),
+            announce_hidden=CONFIG["rns"].getboolean("announce_hidden")
             )
         RNS_CONNECTION.register_announce_callback(rns_announce_callback)
         log("RNS - Connected", LOG_DEBUG)
@@ -3583,8 +3902,8 @@ lng = en # en/de
 # It is also used in the group description/info.
 display_name = Distribution Group
 
-# Propagation node address/hash.
-propagation_node = ca2762fe5283873719aececfb9e18835
+# Set propagation node automatically.
+propagation_node_auto = True
 
 # Try to deliver a message via the LXMF propagation network,
 # if a direct delivery to the recipient is not possible.
@@ -3684,6 +4003,11 @@ auto_name_add = True
 auto_name_def = True
 auto_name_change = False
 
+# Transport extended data in the announce and fields variable.
+# This is needed for the integration of advanced client apps.
+fields_announce = False
+fields_message = False
+
 
 
 
@@ -3694,7 +4018,7 @@ auto_name_change = False
 # to be compatibel with other LXMF programs.
 destination_name = lxmf
 destination_type = delivery
-destination_type_conv = 4
+destination_type_conv = #4=Group, 6=Channel
 
 # The name will be visible to other peers
 # on the network, and included in announces.
@@ -3705,7 +4029,13 @@ display_name = Distribution Group
 desired_method = direct #direct/propagated
 
 # Propagation node address/hash.
-propagation_node = ca2762fe5283873719aececfb9e18835
+propagation_node = 
+
+# Set propagation node automatically.
+propagation_node_auto = True
+
+# Current propagation node (Automatically set by the software).
+propagation_node_active = 
 
 # Try to deliver a message via the LXMF propagation network,
 # if a direct delivery to the recipient is not possible.
@@ -3720,6 +4050,10 @@ announce_startup_delay = 0 #Seconds
 # to let other peers reach it.
 announce_periodic = Yes
 announce_periodic_interval = 120 #Minutes
+
+# The announce is hidden for client applications
+# but is still used for the routing tables.
+announce_hidden = No
 
 # Some waiting time after message send
 # for LXMF/Reticulum processing.
@@ -3767,6 +4101,10 @@ announce_startup_delay = 0 #Seconds
 announce_periodic = Yes
 announce_periodic_interval = 120 #Minutes
 
+# The announce is hidden for client applications
+# but is still used for the routing tables.
+announce_hidden = No
+
 
 
 
@@ -3774,7 +4112,7 @@ announce_periodic_interval = 120 #Minutes
 [cluster]
 
 # Enable/Disable this functionality.
-enabled = True
+enabled = False
 
 # To use several completely separate clusters/groups,
 # an individual name and type can be assigned here.
@@ -3798,7 +4136,7 @@ delimiter_input = @
 [router]
 
 # Enable/Disable router functionality.
-enabled = True
+enabled = False
 
 # Comma-separated list with the names for which the messages are to be routed/repeated.
 # The names and levels must match the used display_name of the cluster accordingly.
@@ -3840,6 +4178,7 @@ heartbeat_timeout = 15 #Minutes
 ## Each message received (message and command) ##
 
 # Text is added.
+receive_title_prefix = 
 receive_prefix = 
 receive_suffix = 
 
@@ -3859,6 +4198,7 @@ receive_length_max = 0 #0=any length
 ## Each message send (message) ##
 
 # Text is added.
+send_title_prefix = #!source_name!!n!<!source_address!>!n!
 send_prefix = !source_name!!n!<!source_address!>!n!
 send_suffix = 
 
@@ -3878,6 +4218,7 @@ send_length_max = 0 #0=any length
 ## Each cluster message received (message and command) ##
 
 # Text is added.
+cluster_receive_title_prefix = #@!cluster_source!->
 cluster_receive_prefix = @!cluster_source!->
 cluster_receive_suffix = 
 
@@ -3897,6 +4238,7 @@ cluster_receive_length_max = 0 #0=any length
 ## Each cluster message send (message) ##
 
 # Text is added.
+cluster_send_title_prefix = #@!cluster_destination!!n!!source_name!!n!<!source_address!>!n!
 cluster_send_prefix = @!cluster_destination!!n!!source_name!!n!<!source_address!>!n!
 cluster_send_suffix = 
 
@@ -3924,6 +4266,10 @@ timestamp = client #client/server
 # Use title/fields.
 title = Yes
 fields = Yes
+
+# Comma-separated list with fields which will be removed.
+fields_remove = 
+fields_remove_anonymous = 
 
 
 
@@ -3958,14 +4304,47 @@ user = True
 # Delimiter for different rights: ,
 [rights]
 
-admin = interface,receive_local,receive_cluster,receive_cluster_pin_add,receive_cluster_loop,receive_cluster_join,receive_join,receive_leave,receive_invite,receive_kick,receive_block,receive_unblock,receive_allow,receive_deny,receive_description,receive_rules,receive_pin_add,receive_pin_remove,receive_name_def,receive_name_change,receive_auto_name_def,receive_auto_name_change,reply_signature,reply_cluster_enabled,reply_cluster_right,reply_interface_enabled,reply_interface_right,reply_local_enabled,reply_local_right,reply_block,reply_length_min,reply_length_max,send_local,send_cluster,help,leave,name,address,info,pin,pin_add,pin_remove,cluster_pin_add,description,rules,readme,time,version,groups,members,admins,moderators,users,guests,search,activitys,statistic,statistic_min,statistic_full,statistic_cluster,statistic_router,statistic_local,statistic_interface,statistic_self,statistic_user,status,delivery,enable_local,enable_cluster,auto_add_user,auto_add_user_type,auto_add_cluster,auto_add_router,invite_user,invite_user_type,allow_user,allow_user_type,deny_user,deny_user_type,description_set,rules_set,announce,sync,show_run,show,add,del,move,rename,invite,kick,block,unblock,allow,deny,load,save,reload,reset,unsaved
-mod = interface,receive_local,receive_cluster,receive_cluster_pin_add,receive_cluster_loop,receive_join,receive_leave,receive_invite,receive_kick,receive_block,receive_unblock,receive_allow,receive_deny,receive_description,receive_rules,receive_pin_add,reply_signature,reply_cluster_enabled,reply_cluster_right,reply_interface_enabled,reply_interface_right,reply_local_enabled,reply_local_right,reply_block,reply_length_min,reply_length_max,send_local,send_cluster,help,leave,name,address,info,pin,pin_add,pin_remove,cluster_pin_add,description,rules,readme,time,version,groups,members,admins,moderators,users,guests,search,activitys,statistic,statistic_min,statistic_cluster,statistic_router,statistic_local,statistic_self,delivery,show,add,del,move,rename,invite,kick,block,unblock,allow,deny
-user = interface,receive_local,receive_cluster,receive_cluster_pin_add,receive_cluster_loop,receive_join,receive_leave,receive_invite,receive_kick,receive_block,receive_unblock,receive_allow,receive_description,receive_rules,receive_pin_add,reply_signature,reply_cluster_enabled,reply_cluster_right,reply_interface_enabled,reply_interface_right,reply_local_enabled,reply_local_right,reply_block,reply_length_min,reply_length_max,send_local,send_cluster,help,leave,name,address,info,pin,pin_add,pin_remove,cluster_pin_add,description,rules,readme,time,version,groups,members,admins,moderators,users,guests,search,activitys,statistic,statistic_min,statistic_cluster,statistic_router,statistic_local,statistic_self,delivery,invite
-guest = interface,receive_local,receive_cluster,receive_cluster_loop,leave
+admin = interface,receive_local,receive_cluster,receive_cluster_pin_add,receive_cluster_loop,receive_cluster_join,receive_join,receive_leave,receive_invite,receive_kick,receive_block,receive_unblock,receive_allow,receive_deny,receive_description,receive_rules,receive_pin_add,receive_pin_remove,receive_name_def,receive_name_change,receive_auto_name_def,receive_auto_name_change,reply_signature,reply_cluster_enabled,reply_cluster_right,reply_interface_enabled,reply_interface_right,reply_local_enabled,reply_local_right,reply_block,reply_length_min,reply_length_max,send_local,send_cluster,help,update,join,leave,name,address,info,pin,pin_add,pin_remove,cluster_pin_add,description,rules,readme,time,version,groups,members,admins,moderators,users,guests,search,activitys,statistic,statistic_min,statistic_full,statistic_cluster,statistic_router,statistic_local,statistic_interface,statistic_self,statistic_user,status,delivery,enable_local,enable_cluster,auto_add_user,auto_add_user_type,auto_add_cluster,auto_add_router,invite_user,invite_user_type,allow_user,allow_user_type,deny_user,deny_user_type,description_set,rules_set,announce,sync,show_run,show,add,del,move,rename,invite,kick,block,unblock,allow,deny,load,save,reload,reset,unsaved
+mod = interface,receive_local,receive_cluster,receive_cluster_pin_add,receive_cluster_loop,receive_join,receive_leave,receive_invite,receive_kick,receive_block,receive_unblock,receive_allow,receive_deny,receive_description,receive_rules,receive_pin_add,reply_signature,reply_cluster_enabled,reply_cluster_right,reply_interface_enabled,reply_interface_right,reply_local_enabled,reply_local_right,reply_block,reply_length_min,reply_length_max,send_local,send_cluster,help,update,join,leave,name,address,info,pin,pin_add,pin_remove,cluster_pin_add,description,rules,readme,time,version,groups,members,admins,moderators,users,guests,search,activitys,statistic,statistic_min,statistic_cluster,statistic_router,statistic_local,statistic_self,delivery,show,add,del,move,rename,invite,kick,block,unblock,allow,deny
+user = interface,receive_local,receive_cluster,receive_cluster_pin_add,receive_cluster_loop,receive_join,receive_leave,receive_invite,receive_kick,receive_block,receive_unblock,receive_allow,receive_description,receive_rules,receive_pin_add,reply_signature,reply_cluster_enabled,reply_cluster_right,reply_interface_enabled,reply_interface_right,reply_local_enabled,reply_local_right,reply_block,reply_length_min,reply_length_max,send_local,send_cluster,help,update,join,leave,name,address,info,pin,pin_add,pin_remove,cluster_pin_add,description,rules,readme,time,version,groups,members,admins,moderators,users,guests,search,activitys,statistic,statistic_min,statistic_cluster,statistic_router,statistic_local,statistic_self,delivery,invite
+guest = interface,receive_local,receive_cluster,receive_cluster_loop,update,join,leave
+wait = interface,update,join,leave
+
+
+
+
+#### User cmd assignment ####
+
+# Define the individual cmds for the different user types.
+# Delimiter for different cmds: ,
+[cmds]
+
+admin = leave,invite,kick,block,unblock,allow,deny
+mod = leave,invite,kick,block,unblock,allow,deny
+user = leave,invite
+guest = leave
+wait = leave
+
+
+
+
+#### User config assignment ####
+# Define the individual configs for the different user types.
+# Delimiter for different configs: ,
+[configs]
+admin = #file_tx_enabled=True,audio_tx_enabled=True
+mod = 
+user = 
+guest = 
 wait = 
 
 
-# The following rights can be assigned:
+
+
+#### User rights/cmds options ####
+
+# The following rights/cmds can be assigned:
+# anonymous = Hide source identity.
 # interface = General function of the command interface.
 # receive_local = Receive local (own group) messages.
 # receive_cluster = Receive cluster (foreign group) messages.
@@ -4002,6 +4381,8 @@ wait =
 # send_local = Allows you to send loacally in your own group.
 # send_cluster = Allows sending to another cluster/group.
 # help = Use of the "/help" command allowed.
+# update = Use of the "/update" command allowed.
+# join = Use of the "/join" command allowed.
 # leave = Use of the "/leave" command allowed.
 # name = Use of the "/name" command allowed.
 # address = Use of the "/address" command allowed.
@@ -4264,6 +4645,16 @@ help_user = Group:!n!!display_name!!n!!n!Description:!n!!description!!n!!n!Numbe
 help_user-de = Gruppe:!n!!display_name!!n!!n!Beschreibung:!n!!description!!n!!n!Anzahl Mitglieder: !count_members!!n!Nickname: !source_name!!n!Benutzer Recht/Typ: !source_right!!n!!n!!interface_help!!n!Befehle:!n!!interface_help_command!
 help_guest = 
 help_guest-de = 
+
+# "/update" command.
+update_ok = OK: Data updated.
+update_ok-de = OK: Daten aktualisiert.
+update_error = ERROR: Updating data.
+update_error-de = FEHLER: Daten aktualisieren.
+
+# "/join" command.
+join_error = ERROR: While joining group.
+join_error-de = FEHLER: Beim Beitritt in die Gruppe.
 
 # "/leave" command.
 leave_ok = OK: You leaved the group.
@@ -4856,8 +5247,8 @@ allow_user = True
 allow_user_type = user
 deny_user = True
 deny_user_type = block_wait
-description = This group is for a first test of functionality.!n!!n!To receive offline messages please use the following propagation node: <ca2762fe5283873719aececfb9e18835>
-description-de = Diese Gruppe dient einem ersten Test der Funktionalität.!n!!n!Um offline Nachrichten zu empfangen bitte folgender Propagation Node verwenden: <ca2762fe5283873719aececfb9e18835>
+description = 
+description-de = 
 rules = Please follow the general rules of etiquette which should be taken for granted!!n!Prohibited are:!n!Spam, insults, violence, sex, illegal topics
 rules-de = Bitte befolgen Sie die allgemeinen benimm-dich-Regeln welche als selbstverständlich gelten sollten!!n!Verboten sind:!n!Spam, Beleidigungen, Gewalt, Sex, illegale Themen
 

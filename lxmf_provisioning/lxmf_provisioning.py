@@ -47,6 +47,15 @@ import pickle
 #### String ####
 import string
 
+#### Regex ####
+import re
+
+#### UID ####
+import uuid
+
+#### ####
+import base64
+
 #### Process ####
 import signal
 import threading
@@ -81,7 +90,10 @@ PATH_RNS = None
 
 
 #### Global Variables - System (Not changeable) ####
-CACHE = []
+CACHE = {}
+CACHE["in"] = {}
+CACHE["out"] = {}
+CACHE_CHANGE = False
 CONFIG = None
 RNS_CONNECTION = None
 LXMF_CONNECTION = None
@@ -97,9 +109,10 @@ class lxmf_connection:
     message_notification_callback = None
     message_notification_success_callback = None
     message_notification_failed_callback = None
+    config_set_callback = None
 
 
-    def __init__(self, storage_path=None, identity_file="identity", identity=None, destination_name="lxmf", destination_type="delivery", display_name="", announce_data=None, send_delay=0, desired_method="direct", propagation_node=None, try_propagation_on_fail=False, announce_startup=False, announce_startup_delay=0, announce_periodic=False, announce_periodic_interval=360, sync_startup=False, sync_startup_delay=0, sync_limit=8, sync_periodic=False, sync_periodic_interval=360):
+    def __init__(self, storage_path=None, identity_file="identity", identity=None, destination_name="lxmf", destination_type="delivery", display_name="", announce_data=None, announce_hidden=False, send_delay=0, desired_method="direct", propagation_node=None, propagation_node_auto=False, propagation_node_active=None, try_propagation_on_fail=False, announce_startup=False, announce_startup_delay=0, announce_periodic=False, announce_periodic_interval=360, sync_startup=False, sync_startup_delay=0, sync_limit=8, sync_periodic=False, sync_periodic_interval=360):
         self.storage_path = storage_path
 
         self.identity_file = identity_file
@@ -112,6 +125,7 @@ class lxmf_connection:
 
         self.display_name = display_name
         self.announce_data = announce_data
+        self.announce_hidden = announce_hidden
 
         self.send_delay = int(send_delay)
 
@@ -120,6 +134,8 @@ class lxmf_connection:
         else:
             self.desired_method_direct = True
         self.propagation_node = propagation_node
+        self.propagation_node_auto = propagation_node_auto
+        self.propagation_node_active = propagation_node_active
         self.try_propagation_on_fail = try_propagation_on_fail
 
         self.announce_startup = announce_startup
@@ -133,6 +149,10 @@ class lxmf_connection:
         self.sync_limit = int(sync_limit)
         self.sync_periodic = sync_periodic
         self.sync_periodic_interval = int(sync_periodic_interval)
+
+        if not self.storage_path:
+            log("LXMF - No storage_path parameter", LOG_ERROR)
+            return
 
         if not os.path.isdir(self.storage_path):
             os.makedirs(self.storage_path)
@@ -188,10 +208,18 @@ class lxmf_connection:
 
         self.destination.set_link_established_callback(self.client_connected)
 
-        self.autoselect_propagation_node()
+        if self.propagation_node_auto:
+            self.propagation_callback = lxmf_connection_propagation(self, "lxmf.propagation")
+            RNS.Transport.register_announce_handler(self.propagation_callback)
+            if self.propagation_node_active:
+                self.propagation_node_set(self.propagation_node_active)
+            elif self.propagation_node:
+                self.propagation_node_set(self.propagation_node)
+        else:
+            self.propagation_node_set(self.propagation_node)
 
         if self.announce_startup or self.announce_periodic:
-            self.announce(True)
+            self.announce(initial=True)
 
         if self.sync_startup or self.sync_periodic:
             self.sync(True)
@@ -216,6 +244,10 @@ class lxmf_connection:
 
     def register_message_notification_failed_callback(self, handler_function):
         self.message_notification_failed_callback = handler_function
+
+
+    def register_config_set_callback(self, handler_function):
+        self.config_set_callback = handler_function
 
 
     def destination_hash(self):
@@ -261,7 +293,7 @@ class lxmf_connection:
         return ""
 
 
-    def send(self, destination, content="", title="", fields=None, timestamp=None, app_data=""):
+    def send(self, destination, content="", title="", fields=None, timestamp=None, app_data="", destination_name=None, destination_type=None):
         if type(destination) is not bytes:
             if len(destination) == ((RNS.Reticulum.TRUNCATED_HASHLENGTH//8)*2)+2:
                 destination = destination[1:-1]
@@ -276,8 +308,13 @@ class lxmf_connection:
                 log("LXMF - Destination is invalid", LOG_ERROR)
                 return
 
+        if destination_name == None:
+            destination_name = self.destination_name
+        if destination_type == None:
+            destination_type = self.destination_type
+
         destination_identity = RNS.Identity.recall(destination)
-        destination = RNS.Destination(destination_identity, RNS.Destination.OUT, RNS.Destination.SINGLE, self.destination_name, self.destination_type)
+        destination = RNS.Destination(destination_identity, RNS.Destination.OUT, RNS.Destination.SINGLE, destination_name, destination_type)
         self.send_message(destination, self.destination, content, title, fields, timestamp, app_data)
 
 
@@ -346,7 +383,7 @@ class lxmf_connection:
             message.desired_method_str = "propagated"
 
 
-    def announce(self, initial=False):
+    def announce(self, app_data=None, attached_interface=None, initial=False):
         announce_timer = None
 
         if self.announce_periodic and self.announce_periodic_interval > 0:
@@ -363,26 +400,29 @@ class lxmf_connection:
                     announce_timer.daemon = True
                     announce_timer.start()
                 else:
-                    self.announce_now()
+                    self.announce_now(app_data=app_data, attached_interface=attached_interface)
             return
 
-        self.announce_now()
+        self.announce_now(app_data=app_data, attached_interface=attached_interface)
 
 
-    def announce_now(self, app_data=None):
-        if app_data:
+    def announce_now(self, app_data=None, attached_interface=None):
+        if self.announce_hidden:
+            self.destination.announce("".encode("utf-8"), attached_interface=attached_interface)
+            log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()) +" (Hidden)", LOG_DEBUG)
+        elif app_data != None:
             if isinstance(app_data, str):
-                self.destination.announce(app_data.encode("utf-8"))
-                log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()) +":" + announce_data, LOG_DEBUG)
+                self.destination.announce(app_data.encode("utf-8"), attached_interface=attached_interface)
+                log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()) +":" + app_data, LOG_DEBUG)
             else:
-                self.destination.announce(app_data)
+                self.destination.announce(app_data, attached_interface=attached_interface)
                 log("LMF - Announced: " + RNS.prettyhexrep(self.destination_hash()), LOG_DEBUG)
         elif self.announce_data:
             if isinstance(self.announce_data, str):
-                self.destination.announce(self.announce_data.encode("utf-8"))
+                self.destination.announce(self.announce_data.encode("utf-8"), attached_interface=attached_interface)
                 log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()) +":" + self.announce_data, LOG_DEBUG)
             else:
-                self.destination.announce(self.announce_data)
+                self.destination.announce(self.announce_data, attached_interface=attached_interface)
                 log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()), LOG_DEBUG)
         else:
             self.destination.announce()
@@ -424,24 +464,50 @@ class lxmf_connection:
             return False
 
 
-    def autoselect_propagation_node(self):
-        if self.propagation_node is not None:
-            if len(self.propagation_node) != ((RNS.Reticulum.TRUNCATED_HASHLENGTH//8)*2):
-                    log("LXMF - Propagation node length is invalid", LOG_ERROR)
-            else:
-                try:
-                    propagation_hash = bytes.fromhex(self.propagation_node)
-                except Exception as e:
-                    log("LXMF - Propagation node is invalid", LOG_ERROR)
-                    return
+    def propagation_node_set(self, dest_str):
+        if not dest_str:
+            return False
 
-            node_identity = RNS.Identity.recall(propagation_hash)
-            if node_identity != None:
-                log("LXMF - Propagation node: " + RNS.prettyhexrep(propagation_hash), LOG_INFO)
-                propagation_hash = RNS.Destination.hash_from_name_and_identity("lxmf.propagation", node_identity)
-                self.message_router.set_outbound_propagation_node(propagation_hash)
-            else:
-                log("LXMF - Propagation node identity not known", LOG_ERROR)
+        if len(dest_str) != ((RNS.Reticulum.TRUNCATED_HASHLENGTH//8)*2):
+            log("LXMF - Propagation node length is invalid", LOG_ERROR)
+            return False
+
+        try:
+            dest_hash = bytes.fromhex(dest_str)
+        except Exception as e:
+            log("LXMF - Propagation node is invalid", LOG_ERROR)
+            return False
+
+        node_identity = RNS.Identity.recall(dest_hash)
+        if node_identity != None:
+            log("LXMF - Propagation node: " + RNS.prettyhexrep(dest_hash), LOG_INFO)
+            dest_hash = RNS.Destination.hash_from_name_and_identity("lxmf.propagation", node_identity)
+            self.message_router.set_outbound_propagation_node(dest_hash)
+            self.propagation_node_active = dest_str
+            return True
+        else:
+            log("LXMF - Propagation node identity not known", LOG_ERROR)
+            return False
+
+
+    def propagation_node_update(self, dest_str):
+        if self.propagation_node_hash_str() != dest_str:
+            if self.propagation_node_set(dest_str) and self.config_set_callback is not None:
+                 self.config_set_callback("propagation_node_active", dest_str)
+
+
+    def propagation_node_hash(self):
+        try:
+            return bytes.fromhex(self.propagation_node_active)
+        except:
+            return None
+
+
+    def propagation_node_hash_str(self):
+        if self.propagation_node_active:
+            return self.propagation_node_active
+        else:
+            return ""
 
 
     def client_connected(self, link):
@@ -529,6 +595,43 @@ class lxmf_connection:
             log("-    App Data: " + message.app_data, LOG_DEBUG)
 
 
+
+
+class lxmf_connection_propagation():
+    def __init__(self, owner, aspect_filter=None):
+        self.owner = owner
+        self.aspect_filter = aspect_filter
+
+    EMITTED_DELTA_GRACE = 300
+    EMITTED_DELTA_IGNORE = 10
+
+    def received_announce(self, destination_hash, announced_identity, app_data):
+        if app_data == None:
+            return
+
+        if len(app_data) == 0:
+            return
+
+        try:
+            unpacked = umsgpack.unpackb(app_data)
+            node_active = unpacked[0]
+            emitted = unpacked[1]
+            hop_count = RNS.Transport.hops_to(destination_hash)
+            age = time.time() - emitted
+            if age < 0:
+                if age < -1*PropDetector.EMITTED_DELTA_GRACE:
+                    return
+            log("LXMF - Received an propagation node announce from "+RNS.prettyhexrep(destination_hash)+": "+str(age)+" seconds ago, "+str(hop_count)+" hops away", LOG_INFO)
+            if self.owner.propagation_node_active == None:
+                self.owner.propagation_node_update(RNS.hexrep(destination_hash, False))
+            else:
+                prev_hop_count = RNS.Transport.hops_to(self.owner.propagation_node_hash())
+                if hop_count <= prev_hop_count:
+                    self.owner.propagation_node_update(RNS.hexrep(destination_hash, False))
+        except:
+            return
+
+
 ##############################################################################################################
 # LXMF Functions
 
@@ -549,7 +652,7 @@ class lxmf_announce_callback:
 
 #### LXMF - Message ####
 def lxmf_message_received_callback(message):
-    global CACHE
+    global CACHE, CACHE_CHANGE
 
     if CONFIG["lxmf"].getboolean("signature_validated") and not message.signature_validated:
         log("LXMF - Source " + RNS.prettyhexrep(message.source_hash) + " have no valid signature", LOG_DEBUG)
@@ -558,33 +661,340 @@ def lxmf_message_received_callback(message):
     if not message.fields:
         return
 
-    if not "registration_request" in message.fields and not "telemetry" in message.fields:
-        return
+    hash_destination = RNS.hexrep(message.source_hash, delimit=False)
+    hash_identity = ""
+    #hash_identity = RNS.Identity.recall(message.source_hash)
+    #if hash_identity != None:
+    #    hash_identity = RNS.hexrep(hash_identity, delimit=False)
+    #else:
+    #    hash_identity = ""
 
-    db = None
-    try:
-        db = psycopg2.connect(user=CONFIG["database"]["user"], password=CONFIG["database"]["password"], host=CONFIG["database"]["host"], port=CONFIG["database"]["port"], database=CONFIG["database"]["database"])
-        dbc = db.cursor()
+    for key in message.fields:
+        try:
+            data = message.fields[key]
+            if not isinstance(data, dict):
+                continue
+            if "type" not in data:
+                continue
+            if data["type"] == "":
+                continue
 
-        if CONFIG["features"].getboolean("registration") and "registration_request" in message.fields:
-            dbc.execute("INSERT INTO "+CONFIG["database"]["table_registration"]+" (hash, data) VALUES(%s, %s)", (
-                RNS.hexrep(message.source_hash, delimit=False),
-                umsgpack.packb(message.fields["registration_request"]))
-            )
+            data["hash_destination"] = hash_destination
+            data["hash_identity"] = hash_identity
+            data["timestamp_client"] = message.timestamp
+            data["timestamp_server"] = time.time()
 
-        if CONFIG["features"].getboolean("telemetry") and "telemetry" in message.fields:
-            dbc.execute("INSERT INTO "+CONFIG["database"]["table_telemetry"]+" (hash, data) VALUES(%s, %s)", (
-                RNS.hexrep(message.source_hash, delimit=False),
-                umsgpack.packb(message.fields["telemetry"]))
-            )
+            if "password" in data:
+                data["password"] = str(base64.b32encode(data["password"]))
 
-        db.commit()
-    except psycopg2.DatabaseError as e:
-        log("DB - Error: "+str(e), LOG_ERROR)
-    if db:
-        dbc.close()
-        db.close()
-        db = None
+            CACHE["in"][str(uuid.uuid4())] = data
+            CACHE_CHANGE = True
+        except:
+            pass
+
+
+
+
+#### LXMF - Notification ####
+def lxmf_message_notification_success_callback(message):
+    global CACHE, CACHE_CHANGE
+
+    key = message.app_data
+    if key in CACHE["out"]:
+        del CACHE["out"][key]
+        CACHE_CHANGE = True
+
+
+
+
+#### Jobs ####
+def jobs_in():
+    global CACHE, CACHE_CHANGE
+
+    while True:
+        time.sleep(CONFIG["processing"].getint("interval_in"))
+        log("Jobs - Loop/Execute", LOG_DEBUG)
+
+        if len(CACHE["in"]) > 0:
+            log("Cache - Available -> Execute", LOG_DEBUG)
+
+            CACHE_DEL = []
+            db = None
+            try:
+                db = psycopg2.connect(user=CONFIG["database"]["user"], password=CONFIG["database"]["password"], host=CONFIG["database"]["host"], port=CONFIG["database"]["port"], database=CONFIG["database"]["database"])
+                dbc = db.cursor()
+
+                for key in CACHE["in"]:
+                    try:
+                        log("-> Execute", LOG_EXTREME)
+                        log(CACHE["in"][key], LOG_EXTREME)
+
+                        data = CACHE["in"][key]
+
+                        if data["type"] == "account_add" and CONFIG["features"].getboolean("account_add"):
+                            # members
+                            dbc.execute("SELECT member_user_id FROM members WHERE member_email = %s AND member_password = %s", (data["email"], data["password"]))
+                            result = dbc.fetchall()
+                            if len(result) == 0:
+                                user_id = str(uuid.uuid4())
+                                dbc.execute("INSERT INTO members (member_user_id, member_email, member_password, member_dob, member_sex, member_introduction, member_country, member_state, member_city, member_occupation, member_skills, member_tasks, member_wallet_address, member_accept_rules, member_language, member_locale, member_status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, '0')", (
+                                    user_id,
+                                    data["email"],
+                                    data["password"],
+                                    data["dob"],
+                                    data["sex"],
+                                    data["introduction"],
+                                    data["country"],
+                                    data["state"],
+                                    data["city"],
+                                    data["occupation"],
+                                    data["skills"],
+                                    data["tasks"],
+                                    data["wallet_address"],
+                                    data["accept_rules"],
+                                    data["language"],
+                                    data["language"]
+                                    )
+                                )
+                                if CONFIG["features"].getboolean("account_add_auth"):
+                                    fields = {}
+                                    if CONFIG["lxmf"]["destination_type_conv"] != "":
+                                        fields["type"] = CONFIG["lxmf"].getint("destination_type_conv")
+                                    fields["prov"] = {}
+                                    fields["prov"]["auth_state"] = CONFIG["features"].getint("account_add_auth_state")
+                                    fields["prov"]["auth_role"] = CONFIG["features"].getint("account_add_auth_role")
+                                    CACHE["out"][str(uuid.uuid4())] = {"hash_destination": data["hash_destination"], "content": "", "title": "", "fields": fields}
+                                    CACHE_CHANGE = True
+                            elif len(result) == 1:
+                                user_id = result[0][0]
+                            else:
+                                continue
+
+                            # devices
+                            dbc.execute("DELETE FROM devices WHERE device_id = %s OR device_rns_id = %s", (data["device_id"], data["hash_destination"]))
+                            dbc.execute("INSERT INTO devices (device_id, device_user_id, device_name, device_display_name, device_rns_id) VALUES (%s, %s, %s, %s, %s)", (
+                                data["device_id"],
+                                user_id,
+                                data["device_name"],
+                                data["device_display_name"],
+                                data["hash_destination"]
+                                )
+                            )
+
+                            db.commit()
+                            CACHE_DEL.append(key)
+
+                        if data["type"] == "account_edit" and CONFIG["features"].getboolean("account_edit"):
+                            # members
+                            dbc.execute("SELECT member_user_id FROM members WHERE member_email = %s AND member_password = %s", (data["email"], data["password"]))
+                            result = dbc.fetchall()
+                            if len(result) == 0:
+                                user_id = str(uuid.uuid4())
+                                dbc.execute("INSERT INTO members (member_user_id, member_email, member_password, member_dob, member_sex, member_introduction, member_country, member_state, member_city, member_occupation, member_skills, member_tasks, member_wallet_address, member_accept_rules, member_language, member_locale, member_status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, '0')", (
+                                    user_id,
+                                    data["email"],
+                                    data["password"],
+                                    data["dob"],
+                                    data["sex"],
+                                    data["introduction"],
+                                    data["country"],
+                                    data["state"],
+                                    data["city"],
+                                    data["occupation"],
+                                    data["skills"],
+                                    data["tasks"],
+                                    data["wallet_address"],
+                                    data["accept_rules"],
+                                    data["language"],
+                                    data["language"]
+                                    )
+                                )
+                                if CONFIG["features"].getboolean("account_add_auth"):
+                                    fields = {}
+                                    if CONFIG["lxmf"]["destination_type_conv"] != "":
+                                        fields["type"] = CONFIG["lxmf"].getint("destination_type_conv")
+                                    fields["prov"] = {}
+                                    fields["prov"]["auth_state"] = CONFIG["features"].getint("account_add_auth_state")
+                                    fields["prov"]["auth_role"] = CONFIG["features"].getint("account_add_auth_role")
+                                    CACHE["out"][str(uuid.uuid4())] = {"hash_destination": data["hash_destination"], "content": "", "title": "", "fields": fields}
+                                    CACHE_CHANGE = True
+                            elif len(result) == 1:
+                                user_id = result[0][0]
+                            else:
+                                continue
+
+                            # devices
+                            dbc.execute("DELETE FROM devices WHERE device_id = %s OR device_rns_id = %s", (data["device_id"], data["hash_destination"]))
+                            dbc.execute("INSERT INTO devices (device_id, device_user_id, device_name, device_display_name, device_rns_id) VALUES (%s, %s, %s, %s, %s)", (
+                                data["device_id"],
+                                user_id,
+                                data["device_name"],
+                                data["device_display_name"],
+                                data["hash_destination"]
+                                )
+                            )
+
+                            db.commit()
+                            CACHE_DEL.append(key)
+
+                        if data["type"] == "account_prove" and CONFIG["features"].getboolean("account_prove"):
+                            dbc.execute("SELECT device_user_id FROM devices LEFT JOIN members ON members.member_user_id = devices.device_user_id WHERE devices.device_rns_id = %s and members.member_status = '1'", (data["hash_destination"], ))
+                            result = dbc.fetchall()
+                            if len(result) == 1:
+                                source_user_id = result[0][0]
+                                dbc.execute("SELECT device_user_id FROM devices WHERE device_rns_id = %s", (data["prove"], ))
+                                result = dbc.fetchall()
+                                if len(result) == 1:
+                                    destination_user_id = result[0][0]
+                                    dbc.execute("INSERT INTO proves (prove_source_user_id, prove_destination_user_id) VALUES (%s, %s)", (source_user_id, destination_user_id))
+                                    dbc.execute("SELECT member_status FROM members WHERE member_user_id = %s AND member_status = '0'", (destination_user_id, ))
+                                    result = dbc.fetchall()
+                                    if len(result) == 1:
+                                        dbc.execute("SELECT * FROM proves WHERE prove_destination_user_id = %s", (destination_user_id,))
+                                        result = dbc.fetchall()
+                                        if len(result) >= 2:
+                                            dbc.execute("UPDATE members SET member_status = '1' WHERE member_user_id = %s AND member_status = '0'", (destination_user_id,))
+                                            if CONFIG["features"].getboolean("account_prove_auth"):
+                                                fields = {}
+                                                if CONFIG["lxmf"]["destination_type_conv"] != "":
+                                                    fields["type"] = CONFIG["lxmf"].getint("destination_type_conv")
+                                                fields["prov"] = {}
+                                                fields["prov"]["auth_state"] = CONFIG["features"].getint("account_prove_auth_state")
+                                                fields["prov"]["auth_role"] = CONFIG["features"].getint("account_prove_auth_role")
+                                                CACHE["out"][str(uuid.uuid4())] = {"hash_destination": data["prove"], "content": "", "title": "", "fields": fields}
+                                                CACHE_CHANGE = True
+
+                                    db.commit()
+                                    CACHE_DEL.append(key)
+
+                    except psycopg2.DatabaseError as e:
+                        log("Loop - DB - Error: "+str(e), LOG_ERROR)
+                        db.rollback()
+
+            except psycopg2.DatabaseError as e:
+                log("DB - Error: "+str(e), LOG_ERROR)
+                db.rollback()
+
+            if len(CACHE_DEL) > 0:
+                for key in CACHE_DEL:
+                    del CACHE["in"][key]
+                CACHE_CHANGE = True
+
+            if db:
+                dbc.close()
+                db.close()
+                db = None
+
+        if CACHE_CHANGE:
+            if cache_save(PATH + "/cache.data"):
+                CACHE_CHANGE = False
+
+
+
+
+#### Jobs ####
+def jobs_out():
+    global CACHE, CACHE_CHANGE
+
+    while True:
+        time.sleep(CONFIG["processing"].getint("interval_out"))
+        log("Jobs Out - Loop/Execute", LOG_DEBUG)
+
+        if len(CACHE["out"]) > 0:
+            log("Cache - Available -> Execute", LOG_DEBUG)
+
+            CACHE_DEL = []
+            for key in CACHE["out"]:
+                try:
+                    log("-> Execute", LOG_EXTREME)
+                    log(CACHE["out"][key], LOG_EXTREME)
+
+                    data = CACHE["out"][key]
+                    LXMF_CONNECTION.send(data["hash_destination"], data["content"], data["title"], data["fields"], app_data=key, destination_name="lxmf", destination_type="delivery")
+                except:
+                    pass
+
+            if len(CACHE_DEL) > 0:
+                for key in CACHE_DEL:
+                    del CACHE["out"][key]
+                CACHE_CHANGE = True
+
+        if CACHE_CHANGE:
+            if cache_save(PATH + "/cache.data"):
+                CACHE_CHANGE = False
+
+
+
+
+##############################################################################################################
+# Cache
+
+
+#### Cache - Read #####
+def cache_read(file=None):
+    log("Cache - Read", LOG_DEBUG)
+    global CACHE
+
+    if file is None:
+        return False
+    else:
+        if os.path.isfile(file):
+            try:
+                fh = open(file, "rb")
+                CACHE = umsgpack.unpackb(fh.read())
+                fh.close()
+            except Exception as e:
+                return False
+        else:
+            if not cache_default(file=file):
+                return False
+    return True
+
+
+
+
+#### Cache - Save #####
+def cache_save(file=None):
+    log("Cache - Save", LOG_DEBUG)
+    global CACHE
+
+    if file is None:
+        return False
+    else:
+        if os.path.isfile(file):
+            try:
+                fh = open(file, "wb")
+                fh.write(umsgpack.packb(CACHE))
+                fh.close()
+            except Exception as e:
+                return False
+        else:
+            return False
+    return True
+
+
+
+
+#### Cache - Default #####
+def cache_default(file=None):
+    log("Cache - Default", LOG_DEBUG)
+    global CACHE
+
+    if file is None:
+        return False
+    else:
+        if not os.path.isdir(os.path.dirname(file)):
+            try:
+                os.makedirs(os.path.dirname(file))
+            except Exception:
+                return False
+        try:
+            fh = open(file, "wb")
+            fh.write(umsgpack.packb(CACHE))
+            fh.close()
+        except:
+            return False
+    return True
 
 
 ##############################################################################################################
@@ -640,6 +1050,36 @@ def config_getoption(config, section, key, default=False, lng_key=""):
     elif config.has_option(section, key):
         return key
     return default
+
+
+
+
+#### Config - Set #####
+def config_set(key=None, value=""):
+    global PATH
+
+    try:
+        file = PATH + "/config.cfg.owr"
+        if os.path.isfile(file):
+            fh = open(file,'r')
+            data = fh.read()
+            fh.close()
+            data = re.sub(r'^#?'+key+'( +)?=( +)?(\w+)?', key+" = "+value, data, count=1, flags=re.MULTILINE)
+            fh = open(file,'w')
+            fh.write(data)
+            fh.close()
+    
+        file = PATH + "/config.cfg"
+        if os.path.isfile(file):
+            fh = open(file,'r')
+            data = fh.read()
+            fh.close()
+            data = re.sub(r'^#?'+key+'( +)?=( +)?(\w+)?', key+" = "+value, data, count=1, flags=re.MULTILINE)
+            fh = open(file,'w')
+            fh.write(data)
+            fh.close()
+    except:
+        pass
 
 
 
@@ -737,15 +1177,15 @@ def config_default(file=None, file_override=None):
 # Value convert
 
 
-def val_to_bool(val):
+def val_to_bool(val, fallback_true=True, fallback_false=False):
     if val == "on" or val == "On" or val == "true" or val == "True" or val == "yes" or val == "Yes" or val == "1" or val == "open" or val == "opened" or val == "up":
         return True
     elif val == "off" or val == "Off" or val == "false" or val == "False" or val == "no" or val == "No" or val == "0" or val == "close" or val == "closed" or val == "down":
         return False
     elif val != "":
-        return True
+        return fallback_true
     else:
-        return False
+        return fallback_false
 
 
 ##############################################################################################################
@@ -881,6 +1321,10 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
         print("Config - Error reading config file " + PATH + "/config.cfg")
         panic()
 
+    if not cache_read(PATH + "/cache.data"):
+        print("Cache - Error reading cache file " + PATH + "/cache.data")
+        panic()
+
     if CONFIG["main"].getboolean("default_config"):
         print("Exit!")
         print("First start with the default config!")
@@ -910,6 +1354,11 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
     else:
         config_propagation_node = None
 
+    if CONFIG.has_option("lxmf", "propagation_node_active"):
+        config_propagation_node_active = CONFIG["lxmf"]["propagation_node_active"]
+    else:
+        config_propagation_node_active = None
+
     if path is None:
         path = PATH
 
@@ -925,10 +1374,13 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
         destination_name=CONFIG["lxmf"]["destination_name"],
         destination_type=CONFIG["lxmf"]["destination_type"],
         display_name=CONFIG["lxmf"]["display_name"],
+        announce_hidden=CONFIG["lxmf"].getboolean("announce_hidden"),
         announce_data = umsgpack.packb(announce_data),
         send_delay=CONFIG["lxmf"]["send_delay"],
         desired_method=CONFIG["lxmf"]["desired_method"],
         propagation_node=config_propagation_node,
+        propagation_node_auto=CONFIG["lxmf"].getboolean("propagation_node_auto"),
+        propagation_node_active=config_propagation_node_active,
         try_propagation_on_fail=CONFIG["lxmf"].getboolean("try_propagation_on_fail"),
         announce_startup=CONFIG["lxmf"].getboolean("announce_startup"),
         announce_startup_delay=CONFIG["lxmf"]["announce_startup_delay"],
@@ -942,6 +1394,8 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
 
     LXMF_CONNECTION.register_announce_callback(lxmf_announce_callback)
     LXMF_CONNECTION.register_message_received_callback(lxmf_message_received_callback)
+    LXMF_CONNECTION.register_message_notification_success_callback(lxmf_message_notification_success_callback)
+    LXMF_CONNECTION.register_config_set_callback(config_set)
 
     log("LXMF - Connected", LOG_DEBUG)
 
@@ -949,6 +1403,15 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
     log("LXMF - Address: " + RNS.prettyhexrep(LXMF_CONNECTION.destination_hash()), LOG_FORCE)
     log("...............................................................................", LOG_FORCE)
 
+    log("...............................................................................", LOG_EXTREME)
+    log(CACHE, LOG_EXTREME)
+    log("...............................................................................", LOG_EXTREME)
+
+    jobs_in_thread = threading.Thread(target=jobs_in, daemon=True)
+    jobs_in_thread.start()
+
+    jobs_out_thread = threading.Thread(target=jobs_out, daemon=True)
+    jobs_out_thread.start()
 
     while True:
         time.sleep(1)
@@ -1007,8 +1470,15 @@ announce_periodic_interval = 15 #Minutes
 
 [features]
 announce_versions = True
-registration = True
+account_add = True
+account_edit = True
+account_del = True
+account_prove = True
 telemetry = False
+
+[processing]
+interval_in = 5 #Seconds
+interval_out = 60 #Seconds
 
 [data]
 v_s = 0.0.0 #Version software
@@ -1017,6 +1487,7 @@ v_d = 2022-01-01 00:00 #Version data
 v_a = 2022-01-01 00:00 #Version auth
 u_s = #URL Software
 i_s = #Info Software
+cmd = #CMD
 '''
 
 
@@ -1045,6 +1516,7 @@ name = LXMF Provisioning Server
 # to be compatibel with other LXMF programs.
 destination_name = lxmf
 destination_type = provisioning
+destination_type_conv = 11
 
 # The name will be visible to other peers
 # on the network, and included in announces.
@@ -1054,11 +1526,17 @@ display_name = LXMF Provisioning Server
 desired_method = direct #direct/propagated
 
 # Propagation node address/hash.
-#propagation_node = 
+propagation_node = 
+
+# Set propagation node automatically.
+propagation_node_auto = True
+
+# Current propagation node (Automatically set by the software).
+propagation_node_active = 
 
 # Try to deliver a message via the LXMF propagation network,
 # if a direct delivery to the recipient is not possible.
-try_propagation_on_fail = No
+try_propagation_on_fail = Yes
 
 # The peer is announced at startup
 # to let other peers reach it immediately.
@@ -1069,6 +1547,10 @@ announce_startup_delay = 0 #Seconds
 # to let other peers reach it.
 announce_periodic = Yes
 announce_periodic_interval = 360 #Minutes
+
+# The announce is hidden for client applications
+# but is still used for the routing tables.
+announce_hidden = No
 
 # Some waiting time after message send
 # for LXMF/Reticulum processing.
@@ -1091,7 +1573,7 @@ sync_periodic_interval = 360 #Minutes
 sync_limit = 8
 
 # Allow only messages with valid signature.
-signature_validated = Yes
+signature_validated = No
 
 
 
@@ -1104,8 +1586,6 @@ port = 5432
 user = postgres
 password = password
 database = database
-table_registration = tbl_account
-table_telemetry = tbl_telemetry
 
 
 
@@ -1114,8 +1594,33 @@ table_telemetry = tbl_telemetry
 [features]
 
 announce_versions = True
-registration = True
+
+account_add = True
+account_add_auth = False
+account_add_auth_state = 1
+account_add_auth_role = 3
+
+account_edit = True
+account_edit_auth = False
+account_edit_auth_state = 1
+account_edit_auth_role = 3
+
+account_del = True
+
+account_prove = True
+account_prove_auth = True
+account_prove_auth_state = 1
+account_prove_auth_role = 3
+
 telemetry = False
+
+
+
+
+#### Processing ####
+[processing]
+interval_in = 5 #Seconds
+interval_out = 60 #Seconds
 
 
 
@@ -1129,6 +1634,7 @@ v_d = 2022-01-01 00:00 #Version data
 v_a = 2022-01-01 00:00 #Version auth
 u_s = #URL Software
 i_s = #Info Software
+cmd = #CMD
 '''
 
 
