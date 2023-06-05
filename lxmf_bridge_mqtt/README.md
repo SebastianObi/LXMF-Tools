@@ -18,7 +18,7 @@ All messages between client<->server are transported as single 1:1 messages in t
 Accordingly, encryption takes place between these end points.
 If a direct delivery of the message does not work, it is sent to a propagation node. There it is stored temporarily and can be retrieved by the client later.
 
-As these are normal LXMF messages, any LXMF capable application can be used to communicate with the group.
+As these are normal LXMF messages, any LXMF capable application can be used to communicate with it.
 
 
 ## Current Status
@@ -52,6 +52,10 @@ The full documentation is not yet available. Due to lack of time I can also not 
   pip3 install pyserial netifaces
   
   pip3 install lxmf
+  ```
+- Install all required prerequisites.
+  ```bash
+  pip3 install paho-mqtt
   ```
 - Change the Reticulum configuration to suit your needs and use-case.
   ```bash
@@ -150,10 +154,10 @@ The full documentation is not yet available. Due to lack of time I can also not 
 
 ### Startup parameters:
 ```bash
-usage: lxmf_distribution_group_minimal.py [-h] [-p PATH] [-pr PATH_RNS] [-pl PATH_LOG] [-l LOGLEVEL] [-s] [--exampleconfig]
-                                  [--exampleconfigoverride] [--exampledata]
+usage: lxmf_bridge_mqtt.py [-h] [-p PATH] [-pr PATH_RNS] [-pl PATH_LOG] [-l LOGLEVEL] [-s] [--exampleconfig]
+                                  [--exampleconfigoverride]
 
-LXMF Distribution Group - Server-Side group functions for LXMF based apps
+LXMF Bridge MQTT
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -167,7 +171,6 @@ optional arguments:
   --exampleconfig       Print verbose configuration example to stdout and exit
   --exampleconfigoverride
                         Print verbose configuration example to stdout and exit
-  --exampledata         Print verbose configuration example to stdout and exit
 ```
 
 

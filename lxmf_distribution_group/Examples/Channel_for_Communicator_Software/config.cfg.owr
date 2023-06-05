@@ -43,6 +43,8 @@ enabled = False
 
 #### Message settings ####
 [message]
+deny_fields = ts
+
 send_title_prefix = 
 send_prefix = 
 
@@ -63,8 +65,8 @@ enabled = True
 
 #### User rights assignment ####
 [rights]
-admin = receive_local,receive_join,receive_leave,receive_invite,receive_kick,receive_block,receive_unblock,receive_allow,send_local,anonymous,join
-mod = receive_local,receive_join,receive_leave,receive_invite,receive_kick,receive_block,receive_unblock,receive_allow,send_local,anonymous,join
+admin = receive_local,send_local,anonymous,join
+mod = receive_local,send_local,anonymous,join
 user = receive_local,join
 guest = receive_local,join
 wait = join
@@ -72,8 +74,8 @@ wait = join
 
 #### User cmd assignment ####
 [cmds]
-admin = update,leave,invite,kick,block,unblock,allow,deny
-mod = update,leave,invite,kick,block,unblock,allow,deny
+admin = update,update_all,leave,invite,kick,block,unblock
+mod = update,update_all,leave,invite,kick,block,unblock
 user = update,leave
 guest = update,leave
 wait = update,leave

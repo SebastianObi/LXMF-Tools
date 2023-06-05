@@ -64,8 +64,6 @@ The full documentation is not yet available. Due to lack of time I can also not 
 ## Development Roadmap
 - Planned, but not yet scheduled
   - Propagation Node fallback
-  - Propagation Node auto discover
-  - Propagation Node auto select
   - Parameters for backup/restore configuration and data
   - Parameters for backup/restore identity
   - Cluster bridges/repeater
@@ -148,6 +146,9 @@ The full documentation is not yet available. Due to lack of time I can also not 
   
   # Propagation node address/hash.
   propagation_node = ca2762fe5283873719aececfb9e18835
+  
+  # Set propagation node automatically.
+  propagation_node_auto = True
   
   # Try to deliver a message via the LXMF propagation network,
   # if a direct delivery to the recipient is not possible.
@@ -452,6 +453,7 @@ Not yet implemented
   [lxmf]
   desired_method = direct #direct/propagated
   propagation_node = ca2762fe5283873719aececfb9e18835
+  propagation_node_auto = True
   try_propagation_on_fail = Yes
   ```
 
@@ -461,6 +463,7 @@ Not yet implemented
   ```
   [lxmf]
   propagation_node = ca2762fe5283873719aececfb9e18835
+  propagation_node_auto = True
   sync_startup = Yes
   sync_startup_delay = 30 #Seconds
   sync_periodic = Yes

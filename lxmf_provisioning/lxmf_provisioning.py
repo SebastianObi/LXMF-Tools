@@ -35,6 +35,7 @@
 import sys
 import os
 import time
+from datetime import datetime, timezone
 import argparse
 
 #### Config ####
@@ -300,13 +301,13 @@ class lxmf_connection:
 
             if len(destination) != ((RNS.Reticulum.TRUNCATED_HASHLENGTH//8)*2):
                 log("LXMF - Destination length is invalid", LOG_ERROR)
-                return
+                return None
 
             try:
                 destination = bytes.fromhex(destination)
             except Exception as e:
                 log("LXMF - Destination is invalid", LOG_ERROR)
-                return
+                return None
 
         if destination_name == None:
             destination_name = self.destination_name
@@ -315,7 +316,7 @@ class lxmf_connection:
 
         destination_identity = RNS.Identity.recall(destination)
         destination = RNS.Destination(destination_identity, RNS.Destination.OUT, RNS.Destination.SINGLE, destination_name, destination_type)
-        self.send_message(destination, self.destination, content, title, fields, timestamp, app_data)
+        return self.send_message(destination, self.destination, content, title, fields, timestamp, app_data)
 
 
     def send_message(self, destination, source, content="", title="", fields=None, timestamp=None, app_data=""):
@@ -346,10 +347,11 @@ class lxmf_connection:
         try:
             self.message_router.handle_outbound(message)
             time.sleep(self.send_delay)
+            return message.hash
         except Exception as e:
             log("LXMF - Could not send message " + str(message), LOG_ERROR)
             log("LXMF - The contained exception was: " + str(e), LOG_ERROR)
-            return
+            return None
 
 
     def message_notification(self, message):
@@ -644,8 +646,13 @@ class lxmf_announce_callback:
 
     @staticmethod
     def received_announce(destination_hash, announced_identity, app_data):
-        if app_data != None:
-            log("LXMF - Received an announce from " + RNS.prettyhexrep(destination_hash) + ": " + app_data.decode("utf-8"), LOG_INFO)
+        if app_data == None:
+            return
+
+        if len(app_data) == 0:
+            return
+
+        log("LXMF - Received an announce from " + RNS.prettyhexrep(destination_hash) + ": " + app_data.decode("utf-8"), LOG_INFO)
 
 
 
@@ -721,7 +728,7 @@ def jobs_in():
             CACHE_DEL = []
             db = None
             try:
-                db = psycopg2.connect(user=CONFIG["database"]["user"], password=CONFIG["database"]["password"], host=CONFIG["database"]["host"], port=CONFIG["database"]["port"], database=CONFIG["database"]["database"])
+                db = psycopg2.connect(user=CONFIG["database"]["user"], password=CONFIG["database"]["password"], host=CONFIG["database"]["host"], port=CONFIG["database"]["port"], database=CONFIG["database"]["database"], client_encoding=CONFIG["database"]["encoding"])
                 dbc = db.cursor()
 
                 for key in CACHE["in"]:
@@ -737,7 +744,7 @@ def jobs_in():
                             result = dbc.fetchall()
                             if len(result) == 0:
                                 user_id = str(uuid.uuid4())
-                                dbc.execute("INSERT INTO members (member_user_id, member_email, member_password, member_dob, member_sex, member_introduction, member_country, member_state, member_city, member_occupation, member_skills, member_tasks, member_wallet_address, member_accept_rules, member_language, member_locale, member_status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, '0')", (
+                                dbc.execute("INSERT INTO members (member_user_id, member_email, member_password, member_dob, member_sex, member_introduction, member_country, member_state, member_city, member_occupation, member_skills, member_tasks, member_wallet_address, member_accept_rules, member_language, member_locale, member_ts_add, member_status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, '0')", (
                                     user_id,
                                     data["email"],
                                     data["password"],
@@ -753,7 +760,8 @@ def jobs_in():
                                     data["wallet_address"],
                                     data["accept_rules"],
                                     data["language"],
-                                    data["language"]
+                                    data["language"],
+                                    datetime.now(timezone.utc)
                                     )
                                 )
                                 if CONFIG["features"].getboolean("account_add_auth"):
@@ -790,7 +798,7 @@ def jobs_in():
                             result = dbc.fetchall()
                             if len(result) == 0:
                                 user_id = str(uuid.uuid4())
-                                dbc.execute("INSERT INTO members (member_user_id, member_email, member_password, member_dob, member_sex, member_introduction, member_country, member_state, member_city, member_occupation, member_skills, member_tasks, member_wallet_address, member_accept_rules, member_language, member_locale, member_status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, '0')", (
+                                dbc.execute("INSERT INTO members (member_user_id, member_email, member_password, member_dob, member_sex, member_introduction, member_country, member_state, member_city, member_occupation, member_skills, member_tasks, member_wallet_address, member_accept_rules, member_language, member_locale, member_ts_add, member_status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, '0')", (
                                     user_id,
                                     data["email"],
                                     data["password"],
@@ -806,7 +814,8 @@ def jobs_in():
                                     data["wallet_address"],
                                     data["accept_rules"],
                                     data["language"],
-                                    data["language"]
+                                    data["language"],
+                                    datetime.now(timezone.utc)
                                     )
                                 )
                                 if CONFIG["features"].getboolean("account_add_auth"):
@@ -820,6 +829,35 @@ def jobs_in():
                                     CACHE_CHANGE = True
                             elif len(result) == 1:
                                 user_id = result[0][0]
+                                dbc.execute("UPDATE members SET member_email = %s, member_password = %s, member_dob = %s, member_sex = %s, member_introduction = %s, member_country = %s, member_state = %s, member_city = %s, member_occupation = %s, member_skills = %s, member_tasks = %s, member_wallet_address = %s, member_accept_rules = %s, member_language = %s, member_locale = %s, member_ts_edit = %s WHERE member_user_id = %s", (
+                                    data["email"],
+                                    data["password"],
+                                    data["dob"],
+                                    data["sex"],
+                                    data["introduction"],
+                                    data["country"],
+                                    data["state"],
+                                    data["city"],
+                                    data["occupation"],
+                                    data["skills"],
+                                    data["tasks"],
+                                    data["wallet_address"],
+                                    data["accept_rules"],
+                                    data["language"],
+                                    data["language"],
+                                    datetime.now(timezone.utc),
+                                    user_id
+                                    )
+                                )
+                                if CONFIG["features"].getboolean("account_edit_auth"):
+                                    fields = {}
+                                    if CONFIG["lxmf"]["destination_type_conv"] != "":
+                                        fields["type"] = CONFIG["lxmf"].getint("destination_type_conv")
+                                    fields["prov"] = {}
+                                    fields["prov"]["auth_state"] = CONFIG["features"].getint("account_edit_auth_state")
+                                    fields["prov"]["auth_role"] = CONFIG["features"].getint("account_edit_auth_role")
+                                    CACHE["out"][str(uuid.uuid4())] = {"hash_destination": data["hash_destination"], "content": "", "title": "", "fields": fields}
+                                    CACHE_CHANGE = True
                             else:
                                 continue
 
@@ -1188,6 +1226,19 @@ def val_to_bool(val, fallback_true=True, fallback_false=False):
         return fallback_false
 
 
+def val_to_val(val):
+    if val.isdigit():
+        return int(val)
+    elif val.isnumeric():
+        return float(val)
+    elif val.lower() == "true":
+        return True
+    elif val.lower() == "false":
+        return False
+    else:
+        return val
+
+
 ##############################################################################################################
 # Log
 
@@ -1363,11 +1414,19 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
         path = PATH
 
     announce_data = {}
-    if CONFIG["features"].getboolean("announce_versions"):
+    if CONFIG["features"].getboolean("announce_data"):
         section = "data"
         if CONFIG.has_section(section):
             for (key, val) in CONFIG.items(section):
-                announce_data[key] = val
+                if "=" in val or ";" in val:
+                    announce_data[key] = {}
+                    keys = val.split(";")
+                    for val in keys:
+                        val = val.split("=")
+                        if len(val) == 2:
+                            announce_data[key][val[0]] = val_to_val(val[1])
+                else:
+                    announce_data[key] = val
 
     LXMF_CONNECTION = lxmf_connection(
         storage_path=path,
@@ -1469,7 +1528,7 @@ announce_periodic = Yes
 announce_periodic_interval = 15 #Minutes
 
 [features]
-announce_versions = True
+announce_data = True
 account_add = True
 account_edit = True
 account_del = True
@@ -1482,12 +1541,11 @@ interval_out = 60 #Seconds
 
 [data]
 v_s = 0.0.0 #Version software
-v_c = 2022-01-01 00:00 #Version config
-v_d = 2022-01-01 00:00 #Version data
-v_a = 2022-01-01 00:00 #Version auth
+v_c = 0.0.0 #Version config
 u_s = #URL Software
 i_s = #Info Software
 cmd = #CMD
+config = #Config
 '''
 
 
@@ -1516,7 +1574,7 @@ name = LXMF Provisioning Server
 # to be compatibel with other LXMF programs.
 destination_name = lxmf
 destination_type = provisioning
-destination_type_conv = 11
+destination_type_conv = 174
 
 # The name will be visible to other peers
 # on the network, and included in announces.
@@ -1586,14 +1644,14 @@ port = 5432
 user = postgres
 password = password
 database = database
-
+encoding = utf8
 
 
 
 #### Features enabled/disabled ####
 [features]
 
-announce_versions = True
+announce_data = True
 
 account_add = True
 account_add_auth = False
@@ -1629,12 +1687,11 @@ interval_out = 60 #Seconds
 [data]
 
 v_s = 0.0.0 #Version software
-v_c = 2022-01-01 00:00 #Version config
-v_d = 2022-01-01 00:00 #Version data
-v_a = 2022-01-01 00:00 #Version auth
+v_c = 0.0.0 #Version config
 u_s = #URL Software
 i_s = #Info Software
 cmd = #CMD
+config = #Config
 '''
 
 

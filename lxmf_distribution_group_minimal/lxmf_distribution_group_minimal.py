@@ -285,13 +285,13 @@ class lxmf_connection:
 
             if len(destination) != ((RNS.Reticulum.TRUNCATED_HASHLENGTH//8)*2):
                 log("LXMF - Destination length is invalid", LOG_ERROR)
-                return
+                return None
 
             try:
                 destination = bytes.fromhex(destination)
             except Exception as e:
                 log("LXMF - Destination is invalid", LOG_ERROR)
-                return
+                return None
 
         if destination_name == None:
             destination_name = self.destination_name
@@ -300,7 +300,7 @@ class lxmf_connection:
 
         destination_identity = RNS.Identity.recall(destination)
         destination = RNS.Destination(destination_identity, RNS.Destination.OUT, RNS.Destination.SINGLE, destination_name, destination_type)
-        self.send_message(destination, self.destination, content, title, fields, timestamp, app_data)
+        return self.send_message(destination, self.destination, content, title, fields, timestamp, app_data)
 
 
     def send_message(self, destination, source, content="", title="", fields=None, timestamp=None, app_data=""):
@@ -331,10 +331,11 @@ class lxmf_connection:
         try:
             self.message_router.handle_outbound(message)
             time.sleep(self.send_delay)
+            return message.hash
         except Exception as e:
             log("LXMF - Could not send message " + str(message), LOG_ERROR)
             log("LXMF - The contained exception was: " + str(e), LOG_ERROR)
-            return
+            return None
 
 
     def message_notification(self, message):
@@ -629,8 +630,20 @@ class lxmf_announce_callback:
 
     @staticmethod
     def received_announce(destination_hash, announced_identity, app_data):
-        if app_data != None:
-            log("LXMF - Received an announce from " + RNS.prettyhexrep(destination_hash) + ": " + app_data.decode("utf-8"), LOG_INFO)
+        if app_data == None:
+            return
+
+        if len(app_data) == 0:
+            return
+
+        try:
+            app_data_dict = umsgpack.unpackb(app_data)
+            if isinstance(app_data_dict, dict) and "c" in app_data_dict:
+                app_data = app_data_dict["c"]
+        except:
+            pass
+
+        log("LXMF - Received an announce from " + RNS.prettyhexrep(destination_hash) + ": " + app_data.decode("utf-8"), LOG_INFO)
 
 
 
@@ -641,21 +654,45 @@ def lxmf_message_received_callback(message):
         log("LXMF - Source " + RNS.prettyhexrep(message.source_hash) + " have no valid signature", LOG_DEBUG)
         return
 
-    content = message.content.decode('utf-8')
-    content = content.strip()
-    if content == "":
-        return
+    title = message.title.decode('utf-8').strip()
+    denys = config_get(CONFIG, "message", "deny_title")
+    if denys != "":
+        denys = denys.split(",")
+        if "*" in denys:
+            return
+        for deny in denys:
+            if deny in title:
+                return
 
-    if CONFIG["message"].getboolean("title"):
-        title = message.title.decode('utf-8')
-        title = title.strip()
-    else:
+    content = message.content.decode('utf-8').strip()
+    denys = config_get(CONFIG, "message", "deny_content")
+    if denys != "":
+        denys = denys.split(",")
+        if "*" in denys:
+            return
+        for deny in denys:
+            if deny in title:
+                return
+
+    if message.fields:
+        denys = config_get(CONFIG, "message", "deny_fields")
+        if denys != "":
+            denys = denys.split(",")
+            if "*" in denys:
+                return
+            for deny in denys:
+                if deny in message.fields:
+                    return
+
+    if not CONFIG["message"].getboolean("title"):
         title = ""
 
-    if CONFIG["message"].getboolean("fields"):
-        fields = message.fields
-    else:
-        fields = None
+    if CONFIG["message"].getboolean("fields") and message.fields:
+        pass
+    elif content == "":
+        return
+
+    fields = message.fields
 
     source_hash = RNS.hexrep(message.source_hash, False)
     source_name = ""
@@ -1022,6 +1059,19 @@ def val_to_bool(val, fallback_true=True, fallback_false=False):
         return fallback_false
 
 
+def val_to_val(val):
+    if val.isdigit():
+        return int(val)
+    elif val.isnumeric():
+        return float(val)
+    elif val.lower() == "true":
+        return True
+    elif val.lower() == "false":
+        return False
+    else:
+        return val
+
+
 ##############################################################################################################
 # Log
 
@@ -1382,7 +1432,7 @@ sync_periodic_interval = 360 #Minutes
 # download x messages at a time. You can change
 # this number, or set the option to 0 to disable
 # the limit, and download everything every time.
-sync_limit = 8
+sync_limit = 0
 
 # Allow only messages with valid signature.
 signature_validated = No
@@ -1393,6 +1443,13 @@ signature_validated = No
 #### Message settings ####
 [message]
 ## Each message received (message and command) ##
+
+# Deny message if the title/content/fields contains the following content.
+# Comma-separated list with text or field keys.
+# *=any
+deny_title = 
+deny_content = 
+deny_fields = 
 
 # Text is added.
 receive_prefix = 

@@ -284,13 +284,13 @@ class lxmf_connection:
 
             if len(destination) != ((RNS.Reticulum.TRUNCATED_HASHLENGTH//8)*2):
                 log("LXMF - Destination length is invalid", LOG_ERROR)
-                return
+                return None
 
             try:
                 destination = bytes.fromhex(destination)
             except Exception as e:
                 log("LXMF - Destination is invalid", LOG_ERROR)
-                return
+                return None
 
         if destination_name == None:
             destination_name = self.destination_name
@@ -299,7 +299,7 @@ class lxmf_connection:
 
         destination_identity = RNS.Identity.recall(destination)
         destination = RNS.Destination(destination_identity, RNS.Destination.OUT, RNS.Destination.SINGLE, destination_name, destination_type)
-        self.send_message(destination, self.destination, content, title, fields, timestamp, app_data)
+        return self.send_message(destination, self.destination, content, title, fields, timestamp, app_data)
 
 
     def send_message(self, destination, source, content="", title="", fields=None, timestamp=None, app_data=""):
@@ -330,10 +330,11 @@ class lxmf_connection:
         try:
             self.message_router.handle_outbound(message)
             time.sleep(self.send_delay)
+            return message.hash
         except Exception as e:
             log("LXMF - Could not send message " + str(message), LOG_ERROR)
             log("LXMF - The contained exception was: " + str(e), LOG_ERROR)
-            return
+            return None
 
 
     def message_notification(self, message):
@@ -678,6 +679,19 @@ def val_to_bool(val, fallback_true=True, fallback_false=False):
         return fallback_true
     else:
         return fallback_false
+
+
+def val_to_val(val):
+    if val.isdigit():
+        return int(val)
+    elif val.isnumeric():
+        return float(val)
+    elif val.lower() == "true":
+        return True
+    elif val.lower() == "false":
+        return False
+    else:
+        return val
 
 
 ##############################################################################################################

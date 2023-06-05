@@ -291,13 +291,13 @@ class lxmf_connection:
 
             if len(destination) != ((RNS.Reticulum.TRUNCATED_HASHLENGTH//8)*2):
                 log("LXMF - Destination length is invalid", LOG_ERROR)
-                return
+                return None
 
             try:
                 destination = bytes.fromhex(destination)
             except Exception as e:
                 log("LXMF - Destination is invalid", LOG_ERROR)
-                return
+                return None
 
         if destination_name == None:
             destination_name = self.destination_name
@@ -306,7 +306,7 @@ class lxmf_connection:
 
         destination_identity = RNS.Identity.recall(destination)
         destination = RNS.Destination(destination_identity, RNS.Destination.OUT, RNS.Destination.SINGLE, destination_name, destination_type)
-        self.send_message(destination, self.destination, content, title, fields, timestamp, app_data)
+        return self.send_message(destination, self.destination, content, title, fields, timestamp, app_data)
 
 
     def send_message(self, destination, source, content="", title="", fields=None, timestamp=None, app_data=""):
@@ -337,10 +337,11 @@ class lxmf_connection:
         try:
             self.message_router.handle_outbound(message)
             time.sleep(self.send_delay)
+            return message.hash
         except Exception as e:
             log("LXMF - Could not send message " + str(message), LOG_ERROR)
             log("LXMF - The contained exception was: " + str(e), LOG_ERROR)
-            return
+            return None
 
 
     def message_notification(self, message):
@@ -635,23 +636,28 @@ class lxmf_announce_callback:
 
     @staticmethod
     def received_announce(destination_hash, announced_identity, app_data):
-        if app_data != None:
-            log("LXMF - Received an announce from " + RNS.prettyhexrep(destination_hash) + ": " + app_data.decode("utf-8"), LOG_INFO)
+        if app_data == None:
+            return
 
-            if not CONFIG["main"].getboolean("power") or not CONFIG["router"].getboolean("lxmf_announce_to_mqtt"):
-                log("LXMF - Routing disabled", LOG_DEBUG)
-                return
+        if len(app_data) == 0:
+            return
 
-            if CONFIG.has_option("allowed", "any") or CONFIG.has_option("allowed", "all") or CONFIG.has_option("allowed", "anybody") or CONFIG.has_option("allowed", RNS.hexrep(destination_hash, False)) or CONFIG.has_option("allowed", RNS.prettyhexrep(destination_hash)):
-                message_out = json.dumps({
-                    "source": RNS.hexrep(destination_hash, False),
-                    "data": app_data.decode("utf-8")
-                })
+        log("LXMF - Received an announce from " + RNS.prettyhexrep(destination_hash) + ": " + app_data.decode("utf-8"), LOG_INFO)
 
-                MQTT_CONNECTION.publish(CONFIG["mqtt"]["topic_announce"], message_out)
-            else:
-                log("LXMF - Source " + RNS.prettyhexrep(message.source_hash) + " not allowed", LOG_DEBUG)
-                return
+        if not CONFIG["main"].getboolean("power") or not CONFIG["router"].getboolean("lxmf_announce_to_mqtt"):
+            log("LXMF - Routing disabled", LOG_DEBUG)
+            return
+
+        if CONFIG.has_option("allowed", "any") or CONFIG.has_option("allowed", "all") or CONFIG.has_option("allowed", "anybody") or CONFIG.has_option("allowed", RNS.hexrep(destination_hash, False)) or CONFIG.has_option("allowed", RNS.prettyhexrep(destination_hash)):
+            message_out = json.dumps({
+                "source": RNS.hexrep(destination_hash, False),
+                "data": app_data.decode("utf-8")
+            })
+
+            MQTT_CONNECTION.publish(CONFIG["mqtt"]["topic_announce"], message_out)
+        else:
+            log("LXMF - Source " + RNS.prettyhexrep(message.source_hash) + " not allowed", LOG_DEBUG)
+            return
 
 
 
@@ -667,7 +673,36 @@ def lxmf_message_received_callback(message):
         return
 
     if CONFIG.has_option("allowed", "any") or CONFIG.has_option("allowed", "all") or CONFIG.has_option("allowed", "anybody") or CONFIG.has_option("allowed", RNS.hexrep(message.source_hash, False)) or CONFIG.has_option("allowed", RNS.prettyhexrep(message.source_hash)):
+
+        title = message.title.decode('utf-8').strip()
+        denys = config_get(CONFIG, "message", "lxmf_to_mqtt_deny_title")
+        if denys != "":
+            denys = denys.split(",")
+            if "*" in denys:
+                return
+            for deny in denys:
+                if deny in title:
+                    return
+
         content = message.content.decode('utf-8').strip()
+        denys = config_get(CONFIG, "message", "lxmf_to_mqtt_deny_content")
+        if denys != "":
+            denys = denys.split(",")
+            if "*" in denys:
+                return
+            for deny in denys:
+                if deny in title:
+                    return
+
+        if message.fields:
+            denys = config_get(CONFIG, "message", "lxmf_to_mqtt_deny_fields")
+            if denys != "":
+                denys = denys.split(",")
+                if "*" in denys:
+                    return
+                for deny in denys:
+                    if deny in message.fields:
+                        return
 
         length = config_getint(CONFIG, "message", "lxmf_to_mqtt_length_min", 0)
         if length> 0:
@@ -1072,6 +1107,19 @@ def val_to_bool(val, fallback_true=True, fallback_false=False):
         return fallback_true
     else:
         return fallback_false
+
+
+def val_to_val(val):
+    if val.isdigit():
+        return int(val)
+    elif val.isnumeric():
+        return float(val)
+    elif val.lower() == "true":
+        return True
+    elif val.lower() == "false":
+        return False
+    else:
+        return val
 
 
 ##############################################################################################################
@@ -1514,6 +1562,13 @@ state_to_mqtt = True
 #### Message settings ####
 [message]
 
+# Deny message if the title/content/fields contains the following content.
+# Comma-separated list with text or field keys.
+# *=any
+lxmf_to_mqtt_deny_title = 
+lxmf_to_mqtt_deny_content = 
+lxmf_to_mqtt_deny_fields = 
+
 # Text is added.
 lxmf_to_mqtt_prefix = 
 lxmf_to_mqtt_suffix = 
@@ -1530,6 +1585,13 @@ lxmf_to_mqtt_regex_replace =
 lxmf_to_mqtt_length_min = 0 #0=any length
 lxmf_to_mqtt_length_max = 0 #0=any length
 
+
+# Deny message if the title/content/fields contains the following content.
+# Comma-separated list with text or field keys.
+# *=any
+mqtt_to_lxmf_deny_title = 
+mqtt_to_lxmf_deny_content = 
+mqtt_to_lxmf_deny_fields = 
 
 # Text is added.
 mqtt_to_lxmf_prefix = 
