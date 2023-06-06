@@ -643,7 +643,12 @@ class lxmf_announce_callback:
         except:
             pass
 
-        log("LXMF - Received an announce from " + RNS.prettyhexrep(destination_hash) + ": " + app_data.decode("utf-8"), LOG_INFO)
+        try:
+            app_data = app_data.decode("utf-8").strip()
+        except:
+            return
+
+        log("LXMF - Received an announce from " + RNS.prettyhexrep(destination_hash) + ": " + app_data, LOG_INFO)
 
 
 

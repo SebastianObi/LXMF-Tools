@@ -815,7 +815,12 @@ class lxmf_announce_callback:
         except:
             pass
 
-        log("LXMF - Received an announce from " + RNS.prettyhexrep(destination_hash) + ": " + app_data.decode("utf-8"), LOG_INFO)
+        try:
+            app_data = app_data.decode("utf-8").strip()
+        except:
+            return
+
+        log("LXMF - Received an announce from " + RNS.prettyhexrep(destination_hash) + ": " + app_data, LOG_INFO)
 
         global DATA
 
@@ -832,7 +837,7 @@ class lxmf_announce_callback:
                 for (key, val) in DATA.items(section):
                     if key == source_hash:
                         if (val == "" and CONFIG["main"].getboolean("auto_name_def")) or (val != "" and CONFIG["main"].getboolean("auto_name_change")):
-                            value = app_data.decode("utf-8").strip()
+                            value = app_data
                             if value != DATA[section][key]:
                                 if DATA[section][key] == "":
                                     content_type = "name_def"
@@ -3348,7 +3353,7 @@ def statistic_add(section="global", value=1):
     day = date.timetuple().tm_yday
     month = date.timetuple().tm_mon
     year = date.timetuple().tm_year
-    week = date.isocalendar().week
+    week = date.isocalendar()[1]
 
     #day
     if STATISTIC[section]["day_index"] == str(day):
@@ -3389,7 +3394,7 @@ def statistic_recalculate(section="global"):
     day = date.timetuple().tm_yday
     month = date.timetuple().tm_mon
     year = date.timetuple().tm_year
-    week = date.isocalendar().week
+    week = date.isocalendar()[1]
 
     #day
     if STATISTIC[section]["day_index"] != str(day):
@@ -3568,7 +3573,7 @@ def statistic_default(section="global"):
     day = date.timetuple().tm_yday
     month = date.timetuple().tm_mon
     year = date.timetuple().tm_year
-    week = date.isocalendar().week
+    week = date.isocalendar()[1]
 
     STATISTIC.add_section(section)
     STATISTIC[section]["day_value"] = "0"

@@ -642,7 +642,19 @@ class lxmf_announce_callback:
         if len(app_data) == 0:
             return
 
-        log("LXMF - Received an announce from " + RNS.prettyhexrep(destination_hash) + ": " + app_data.decode("utf-8"), LOG_INFO)
+        try:
+            app_data_dict = umsgpack.unpackb(app_data)
+            if isinstance(app_data_dict, dict) and "c" in app_data_dict:
+                app_data = app_data_dict["c"]
+        except:
+            pass
+
+        try:
+            app_data = app_data.decode("utf-8").strip()
+        except:
+            return
+
+        log("LXMF - Received an announce from " + RNS.prettyhexrep(destination_hash) + ": " + app_data, LOG_INFO)
 
         if not CONFIG["main"].getboolean("power") or not CONFIG["router"].getboolean("lxmf_announce_to_mqtt"):
             log("LXMF - Routing disabled", LOG_DEBUG)
@@ -651,7 +663,7 @@ class lxmf_announce_callback:
         if CONFIG.has_option("allowed", "any") or CONFIG.has_option("allowed", "all") or CONFIG.has_option("allowed", "anybody") or CONFIG.has_option("allowed", RNS.hexrep(destination_hash, False)) or CONFIG.has_option("allowed", RNS.prettyhexrep(destination_hash)):
             message_out = json.dumps({
                 "source": RNS.hexrep(destination_hash, False),
-                "data": app_data.decode("utf-8")
+                "data": app_data
             })
 
             MQTT_CONNECTION.publish(CONFIG["mqtt"]["topic_announce"], message_out)
