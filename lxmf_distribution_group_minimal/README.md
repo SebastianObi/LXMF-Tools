@@ -99,6 +99,9 @@ The full documentation is not yet available. Due to lack of time I can also not 
   # Propagation node address/hash.
   propagation_node = ca2762fe5283873719aececfb9e18835
   
+  # Set propagation node automatically.
+  propagation_node_auto = True
+  
   # Try to deliver a message via the LXMF propagation network,
   # if a direct delivery to the recipient is not possible.
   try_propagation_on_fail = Yes
@@ -125,6 +128,7 @@ The full documentation is not yet available. Due to lack of time I can also not 
   Restart=always
   RestartSec=3
   User=root
+  Group=root
   ExecStart=/root/lxmf_distribution_group_minimal.py
   [Install]
   WantedBy=multi-user.target

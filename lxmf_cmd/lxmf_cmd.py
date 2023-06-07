@@ -287,13 +287,13 @@ class lxmf_connection:
 
             if len(destination) != ((RNS.Reticulum.TRUNCATED_HASHLENGTH//8)*2):
                 log("LXMF - Destination length is invalid", LOG_ERROR)
-                return
+                return None
 
             try:
                 destination = bytes.fromhex(destination)
             except Exception as e:
                 log("LXMF - Destination is invalid", LOG_ERROR)
-                return
+                return None
 
         if destination_name == None:
             destination_name = self.destination_name
@@ -302,7 +302,7 @@ class lxmf_connection:
 
         destination_identity = RNS.Identity.recall(destination)
         destination = RNS.Destination(destination_identity, RNS.Destination.OUT, RNS.Destination.SINGLE, destination_name, destination_type)
-        self.send_message(destination, self.destination, content, title, fields, timestamp, app_data)
+        return self.send_message(destination, self.destination, content, title, fields, timestamp, app_data)
 
 
     def send_message(self, destination, source, content="", title="", fields=None, timestamp=None, app_data=""):
@@ -333,10 +333,11 @@ class lxmf_connection:
         try:
             self.message_router.handle_outbound(message)
             time.sleep(self.send_delay)
+            return message.hash
         except Exception as e:
             log("LXMF - Could not send message " + str(message), LOG_ERROR)
             log("LXMF - The contained exception was: " + str(e), LOG_ERROR)
-            return
+            return None
 
 
     def message_notification(self, message):
@@ -631,8 +632,18 @@ class lxmf_announce_callback:
 
     @staticmethod
     def received_announce(destination_hash, announced_identity, app_data):
-        if app_data != None:
-            log("LXMF - Received an announce from " + RNS.prettyhexrep(destination_hash) + ": " + app_data.decode("utf-8"), LOG_INFO)
+        if app_data == None:
+            return
+
+        if len(app_data) == 0:
+            return
+
+        try:
+            app_data = app_data.decode("utf-8").strip()
+        except:
+            return
+
+        log("LXMF - Received an announce from " + RNS.prettyhexrep(destination_hash) + ": " + app_data, LOG_INFO)
 
 
 
@@ -644,7 +655,36 @@ def lxmf_message_received_callback(message):
         return
 
     if CONFIG.has_option("allowed", "any") or CONFIG.has_option("allowed", "all") or CONFIG.has_option("allowed", "anybody") or CONFIG.has_option("allowed", RNS.hexrep(message.source_hash, False)) or CONFIG.has_option("allowed", RNS.prettyhexrep(message.source_hash)):
+
+        title = message.title.decode('utf-8').strip()
+        denys = config_get(CONFIG, "message", "deny_title")
+        if denys != "":
+            denys = denys.split(",")
+            if "*" in denys:
+                return
+            for deny in denys:
+                if deny in title:
+                    return
+
         content = message.content.decode('utf-8').strip()
+        denys = config_get(CONFIG, "message", "deny_content")
+        if denys != "":
+            denys = denys.split(",")
+            if "*" in denys:
+                return
+            for deny in denys:
+                if deny in title:
+                    return
+
+        if message.fields:
+            denys = config_get(CONFIG, "message", "deny_fields")
+            if denys != "":
+                denys = denys.split(",")
+                if "*" in denys:
+                    return
+                for deny in denys:
+                    if deny in message.fields:
+                        return
 
         length = config_getint(CONFIG, "message", "receive_length_min", 0)
         if length> 0:
@@ -927,6 +967,19 @@ def val_to_bool(val, fallback_true=True, fallback_false=False):
         return fallback_true
     else:
         return fallback_false
+
+
+def val_to_val(val):
+    if val.isdigit():
+        return int(val)
+    elif val.isnumeric():
+        return float(val)
+    elif val.lower() == "true":
+        return True
+    elif val.lower() == "false":
+        return False
+    else:
+        return val
 
 
 ##############################################################################################################
@@ -1272,6 +1325,13 @@ signature_validated = Yes
 
 #### Message settings ####
 [message]
+
+# Deny message if the title/content/fields contains the following content.
+# Comma-separated list with text or field keys.
+# *=any
+deny_title = 
+deny_content = 
+deny_fields = 
 
 # Text is added.
 receive_prefix = 

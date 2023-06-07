@@ -43,6 +43,8 @@ enabled = False
 
 #### Message settings ####
 [message]
+deny_fields = ts
+
 send_title_prefix = !source_name! <!source_address!>
 send_prefix = 
 
@@ -63,17 +65,17 @@ enabled = True
 
 #### User rights assignment ####
 [rights]
-admin = receive_local,receive_join,receive_leave,receive_invite,receive_kick,receive_block,receive_unblock,receive_allow,send_local,join
-mod = receive_local,receive_join,receive_leave,receive_invite,receive_kick,receive_block,receive_unblock,receive_allow,send_local,join
-user = receive_local,receive_join,receive_leave,receive_invite,receive_kick,receive_block,receive_unblock,receive_allow,send_local,join
+admin = receive_local,receive_join,receive_leave,receive_invite,receive_kick,receive_block,receive_unblock,send_local,join
+mod = receive_local,receive_join,receive_leave,receive_invite,receive_kick,receive_block,receive_unblock,send_local,join
+user = receive_local,receive_join,receive_leave,receive_invite,receive_kick,receive_block,receive_unblock,send_local,join
 guest = receive_local,join
 wait = join,leave
 
 
 #### User cmd assignment ####
 [cmds]
-admin = update,leave,invite,kick,block,unblock,allow,deny
-mod = update,leave,invite,kick,block,unblock,allow,deny
+admin = update,update_all,leave,invite,kick,block,unblock
+mod = update,update_all,leave,invite,kick,block,unblock
 user = update,leave
 guest = update,leave
 wait = update,leave

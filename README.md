@@ -139,6 +139,7 @@ The full documentation is not yet available. Due to lack of time I can also not 
   Restart=always
   RestartSec=3
   User=root
+  Group=root
   ExecStart=/root/lxmf_distribution_group.py
   [Install]
   WantedBy=multi-user.target

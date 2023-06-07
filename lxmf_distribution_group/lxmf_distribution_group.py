@@ -298,13 +298,13 @@ class lxmf_connection:
 
             if len(destination) != ((RNS.Reticulum.TRUNCATED_HASHLENGTH//8)*2):
                 log("LXMF - Destination length is invalid", LOG_ERROR)
-                return
+                return None
 
             try:
                 destination = bytes.fromhex(destination)
             except Exception as e:
                 log("LXMF - Destination is invalid", LOG_ERROR)
-                return
+                return None
 
         if destination_name == None:
             destination_name = self.destination_name
@@ -313,7 +313,7 @@ class lxmf_connection:
 
         destination_identity = RNS.Identity.recall(destination)
         destination = RNS.Destination(destination_identity, RNS.Destination.OUT, RNS.Destination.SINGLE, destination_name, destination_type)
-        self.send_message(destination, self.destination, content, title, fields, timestamp, app_data)
+        return self.send_message(destination, self.destination, content, title, fields, timestamp, app_data)
 
 
     def send_message(self, destination, source, content="", title="", fields=None, timestamp=None, app_data=""):
@@ -344,10 +344,11 @@ class lxmf_connection:
         try:
             self.message_router.handle_outbound(message)
             time.sleep(self.send_delay)
+            return message.hash
         except Exception as e:
             log("LXMF - Could not send message " + str(message), LOG_ERROR)
             log("LXMF - The contained exception was: " + str(e), LOG_ERROR)
-            return
+            return None
 
 
     def message_notification(self, message):
@@ -801,52 +802,69 @@ class lxmf_announce_callback:
 
     @staticmethod
     def received_announce(destination_hash, announced_identity, app_data):
-        if app_data != None:
-            log("LXMF - Received an announce from " + RNS.prettyhexrep(destination_hash) + ": " + app_data.decode("utf-8"), LOG_INFO)
+        if app_data == None:
+            return
 
-            global DATA
+        if len(app_data) == 0:
+            return
 
-            lng_key = "-" + CONFIG["main"]["lng"]
+        try:
+            app_data_dict = umsgpack.unpackb(app_data)
+            if isinstance(app_data_dict, dict) and "c" in app_data_dict:
+                app_data = app_data_dict["c"]
+        except:
+            pass
 
-            sections = []
-            for (key, val) in CONFIG.items("rights"):
-                if DATA.has_section(key):
-                    sections.append(key)
+        try:
+            app_data = app_data.decode("utf-8").strip()
+        except:
+            return
 
-            if CONFIG["main"].getboolean("auto_name_def") or CONFIG["main"].getboolean("auto_name_change"):
-                source_hash = RNS.hexrep(destination_hash, False)
-                for section in DATA.sections():
-                    for (key, val) in DATA.items(section):
-                        if key == source_hash:
-                            if (val == "" and CONFIG["main"].getboolean("auto_name_def")) or (val != "" and CONFIG["main"].getboolean("auto_name_change")):
-                                value = app_data.decode("utf-8").strip()
-                                if value != DATA[section][key]:
-                                    if DATA[section][key] == "":
-                                        content_type = "name_def"
-                                        content_add = " " + value
-                                    else:
-                                        content_type = "name_change"
-                                        content_add = " " + DATA[section][key] + " -> " + value
+        log("LXMF - Received an announce from " + RNS.prettyhexrep(destination_hash) + ": " + app_data, LOG_INFO)
 
-                                    DATA[section][key] = value
+        global DATA
 
-                                    content_group = config_get(CONFIG, "interface_messages", "member_"+content_type, "", lng_key)
-                                    if content_group != "":
-                                        fields = fields_generate(lng_key, h=destination_hash ,n=value, tpl=content_type)
-                                        content_group = replace(content_group, source_hash, value, "", lng_key)
-                                        content_group = content_group + content_add
-                                        for section in sections:
-                                            if "receive_auto_"+content_type in config_get(CONFIG, "rights", section).split(","):
-                                                for (key, val) in DATA.items(section):
-                                                    if key != source_hash:
-                                                        LXMF_CONNECTION.send(key, content_group, "", fields, None, "interface_send")
+        lng_key = "-" + CONFIG["main"]["lng"]
 
-                                    if CONFIG["main"].getboolean("auto_save_data"):
-                                        DATA.remove_option("main", "unsaved")
-                                        if not data_save(PATH + "/data.cfg"):
-                                            DATA["main"]["unsaved"] = "True"
-                                    else:
+        sections = []
+        for (key, val) in CONFIG.items("rights"):
+            if DATA.has_section(key):
+                sections.append(key)
+
+        if CONFIG["main"].getboolean("auto_name_def") or CONFIG["main"].getboolean("auto_name_change"):
+            source_hash = RNS.hexrep(destination_hash, False)
+            for section in DATA.sections():
+                for (key, val) in DATA.items(section):
+                    if key == source_hash:
+                        if (val == "" and CONFIG["main"].getboolean("auto_name_def")) or (val != "" and CONFIG["main"].getboolean("auto_name_change")):
+                            value = app_data
+                            if value != DATA[section][key]:
+                                if DATA[section][key] == "":
+                                    content_type = "name_def"
+                                    content_add = " " + value
+                                else:
+                                    content_type = "name_change"
+                                    content_add = " " + DATA[section][key] + " -> " + value
+
+                                DATA[section][key] = value
+
+                                content_group = config_get(CONFIG, "interface_messages", "member_"+content_type, "", lng_key)
+                                if content_group != "":
+                                    fields = fields_generate(lng_key, h=destination_hash ,n=value, tpl=content_type)
+                                    content_group = replace(content_group, source_hash, value, "", lng_key)
+                                    content_group = content_group + content_add
+                                    for section in sections:
+                                        if "receive_auto_"+content_type in config_get(CONFIG, "rights", section).split(","):
+                                            for (key, val) in DATA.items(section):
+                                                if key != source_hash:
+                                                    LXMF_CONNECTION.send(key, content_group, "", fields, None, "interface_send")
+
+                                if CONFIG["main"].getboolean("auto_save_data"):
+                                    DATA.remove_option("main", "unsaved")
+                                    if not data_save(PATH + "/data.cfg"):
                                         DATA["main"]["unsaved"] = "True"
+                                else:
+                                    DATA["main"]["unsaved"] = "True"
 
 
 
@@ -857,18 +875,43 @@ def lxmf_message_received_callback(message):
         log("LXMF - Source " + RNS.prettyhexrep(message.source_hash) + " have no valid signature", LOG_DEBUG)
         return
 
-    content = message.content.decode('utf-8')
-    content = content.strip()
+    title = message.title.decode('utf-8').strip()
+    denys = config_get(CONFIG, "message", "deny_title")
+    if denys != "":
+        denys = denys.split(",")
+        if "*" in denys:
+            return
+        for deny in denys:
+            if deny in title:
+                return
+
+    content = message.content.decode('utf-8').strip()
+    denys = config_get(CONFIG, "message", "deny_content")
+    if denys != "":
+        denys = denys.split(",")
+        if "*" in denys:
+            return
+        for deny in denys:
+            if deny in title:
+                return
+
+    if message.fields:
+        denys = config_get(CONFIG, "message", "deny_fields")
+        if denys != "":
+            denys = denys.split(",")
+            if "*" in denys:
+                return
+            for deny in denys:
+                if deny in message.fields:
+                    return
+
+    if not CONFIG["message"].getboolean("title"):
+        title = ""
+
     if CONFIG["message"].getboolean("fields") and message.fields:
         pass
     elif content == "":
         return
-
-    if CONFIG["message"].getboolean("title"):
-        title = message.title.decode('utf-8')
-        title = title.strip()
-    else:
-        title = ""
 
     fields = message.fields
 
@@ -1007,7 +1050,13 @@ def lxmf_message_received_callback(message):
         if DATA.has_section(source_right) and source_right != "main":
             if CONFIG["main"].getboolean("auto_name_add"):
                 app_data = RNS.Identity.recall_app_data(message.source_hash)
-                if app_data != None:
+                if app_data != None and len(app_data) > 0:
+                    try:
+                        app_data_dict = umsgpack.unpackb(app_data)
+                        if isinstance(app_data_dict, dict) and "c" in app_data_dict:
+                            app_data = app_data_dict["c"]
+                    except:
+                        pass
                     source_name = app_data.decode('utf-8')
             DATA[source_right][source_hash] = source_name
             DATA.remove_option("main", "unsaved")
@@ -1220,8 +1269,9 @@ def lxmf_message_received_callback(message):
         else:
             fields = {}
         if CONFIG["main"].getboolean("fields_message"):
-            fields["hash"] = message.hash
-            if not "anonymous" in source_rights:
+            if not "hash" in fields:
+                fields["hash"] = message.hash
+            if not "anonymous" in source_rights and "src" not in fields:
                 fields["src"] = {}
                 fields["src"]["h"] = message.source_hash
                 fields["src"]["n"] = source_name
@@ -1270,8 +1320,9 @@ def lxmf_message_received_callback(message):
         if CONFIG["main"].getboolean("fields_message"):
             if CONFIG["lxmf"]["destination_type_conv"] != "":
                 fields["type"] = CONFIG["lxmf"].getint("destination_type_conv")
-            fields["hash"] = message.hash
-            if not "anonymous" in source_rights:
+            if not "hash" in fields:
+                fields["hash"] = message.hash
+            if not "anonymous" in source_rights and "src" not in fields:
                 fields["src"] = {}
                 fields["src"]["h"] = message.source_hash
                 fields["src"]["n"] = source_name
@@ -1344,8 +1395,9 @@ def lxmf_message_received_callback(message):
             if CONFIG["main"].getboolean("fields_message"):
                 if CONFIG["lxmf"]["destination_type_conv"] != "":
                     fields["type"] = CONFIG["lxmf"].getint("destination_type_conv")
-                fields["hash"] = message.hash
-                if not "anonymous" in source_rights:
+                if not "hash" in fields:
+                    fields["hash"] = message.hash
+                if not "anonymous" in source_rights and "src" not in fields:
                     fields["src"] = {}
                     fields["src"]["h"] = message.source_hash
                     fields["src"]["n"] = source_name
@@ -1517,6 +1569,18 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
             content = ""
         except:
             content = config_get(CONFIG, "interface_menu", "update_error", "", lng_key)
+
+
+    # "/update_all" command.
+    elif (cmd == "update_all") and "update_all" in source_rights:
+        try:
+            content = config_get(CONFIG, "interface_menu", "update_all_ok", "", lng_key)
+            for section in sections:
+                for (key, val) in DATA.items(section):
+                    LXMF_CONNECTION.send(key, content, "", fields_generate(lng_key, m=True, d=True, r=True, cmd=section, config=section, tpl="update"), None, "interface_send")
+            content = ""
+        except:
+            content = config_get(CONFIG, "interface_menu", "update_all_error", "", lng_key)
 
 
     # "/join" command.
@@ -2922,7 +2986,7 @@ def fields_generate(lng_key, fields=None, h=None, n=None, m=False, d=False, r=Fa
             for config in configs:
                 if config != "":
                     key, value = config.split("=", 1)
-                    fields["data"]["config"][key] = val_to_bool(value, fallback_true=value, fallback_false=value)
+                    fields["data"]["config"][key] = val_to_val(value)
 
     if tpl:
         fields["tpl"] = tpl
@@ -3289,7 +3353,7 @@ def statistic_add(section="global", value=1):
     day = date.timetuple().tm_yday
     month = date.timetuple().tm_mon
     year = date.timetuple().tm_year
-    week = date.isocalendar().week
+    week = date.isocalendar()[1]
 
     #day
     if STATISTIC[section]["day_index"] == str(day):
@@ -3330,7 +3394,7 @@ def statistic_recalculate(section="global"):
     day = date.timetuple().tm_yday
     month = date.timetuple().tm_mon
     year = date.timetuple().tm_year
-    week = date.isocalendar().week
+    week = date.isocalendar()[1]
 
     #day
     if STATISTIC[section]["day_index"] != str(day):
@@ -3509,7 +3573,7 @@ def statistic_default(section="global"):
     day = date.timetuple().tm_yday
     month = date.timetuple().tm_mon
     year = date.timetuple().tm_year
-    week = date.isocalendar().week
+    week = date.isocalendar()[1]
 
     STATISTIC.add_section(section)
     STATISTIC[section]["day_value"] = "0"
@@ -3546,6 +3610,19 @@ def val_to_bool(val, fallback_true=True, fallback_false=False):
         return fallback_true
     else:
         return fallback_false
+
+
+def val_to_val(val):
+    if val.isdigit():
+        return int(val)
+    elif val.isnumeric():
+        return float(val)
+    elif val.lower() == "true":
+        return True
+    elif val.lower() == "false":
+        return False
+    else:
+        return val
 
 
 ##############################################################################################################
@@ -4001,7 +4078,7 @@ periodic_save_statistic_interval = 30 #Minutes
 # As an alternative to defining the nickname manually, it can be used automatically from the announce.
 auto_name_add = True
 auto_name_def = True
-auto_name_change = False
+auto_name_change = True
 
 # Transport extended data in the announce and fields variable.
 # This is needed for the integration of advanced client apps.
@@ -4018,7 +4095,7 @@ fields_message = False
 # to be compatibel with other LXMF programs.
 destination_name = lxmf
 destination_type = delivery
-destination_type_conv = #4=Group, 6=Channel
+destination_type_conv = #4=Group, 6=Channel (Only for use with Communicator-Software.)
 
 # The name will be visible to other peers
 # on the network, and included in announces.
@@ -4073,7 +4150,7 @@ sync_periodic_interval = 360 #Minutes
 # download x messages at a time. You can change
 # this number, or set the option to 0 to disable
 # the limit, and download everything every time.
-sync_limit = 8
+sync_limit = 0
 
 # Allow only messages with valid signature.
 signature_validated = No
@@ -4176,6 +4253,13 @@ heartbeat_timeout = 15 #Minutes
 [message]
 
 ## Each message received (message and command) ##
+
+# Deny message if the title/content/fields contains the following content.
+# Comma-separated list with text or field keys.
+# *=any
+deny_title = 
+deny_content = 
+deny_fields = 
 
 # Text is added.
 receive_title_prefix = 
@@ -4304,8 +4388,8 @@ user = True
 # Delimiter for different rights: ,
 [rights]
 
-admin = interface,receive_local,receive_cluster,receive_cluster_pin_add,receive_cluster_loop,receive_cluster_join,receive_join,receive_leave,receive_invite,receive_kick,receive_block,receive_unblock,receive_allow,receive_deny,receive_description,receive_rules,receive_pin_add,receive_pin_remove,receive_name_def,receive_name_change,receive_auto_name_def,receive_auto_name_change,reply_signature,reply_cluster_enabled,reply_cluster_right,reply_interface_enabled,reply_interface_right,reply_local_enabled,reply_local_right,reply_block,reply_length_min,reply_length_max,send_local,send_cluster,help,update,join,leave,name,address,info,pin,pin_add,pin_remove,cluster_pin_add,description,rules,readme,time,version,groups,members,admins,moderators,users,guests,search,activitys,statistic,statistic_min,statistic_full,statistic_cluster,statistic_router,statistic_local,statistic_interface,statistic_self,statistic_user,status,delivery,enable_local,enable_cluster,auto_add_user,auto_add_user_type,auto_add_cluster,auto_add_router,invite_user,invite_user_type,allow_user,allow_user_type,deny_user,deny_user_type,description_set,rules_set,announce,sync,show_run,show,add,del,move,rename,invite,kick,block,unblock,allow,deny,load,save,reload,reset,unsaved
-mod = interface,receive_local,receive_cluster,receive_cluster_pin_add,receive_cluster_loop,receive_join,receive_leave,receive_invite,receive_kick,receive_block,receive_unblock,receive_allow,receive_deny,receive_description,receive_rules,receive_pin_add,reply_signature,reply_cluster_enabled,reply_cluster_right,reply_interface_enabled,reply_interface_right,reply_local_enabled,reply_local_right,reply_block,reply_length_min,reply_length_max,send_local,send_cluster,help,update,join,leave,name,address,info,pin,pin_add,pin_remove,cluster_pin_add,description,rules,readme,time,version,groups,members,admins,moderators,users,guests,search,activitys,statistic,statistic_min,statistic_cluster,statistic_router,statistic_local,statistic_self,delivery,show,add,del,move,rename,invite,kick,block,unblock,allow,deny
+admin = interface,receive_local,receive_cluster,receive_cluster_pin_add,receive_cluster_loop,receive_cluster_join,receive_join,receive_leave,receive_invite,receive_kick,receive_block,receive_unblock,receive_allow,receive_deny,receive_description,receive_rules,receive_pin_add,receive_pin_remove,receive_name_def,receive_name_change,receive_auto_name_def,receive_auto_name_change,reply_signature,reply_cluster_enabled,reply_cluster_right,reply_interface_enabled,reply_interface_right,reply_local_enabled,reply_local_right,reply_block,reply_length_min,reply_length_max,send_local,send_cluster,help,update,update_all,join,leave,name,address,info,pin,pin_add,pin_remove,cluster_pin_add,description,rules,readme,time,version,groups,members,admins,moderators,users,guests,search,activitys,statistic,statistic_min,statistic_full,statistic_cluster,statistic_router,statistic_local,statistic_interface,statistic_self,statistic_user,status,delivery,enable_local,enable_cluster,auto_add_user,auto_add_user_type,auto_add_cluster,auto_add_router,invite_user,invite_user_type,allow_user,allow_user_type,deny_user,deny_user_type,description_set,rules_set,announce,sync,show_run,show,add,del,move,rename,invite,kick,block,unblock,allow,deny,load,save,reload,reset,unsaved
+mod = interface,receive_local,receive_cluster,receive_cluster_pin_add,receive_cluster_loop,receive_join,receive_leave,receive_invite,receive_kick,receive_block,receive_unblock,receive_allow,receive_deny,receive_description,receive_rules,receive_pin_add,reply_signature,reply_cluster_enabled,reply_cluster_right,reply_interface_enabled,reply_interface_right,reply_local_enabled,reply_local_right,reply_block,reply_length_min,reply_length_max,send_local,send_cluster,help,update,update_all,join,leave,name,address,info,pin,pin_add,pin_remove,cluster_pin_add,description,rules,readme,time,version,groups,members,admins,moderators,users,guests,search,activitys,statistic,statistic_min,statistic_cluster,statistic_router,statistic_local,statistic_self,delivery,show,add,del,move,rename,invite,kick,block,unblock,allow,deny
 user = interface,receive_local,receive_cluster,receive_cluster_pin_add,receive_cluster_loop,receive_join,receive_leave,receive_invite,receive_kick,receive_block,receive_unblock,receive_allow,receive_description,receive_rules,receive_pin_add,reply_signature,reply_cluster_enabled,reply_cluster_right,reply_interface_enabled,reply_interface_right,reply_local_enabled,reply_local_right,reply_block,reply_length_min,reply_length_max,send_local,send_cluster,help,update,join,leave,name,address,info,pin,pin_add,pin_remove,cluster_pin_add,description,rules,readme,time,version,groups,members,admins,moderators,users,guests,search,activitys,statistic,statistic_min,statistic_cluster,statistic_router,statistic_local,statistic_self,delivery,invite
 guest = interface,receive_local,receive_cluster,receive_cluster_loop,update,join,leave
 wait = interface,update,join,leave
@@ -4319,8 +4403,8 @@ wait = interface,update,join,leave
 # Delimiter for different cmds: ,
 [cmds]
 
-admin = leave,invite,kick,block,unblock,allow,deny
-mod = leave,invite,kick,block,unblock,allow,deny
+admin = update,update_all,leave,invite,kick,block,unblock,allow,deny
+mod = update,update_all,leave,invite,kick,block,unblock,allow,deny
 user = leave,invite
 guest = leave
 wait = leave
@@ -4651,6 +4735,12 @@ update_ok = OK: Data updated.
 update_ok-de = OK: Daten aktualisiert.
 update_error = ERROR: Updating data.
 update_error-de = FEHLER: Daten aktualisieren.
+
+# "/update_all" command.
+update_all_ok = OK: Data updated.
+update_all_ok-de = OK: Daten aktualisiert.
+update_all_error = ERROR: Updating data.
+update_all_error-de = FEHLER: Daten aktualisieren.
 
 # "/join" command.
 join_error = ERROR: While joining group.
