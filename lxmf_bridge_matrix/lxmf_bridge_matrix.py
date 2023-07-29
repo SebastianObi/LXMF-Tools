@@ -82,7 +82,8 @@ COPYRIGHT = "(c) 2023 Sebastian Obele  /  obele.eu"
 PATH = os.path.expanduser("~") + "/." + os.path.splitext(os.path.basename(__file__))[0]
 PATH_RNS = None
 
-
+# Number of message ids which will be saved (older will be deleted).
+DATA_COUNT_SAVE = 10000 #0=No limit
 
 
 #### Global Variables - System (Not changeable) ####
@@ -450,7 +451,7 @@ class lxmf_connection:
     def sync_now(self, limit=None):
         if self.message_router.get_outbound_propagation_node() is not None:
             if self.message_router.propagation_transfer_state == LXMF.LXMRouter.PR_IDLE or self.message_router.propagation_transfer_state == LXMF.LXMRouter.PR_COMPLETE:
-                log("LXMF - Message sync requested from propagation node " + RNS.prettyhexrep(self.message_router.get_outbound_propagation_node()) + " for " + str(self.identity))
+                log("LXMF - Message sync requested from propagation node " + RNS.prettyhexrep(self.message_router.get_outbound_propagation_node()) + " for " + str(self.identity), LOG_DEBUG)
                 self.message_router.request_messages_from_propagation_node(self.identity, max_messages = limit)
                 return True
             else:
@@ -588,8 +589,6 @@ class lxmf_connection:
             log("-      Method: " + str(message.desired_method), LOG_DEBUG)
         if hasattr(message, "app_data"):
             log("-    App Data: " + message.app_data, LOG_DEBUG)
-
-
 
 
 class lxmf_connection_propagation():
@@ -820,8 +819,6 @@ class lxmf_announce_callback:
         log("LXMF - Received an announce from " + RNS.prettyhexrep(destination_hash) + ": " + app_data, LOG_INFO)
 
 
-
-
 #### LXMF - Message ####
 def lxmf_message_received_callback(message):
     if not CONFIG["router"].getboolean("lxmf_to_matrix"):
@@ -914,7 +911,7 @@ def lxmf_message_received_callback(message):
         if message.fields and "edit" in message.fields and "hash" in message.fields and message.fields["hash"] in DATA:
             content = {"msgtype": "m.text", "body": "", "m.new_content": {"body": content, "msgtype": "m.text"}, "m.relates_to": {"event_id": DATA[message.fields["hash"]][0], "rel_type": "m.replace"}}
         elif message.fields and "delete" in message.fields and "hash" in message.fields and message.fields["hash"] in DATA:
-            content = {"msgtype": "m.text", "body": "", "m.new_content": {"body": "-", "msgtype": "m.text"}, "m.relates_to": {"event_id": DATA[message.fields["hash"]][0], "rel_type": "m.replace"}}
+            content = {"msgtype": "m.text", "body": "", "m.new_content": {"body": config_get(CONFIG, "message", "lxmf_to_matrix_deleted", "-"), "msgtype": "m.text"}, "m.relates_to": {"event_id": DATA[message.fields["hash"]][0], "rel_type": "m.replace"}}
         elif message.fields and "answer" in message.fields and message.fields["answer"] in DATA:
             content = {"msgtype": "m.text", "body": content, "m.relates_to": {"m.in_reply_to": {"event_id": DATA[message.fields["answer"]][0]}}}
         else:
@@ -1114,8 +1111,6 @@ def config_getoption(config, section, key, default=False, lng_key=""):
     return default
 
 
-
-
 #### Config - Set #####
 def config_set(key=None, value=""):
     global PATH
@@ -1144,8 +1139,6 @@ def config_set(key=None, value=""):
         pass
 
 
-
-
 #### Config - Read #####
 def config_read(file=None, file_override=None):
     global CONFIG
@@ -1171,8 +1164,6 @@ def config_read(file=None, file_override=None):
     return True
 
 
-
-
 #### Config - Save #####
 def config_save(file=None):
     global CONFIG
@@ -1189,8 +1180,6 @@ def config_save(file=None):
         else:
             return False
     return True
-
-
 
 
 #### Config - Default #####
@@ -1260,8 +1249,6 @@ def data_read(file=None):
     return True
 
 
-
-
 #### Data - Save #####
 def data_save(file=None):
     global DATA
@@ -1270,14 +1257,16 @@ def data_save(file=None):
         return False
     else:
         try:
+            if DATA_COUNT_SAVE > 0 and len(DATA) > DATA_COUNT_SAVE:
+                keys = list(DATA.keys())[:DATA_COUNT_SAVE]
+                for key in keys:
+                    del DATA[key]
             fh = open(file, "wb")
             fh.write(umsgpack.packb(DATA))
             fh.close()
         except Exception as e:
             return False
     return True
-
-
 
 
 #### Data - Save #####
@@ -1345,8 +1334,6 @@ LOG_MAXSIZE       = 5*1024*1024
 LOG_PREFIX        = ""
 LOG_SUFFIX        = ""
 LOG_FILE          = ""
-
-
 
 
 def log(text, level=3, file=None):
@@ -1561,8 +1548,6 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
         time.sleep(1)
 
 
-
-
 #### Start ####
 def main():
     try:
@@ -1615,8 +1600,6 @@ DEFAULT_CONFIG = '''# This is the default config file.
 # You should probably edit it to suit your needs and use-case.
 
 
-
-
 #### Main program settings ####
 [main]
 
@@ -1635,8 +1618,6 @@ auto_save_data = False
 # Periodic actions - Save changes periodically.
 periodic_save_data = True
 periodic_save_data_interval = 1 #Minutes
-
-
 
 
 #### LXMF connection settings ####
@@ -1705,8 +1686,6 @@ sync_limit = 0
 signature_validated = Yes
 
 
-
-
 #### Matrix connection settings ####
 [matrix]
 
@@ -1715,8 +1694,6 @@ address = <server address>
 username = <username>
 
 password = <password>
-
-
 
 
 #### Message router settings ####
@@ -1729,15 +1706,11 @@ lxmf_to_matrix = True
 matrix_to_lxmf = True
 
 
-
-
 #### Message routing table ####
 # Definition of the assignment of lxmf addresses to matrix room ids (bidirectional routing).
 # Format: <LXMF address> = <Matrix room id> = <Name (for display)> 
 # Example: 2858b7a096899116cd529559cc679ffe = !ADeAldKEzhgebazEzG:matrix.org = Test-Room
 [routing_table]
-
-
 
 
 #### Message settings ####
@@ -1769,6 +1742,9 @@ lxmf_to_matrix_regex_replace =
 lxmf_to_matrix_length_min = 0 #0=any length
 lxmf_to_matrix_length_max = 0 #0=any length
 
+# Text is used.
+lxmf_to_matrix_deleted = Message deleted
+
 
 # Deny message if the title/content/fields contains the following content.
 # Comma-separated list with text or field keys.
@@ -1796,7 +1772,8 @@ matrix_to_lxmf_regex_replace =
 matrix_to_lxmf_length_min = 0 #0=any length
 matrix_to_lxmf_length_max = 0 #0=any length
 
-
+# Text is used.
+matrix_to_lxmf_deleted = 
 
 
 #### Right settings ####

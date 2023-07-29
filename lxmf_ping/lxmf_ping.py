@@ -76,8 +76,6 @@ PATH = os.path.expanduser("~") + "/." + os.path.splitext(os.path.basename(__file
 PATH_RNS = None
 
 
-
-
 #### Global Variables - System (Not changeable) ####
 DATA = None
 RNS_CONNECTION = None
@@ -440,7 +438,7 @@ class lxmf_connection:
     def sync_now(self, limit=None):
         if self.message_router.get_outbound_propagation_node() is not None:
             if self.message_router.propagation_transfer_state == LXMF.LXMRouter.PR_IDLE or self.message_router.propagation_transfer_state == LXMF.LXMRouter.PR_COMPLETE:
-                log("LXMF - Message sync requested from propagation node " + RNS.prettyhexrep(self.message_router.get_outbound_propagation_node()) + " for " + str(self.identity))
+                log("LXMF - Message sync requested from propagation node " + RNS.prettyhexrep(self.message_router.get_outbound_propagation_node()) + " for " + str(self.identity), LOG_DEBUG)
                 self.message_router.request_messages_from_propagation_node(self.identity, max_messages = limit)
                 return True
             else:
@@ -580,8 +578,6 @@ class lxmf_connection:
             log("-    App Data: " + message.app_data, LOG_DEBUG)
 
 
-
-
 class lxmf_connection_propagation():
     def __init__(self, owner, aspect_filter=None):
         self.owner = owner
@@ -644,8 +640,6 @@ def lxmf_success(message):
     else:
         count = ""
     print("Destination: " + str (key) + "  |  #: " + str(count) + "  |  Messages delivered: " + str(DATA[key]["count_success"]) + "/" + str(DATA[key]["count"]) + " (" + str(round(100/DATA[key]["count"]*DATA[key]["count_success"], 2)) + "%)  |  Time (min / max / avg): " + str(DATA[key]["time_min"]) + " / " + str(DATA[key]["time_max"]) + " / " + str(DATA[key]["time_avg"]) + "  |  Info: Success")
-
-
 
 
 #### LXMF - Failed ####
@@ -715,8 +709,6 @@ LOG_MAXSIZE       = 5*1024*1024
 LOG_PREFIX        = ""
 LOG_SUFFIX        = ""
 LOG_FILE          = ""
-
-
 
 
 def log(text, level=3, file=None):
@@ -840,7 +832,7 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, dest="", inter
 
     DATA = {}
     destinations = dest.split(",") 
-    for key in destinations:    
+    for key in destinations:
         DATA[key] = {}
         DATA[key]["count"] = 0
         DATA[key]["count_success"] = 0
@@ -866,8 +858,6 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, dest="", inter
                     LXMF_CONNECTION.send(key, content)
                 print("Destination: " + str (key) + "  |  #: " + str(DATA[key]["count"]) + "  |  Messages delivered: " + str(DATA[key]["count_success"]) + "/" + str(DATA[key]["count"]) + " (" + str(round(100/DATA[key]["count"]*DATA[key]["count_success"], 2)) + "%)  |  Time (min / max / avg): " + str(DATA[key]["time_min"]) + " / " + str(DATA[key]["time_max"]) + " / " + str(DATA[key]["time_avg"]) + "  |  Info: Sending/Queued")
         time.sleep(interval)
-
-
 
 
 #### Start ####

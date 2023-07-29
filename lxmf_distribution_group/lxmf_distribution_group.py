@@ -82,8 +82,6 @@ PATH = os.path.expanduser("~") + "/." + os.path.splitext(os.path.basename(__file
 PATH_RNS = None
 
 
-
-
 #### Global Variables - System (Not changeable) ####
 DATA = None
 CONFIG = None
@@ -454,7 +452,7 @@ class lxmf_connection:
     def sync_now(self, limit=None):
         if self.message_router.get_outbound_propagation_node() is not None:
             if self.message_router.propagation_transfer_state == LXMF.LXMRouter.PR_IDLE or self.message_router.propagation_transfer_state == LXMF.LXMRouter.PR_COMPLETE:
-                log("LXMF - Message sync requested from propagation node " + RNS.prettyhexrep(self.message_router.get_outbound_propagation_node()) + " for " + str(self.identity))
+                log("LXMF - Message sync requested from propagation node " + RNS.prettyhexrep(self.message_router.get_outbound_propagation_node()) + " for " + str(self.identity), LOG_DEBUG)
                 self.message_router.request_messages_from_propagation_node(self.identity, max_messages = limit)
                 return True
             else:
@@ -592,8 +590,6 @@ class lxmf_connection:
             log("-      Method: " + str(message.desired_method), LOG_DEBUG)
         if hasattr(message, "app_data"):
             log("-    App Data: " + message.app_data, LOG_DEBUG)
-
-
 
 
 class lxmf_connection_propagation():
@@ -865,8 +861,6 @@ class lxmf_announce_callback:
                                         DATA["main"]["unsaved"] = "True"
                                 else:
                                     DATA["main"]["unsaved"] = "True"
-
-
 
 
 #### LXMF - Message ####
@@ -1439,8 +1433,6 @@ def lxmf_message_received_callback(message):
     return
 
 
-
-
 #### LXMF - Notification ####
 def lxmf_message_notification_success_callback(message):
     if CONFIG["statistic"].getboolean("enabled"):
@@ -1459,8 +1451,6 @@ def lxmf_message_notification_success_callback(message):
                 statistic("value_set", destination_hash, "activity", time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time())))
                 statistic("value_set", destination_hash, "activity_send", time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time())))
     return
-
-
 
 
 #### LXMF - Notification ####
@@ -2913,8 +2903,6 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
     return content
 
 
-
-
 #### Fields #####
 def fields_remove(fields=None, key="fields_remove"):
     search = config_get(CONFIG, "message", key).split(",")
@@ -2928,8 +2916,6 @@ def fields_remove(fields=None, key="fields_remove"):
         del fields[field]
 
     return fields
-
-
 
 
 #### Fields #####
@@ -2988,12 +2974,19 @@ def fields_generate(lng_key, fields=None, h=None, n=None, m=False, d=False, r=Fa
                     key, value = config.split("=", 1)
                     fields["data"]["config"][key] = val_to_val(value)
 
+    if cmd or config:
+        if DATA.has_section("topics"):
+            fields["data"]["topics"] = {}
+            for (key, val) in DATA.items("topics"):
+                try:
+                    fields["data"]["topics"][int(key)] = val
+                except:
+                    pass
+
     if tpl:
         fields["tpl"] = tpl
 
     return fields
-
-
 
 
 #### Replace #####
@@ -3087,8 +3080,6 @@ def config_getoption(config, section, key, default=False, lng_key=""):
     return default
 
 
-
-
 #### Config - Set #####
 def config_set(key=None, value=""):
     global PATH
@@ -3117,8 +3108,6 @@ def config_set(key=None, value=""):
         pass
 
 
-
-
 #### Config - Read #####
 def config_read(file=None, file_override=None):
     global CONFIG
@@ -3144,8 +3133,6 @@ def config_read(file=None, file_override=None):
     return True
 
 
-
-
 #### Config - Save #####
 def config_save(file=None):
     global CONFIG
@@ -3162,8 +3149,6 @@ def config_save(file=None):
         else:
             return False
     return True
-
-
 
 
 #### Config - Default #####
@@ -3232,8 +3217,6 @@ def data_read(file=None):
     return True
 
 
-
-
 #### Data - Save #####
 def data_save(file=None):
     global DATA
@@ -3252,8 +3235,6 @@ def data_save(file=None):
     return True
 
 
-
-
 #### Data - Save #####
 def data_save_periodic(initial=False):
     data_timer = threading.Timer(CONFIG.getint("main", "periodic_save_data_interval")*60, data_save_periodic)
@@ -3269,8 +3250,6 @@ def data_save_periodic(initial=False):
             DATA.remove_option("main", "unsaved")
             if not data_save(PATH + "/data.cfg"):
                 DATA["main"]["unsaved"] = "True"
-
-
 
 
 #### Data - Default #####
@@ -3338,8 +3317,6 @@ def statistic(cmd="add", section="global", key="", value=1):
             STATISTIC["main"]["unsaved"] = "True"
 
 
-
-
 #### Statistic - Add #####
 def statistic_add(section="global", value=1):
     global STATISTIC
@@ -3379,8 +3356,6 @@ def statistic_add(section="global", value=1):
         STATISTIC[section]["max_value"] = STATISTIC[section]["day_value"]
         STATISTIC[section]["max_index"] = time.strftime("%Y-%m-%d", time.localtime(time.time()))
     return
-
-
 
 
 #### Statistic - Recalculate #####
@@ -3443,8 +3418,6 @@ def statistic_recalculate(section="global"):
     return
 
 
-
-
 #### Statistic - Del #####
 def statistic_del(section="global"):
     global STATISTIC
@@ -3453,14 +3426,10 @@ def statistic_del(section="global"):
         STATISTIC.remove_section(section)
 
 
-
-
 #### Statistic - Reset #####
 def statistic_reset(section="global"):
     statistic_del(section)
     statistic_add(section, 0)
-
-
 
 
 #### Statistic - Get #####
@@ -3480,8 +3449,6 @@ def statistic_get(section="global"):
     return text
 
 
-
-
 #### Statistic - Value set #####
 def statistic_value_set(section, key, value):
     global STATISTIC
@@ -3492,8 +3459,6 @@ def statistic_value_set(section, key, value):
     STATISTIC[section][key] = value
 
 
-
-
 #### Statistic - Value get #####
 def statistic_value_get(section, key, default=""):
     global STATISTIC
@@ -3502,8 +3467,6 @@ def statistic_value_get(section, key, default=""):
         if STATISTIC.has_option(section, key):
             return STATISTIC[section][key]
     return default
-
-
 
 
 #### Statistic - Read #####
@@ -3523,8 +3486,6 @@ def statistic_read(file=None):
     return True
 
 
-
-
 #### Statistic - Save #####
 def statistic_save(file=None):
     global STATISTIC
@@ -3540,8 +3501,6 @@ def statistic_save(file=None):
         except Exception as e:
             return False
     return True
-
-
 
 
 #### Statistic - Save #####
@@ -3561,8 +3520,6 @@ def statistic_save_periodic(initial=False):
                 if not STATISTIC.has_section("main"):
                     STATISTIC.add_section("main")
                 STATISTIC["main"]["unsaved"] = "True"
-
-
 
 
 #### Statistic - Default #####
@@ -3646,8 +3603,6 @@ LOG_MAXSIZE       = 5*1024*1024
 LOG_PREFIX        = ""
 LOG_SUFFIX        = ""
 LOG_FILE          = ""
-
-
 
 
 def log(text, level=3, file=None):
@@ -3776,7 +3731,9 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
         exit()
 
     if CONFIG["statistic"].getboolean("enabled"):
-        statistic_read(PATH + "/statistic.cfg")
+        if not statistic_read(PATH + "/statistic.cfg"):
+            print("Statistic - Error reading statistic file " + PATH + "/statistic.cfg")
+            panic()
 
     if CONFIG.has_section("cmds") and CONFIG.has_section("rights"):
         for (key, val) in CONFIG.items("cmds"):
@@ -3907,8 +3864,6 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
 
     while True:
         time.sleep(1)
-
-
 
 
 #### Start ####
@@ -4044,8 +3999,6 @@ DEFAULT_CONFIG = '''# This is the default config file.
 # You should probably edit it to suit your needs and use-case.
 
 
-
-
 #### Main program settings ####
 [main]
 
@@ -4084,8 +4037,6 @@ auto_name_change = True
 # This is needed for the integration of advanced client apps.
 fields_announce = False
 fields_message = False
-
-
 
 
 #### LXMF connection settings ####
@@ -4158,8 +4109,6 @@ signature_validated_new = No
 signature_validated_known = No
 
 
-
-
 #### RNS connection settings ####
 [rns]
 
@@ -4181,8 +4130,6 @@ announce_periodic_interval = 120 #Minutes
 # The announce is hidden for client applications
 # but is still used for the routing tables.
 announce_hidden = No
-
-
 
 
 #### Cluster settings ####
@@ -4207,8 +4154,6 @@ display_name = County/Region/City
 delimiter_input = @
 
 
-
-
 #### Router settings ####
 [router]
 
@@ -4219,8 +4164,6 @@ enabled = False
 # The names and levels must match the used display_name of the cluster accordingly.
 # No spaces are allowed in the name.
 display_name = Country,Country/Region
-
-
 
 
 #### High availability settings ####
@@ -4245,8 +4188,6 @@ sync_startup_delay = 0 #Seconds
 # Heartbeat
 heartbeat_interval = 1 #Minutes
 heartbeat_timeout = 15 #Minutes
-
-
 
 
 #### Message settings ####
@@ -4356,8 +4297,6 @@ fields_remove =
 fields_remove_anonymous = 
 
 
-
-
 #### Statistic/Counter settings ####
 [statistic]
 
@@ -4380,8 +4319,6 @@ interface = True
 user = True
 
 
-
-
 #### User rights assignment ####
 
 # Define the individual rights for the different user types.
@@ -4393,8 +4330,6 @@ mod = interface,receive_local,receive_cluster,receive_cluster_pin_add,receive_cl
 user = interface,receive_local,receive_cluster,receive_cluster_pin_add,receive_cluster_loop,receive_join,receive_leave,receive_invite,receive_kick,receive_block,receive_unblock,receive_allow,receive_description,receive_rules,receive_pin_add,reply_signature,reply_cluster_enabled,reply_cluster_right,reply_interface_enabled,reply_interface_right,reply_local_enabled,reply_local_right,reply_block,reply_length_min,reply_length_max,send_local,send_cluster,help,update,join,leave,name,address,info,pin,pin_add,pin_remove,cluster_pin_add,description,rules,readme,time,version,groups,members,admins,moderators,users,guests,search,activitys,statistic,statistic_min,statistic_cluster,statistic_router,statistic_local,statistic_self,delivery,invite
 guest = interface,receive_local,receive_cluster,receive_cluster_loop,update,join,leave
 wait = interface,update,join,leave
-
-
 
 
 #### User cmd assignment ####
@@ -4410,8 +4345,6 @@ guest = leave
 wait = leave
 
 
-
-
 #### User config assignment ####
 # Define the individual configs for the different user types.
 # Delimiter for different configs: ,
@@ -4421,8 +4354,6 @@ mod =
 user = 
 guest = 
 wait = 
-
-
 
 
 #### User rights/cmds options ####
@@ -4534,8 +4465,6 @@ wait =
 # unsaved = Displays the status of the data file when using any action/command.
 
 
-
-
 #### Interface settings - General ####
 [interface]
 
@@ -4545,8 +4474,6 @@ enabled = True
 # Define the delimiters for command input/output.
 delimiter_input = /
 delimiter_output = !
-
-
 
 
 #### Interface settings - Messages ####
@@ -4710,8 +4637,6 @@ reply_length_min = Info: Minimum message length not reached!
 reply_length_min-de = Info: Minimale Nachrichtenlänge unterschritten!
 reply_length_max = Info: Maximum message length exceeded!
 reply_length_max-de = Info: Maximale Nachrichtenlänge überschritten!
-
-
 
 
 #### Interface settings - Menu/command ####
@@ -5118,8 +5043,6 @@ cmd_unknown = ERROR: Unknown command. Type /? for help.
 cmd_unknown-de = FEHLER: Unbekannter Befehl. Geben Sie /? für Hilfe ein.
 
 
-
-
 #### Interface settings - Help ####
 
 # Define help texts.
@@ -5341,6 +5264,10 @@ description =
 description-de = 
 rules = Please follow the general rules of etiquette which should be taken for granted!!n!Prohibited are:!n!Spam, insults, violence, sex, illegal topics
 rules-de = Bitte befolgen Sie die allgemeinen benimm-dich-Regeln welche als selbstverständlich gelten sollten!!n!Verboten sind:!n!Spam, Beleidigungen, Gewalt, Sex, illegale Themen
+
+
+#### Topics ####
+[topics]
 
 
 #### Admin user ####
