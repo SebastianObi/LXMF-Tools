@@ -8,7 +8,7 @@ For more information, see the configuration options (at the end of the program f
 
 ### Features
 - Optimized for compatibility with the distributon group
-- Compatible with all LXMF applications (NomadNet, Sideband, ...)
+- Compatible with all LXMF applications (Communicator, NomadNet, Sideband, ...)
 - Compatible with all Matrix rooms
 - Configurable routing table to connect more than one room/group
 
