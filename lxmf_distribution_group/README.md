@@ -5,7 +5,7 @@ For more information, see the configuration options (at the end of the program f
 
 
 ### Features
-- Compatible with all LXMF applications (NomadNet, Sideband, ...)
+- Compatible with all LXMF applications (Communicator, NomadNet, Sideband, ...)
 - Server/Node based message routing and processing
 - Direct or propagated message delivery (receive/send)
 - Simple group functions (As in other messenger apps)

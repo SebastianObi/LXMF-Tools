@@ -79,8 +79,6 @@ PATH = os.path.expanduser("~") + "/." + os.path.splitext(os.path.basename(__file
 PATH_RNS = None
 
 
-
-
 #### Global Variables - System (Not changeable) ####
 CONFIG = None
 RNS_CONNECTION = None
@@ -443,7 +441,7 @@ class lxmf_connection:
     def sync_now(self, limit=None):
         if self.message_router.get_outbound_propagation_node() is not None:
             if self.message_router.propagation_transfer_state == LXMF.LXMRouter.PR_IDLE or self.message_router.propagation_transfer_state == LXMF.LXMRouter.PR_COMPLETE:
-                log("LXMF - Message sync requested from propagation node " + RNS.prettyhexrep(self.message_router.get_outbound_propagation_node()) + " for " + str(self.identity))
+                log("LXMF - Message sync requested from propagation node " + RNS.prettyhexrep(self.message_router.get_outbound_propagation_node()) + " for " + str(self.identity), LOG_DEBUG)
                 self.message_router.request_messages_from_propagation_node(self.identity, max_messages = limit)
                 return True
             else:
@@ -583,8 +581,6 @@ class lxmf_connection:
             log("-    App Data: " + message.app_data, LOG_DEBUG)
 
 
-
-
 class lxmf_connection_propagation():
     def __init__(self, owner, aspect_filter=None):
         self.owner = owner
@@ -644,8 +640,6 @@ class lxmf_announce_callback:
             return
 
         log("LXMF - Received an announce from " + RNS.prettyhexrep(destination_hash) + ": " + app_data, LOG_INFO)
-
-
 
 
 #### LXMF - Message ####
@@ -753,8 +747,6 @@ def replace(text):
     return text
 
 
-
-
 def cmd(cmd):
     content = ""
 
@@ -833,8 +825,6 @@ def config_getoption(config, section, key, default=False, lng_key=""):
     return default
 
 
-
-
 #### Config - Set #####
 def config_set(key=None, value=""):
     global PATH
@@ -863,8 +853,6 @@ def config_set(key=None, value=""):
         pass
 
 
-
-
 #### Config - Read #####
 def config_read(file=None, file_override=None):
     global CONFIG
@@ -890,8 +878,6 @@ def config_read(file=None, file_override=None):
     return True
 
 
-
-
 #### Config - Save #####
 def config_save(file=None):
     global CONFIG
@@ -908,8 +894,6 @@ def config_save(file=None):
         else:
             return False
     return True
-
-
 
 
 #### Config - Default #####
@@ -1003,8 +987,6 @@ LOG_MAXSIZE       = 5*1024*1024
 LOG_PREFIX        = ""
 LOG_SUFFIX        = ""
 LOG_FILE          = ""
-
-
 
 
 def log(text, level=3, file=None):
@@ -1188,8 +1170,6 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
         time.sleep(1)
 
 
-
-
 #### Start ####
 def main():
     try:
@@ -1242,8 +1222,6 @@ DEFAULT_CONFIG = '''# This is the default config file.
 # You should probably edit it to suit your needs and use-case.
 
 
-
-
 #### Main program settings ####
 [main]
 
@@ -1251,8 +1229,6 @@ enabled = True
 
 # Name of the program. Only for display in the log or program startup.
 name = CMD
-
-
 
 
 #### LXMF connection settings ####
@@ -1321,8 +1297,6 @@ sync_limit = 8
 signature_validated = Yes
 
 
-
-
 #### Message settings ####
 [message]
 
@@ -1365,8 +1339,6 @@ send_regex_replace =
 # Length limitation.
 send_length_min = 0 #0=any length
 send_length_max = 0 #0=any length
-
-
 
 
 #### Right settings ####
