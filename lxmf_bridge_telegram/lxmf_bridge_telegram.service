@@ -1,0 +1,12 @@
+[Unit]
+Description=lxmf_bridge_telegram
+After=multi-user.target
+[Service]
+ExecStartPre=/bin/sleep 10
+Type=simple
+Restart=always
+RestartSec=3
+User=root
+ExecStart=/root/LXMF-Tools/lxmf_bridge_telegram/lxmf_bridge_telegram.py
+[Install]
+WantedBy=multi-user.target

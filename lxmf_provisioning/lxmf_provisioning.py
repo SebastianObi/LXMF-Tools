@@ -739,7 +739,7 @@ def jobs_in():
                             result = dbc.fetchall()
                             if len(result) == 0:
                                 user_id = str(uuid.uuid4())
-                                dbc.execute("INSERT INTO members (member_user_id, member_email, member_password, member_dob, member_sex, member_introduction, member_country, member_state, member_city, member_occupation, member_skills, member_tasks, member_wallet_address, member_accept_rules, member_language, member_locale, member_ts_add, member_status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, '0')", (
+                                dbc.execute("INSERT INTO members (member_user_id, member_email, member_password, member_dob, member_sex, member_introduction, member_country, member_state, member_city, member_occupation, member_skills, member_tasks, member_wallet_address, member_accept_rules, member_language, member_locale, member_ts_add, member_ts_edit, member_auth_state, member_auth_role) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, '0', '0')", (
                                     user_id,
                                     data["email"],
                                     data["password"],
@@ -756,6 +756,7 @@ def jobs_in():
                                     data["accept_rules"],
                                     data["language"],
                                     data["language"],
+                                    datetime.now(timezone.utc),
                                     datetime.now(timezone.utc)
                                     )
                                 )
@@ -793,7 +794,7 @@ def jobs_in():
                             result = dbc.fetchall()
                             if len(result) == 0:
                                 user_id = str(uuid.uuid4())
-                                dbc.execute("INSERT INTO members (member_user_id, member_email, member_password, member_dob, member_sex, member_introduction, member_country, member_state, member_city, member_occupation, member_skills, member_tasks, member_wallet_address, member_accept_rules, member_language, member_locale, member_ts_add, member_status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, '0')", (
+                                dbc.execute("INSERT INTO members (member_user_id, member_email, member_password, member_dob, member_sex, member_introduction, member_country, member_state, member_city, member_occupation, member_skills, member_tasks, member_wallet_address, member_accept_rules, member_language, member_locale, member_ts_add, member_ts_edit, member_auth_state, member_auth_role) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, '0', '0')", (
                                     user_id,
                                     data["email"],
                                     data["password"],
@@ -810,6 +811,7 @@ def jobs_in():
                                     data["accept_rules"],
                                     data["language"],
                                     data["language"],
+                                    datetime.now(timezone.utc),
                                     datetime.now(timezone.utc)
                                     )
                                 )
@@ -871,7 +873,7 @@ def jobs_in():
                             CACHE_DEL.append(key)
 
                         if data["type"] == "account_prove" and CONFIG["features"].getboolean("account_prove"):
-                            dbc.execute("SELECT device_user_id FROM devices LEFT JOIN members ON members.member_user_id = devices.device_user_id WHERE devices.device_rns_id = %s and members.member_status = '1'", (data["hash_destination"], ))
+                            dbc.execute("SELECT device_user_id FROM devices LEFT JOIN members ON members.member_user_id = devices.device_user_id WHERE devices.device_rns_id = %s and members.member_auth_state = '1'", (data["hash_destination"], ))
                             result = dbc.fetchall()
                             if len(result) == 1:
                                 source_user_id = result[0][0]
@@ -880,13 +882,13 @@ def jobs_in():
                                 if len(result) == 1:
                                     destination_user_id = result[0][0]
                                     dbc.execute("INSERT INTO proves (prove_source_user_id, prove_destination_user_id) VALUES (%s, %s)", (source_user_id, destination_user_id))
-                                    dbc.execute("SELECT member_status FROM members WHERE member_user_id = %s AND member_status = '0'", (destination_user_id, ))
+                                    dbc.execute("SELECT member_auth_state FROM members WHERE member_user_id = %s AND member_auth_state = '0'", (destination_user_id, ))
                                     result = dbc.fetchall()
                                     if len(result) == 1:
                                         dbc.execute("SELECT * FROM proves WHERE prove_destination_user_id = %s", (destination_user_id,))
                                         result = dbc.fetchall()
                                         if len(result) >= 2:
-                                            dbc.execute("UPDATE members SET member_status = '1' WHERE member_user_id = %s AND member_status = '0'", (destination_user_id,))
+                                            dbc.execute("UPDATE members SET member_auth_state = '1' WHERE member_user_id = %s AND member_auth_state = '0'", (destination_user_id,))
                                             if CONFIG["features"].getboolean("account_prove_auth"):
                                                 fields = {}
                                                 if CONFIG["lxmf"]["destination_type_conv"] != "":

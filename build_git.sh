@@ -21,7 +21,7 @@ COMMENT_INIT="Initial commit"
 _prompt() {
   echo -e ""
   echo -e "Select an option:"
-  options=("Commit/Push" "Clear History" "Init" "Init (Pull only)" "Exit")
+  options=("Commit/Push" "Clear History" "Init" "Init (Pull only)" "Init (Push only)" "Exit")
   select opt in "${options[@]}"; do
     case $opt in
     "Commit/Push"*)
@@ -32,6 +32,9 @@ _prompt() {
       break;;
     "Init (Pull only)"*)
       _init_pull
+      break;;
+    "Init (Push only)"*)
+      _init_push
       break;;
     "Init"*)
       _init
@@ -147,6 +150,28 @@ _init_pull() {
   git remote add origin "${ORIGIN}"
 
   git pull origin "${BRANCH}"
+
+  git push -f -u origin "${BRANCH}"
+}
+
+
+_init_push() {
+  echo -e ""
+  echo -e "Init (Push only)"
+
+  read VAR
+  if [ -z "${VAR}" ]; then
+    VAR="${COMMENT_INIT}"
+  fi
+
+  rm -rf .git
+
+  git init
+
+  _define_files
+
+  git branch -M "${BRANCH}"
+  git remote add origin "${ORIGIN}"
 
   git push -f -u origin "${BRANCH}"
 }

@@ -1,0 +1,12 @@
+[Unit]
+Description=lxmf_cmd
+After=multi-user.target
+[Service]
+ExecStartPre=/bin/sleep 10
+Type=simple
+Restart=always
+RestartSec=3
+User=root
+ExecStart=/root/LXMF-Tools/lxmf_cmd/lxmf_cmd.py
+[Install]
+WantedBy=multi-user.target
