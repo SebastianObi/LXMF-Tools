@@ -19,11 +19,19 @@ COMMENT_INIT="Initial commit"
 
 
 _prompt() {
+  echo -e "Origin: ${ORIGIN}"
+  echo -e "Branch: ${BRANCH}"
+  echo -e "Diff:"
+  git diff --numstat
+  echo -e ""
   echo -e ""
   echo -e "Select an option:"
-  options=("Commit/Push" "Clear History" "Init" "Init (Pull only)" "Init (Push only)" "Exit")
+  options=("Diff" "Commit/Push" "Clear History" "Init" "Init (Pull only)" "Init (Push only)" "Exit")
   select opt in "${options[@]}"; do
     case $opt in
+    "Diff"*)
+      _diff
+      break;;
     "Commit/Push"*)
       _commit
       break;;
@@ -59,6 +67,11 @@ _define_files() {
   for file in ${FILES_REMOVE[@]}; do
     git reset -- "${file}"
   done
+}
+
+
+_diff() {
+  git diff 
 }
 
 

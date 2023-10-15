@@ -1406,6 +1406,7 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
                             announce_data[key][val[0]] = val_to_val(val[1])
                 else:
                     announce_data[key] = val
+    announce_data["c"] = CONFIG["lxmf"]["display_name"].encode("utf-8")
 
     LXMF_CONNECTION = lxmf_connection(
         storage_path=path,
@@ -1501,6 +1502,7 @@ DEFAULT_CONFIG_OVERRIDE = '''# This is the user configuration file to override t
 # This also has the advantage that all changed settings can be kept when updating the program.
 
 [lxmf]
+display_name = LXMF Provisioning Server
 announce_periodic = Yes
 announce_periodic_interval = 15 #Minutes
 
