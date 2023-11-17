@@ -653,9 +653,8 @@ def lxmf_message_received_callback(message):
     if CONFIG.has_option("allowed", "any") or CONFIG.has_option("allowed", "all") or CONFIG.has_option("allowed", "anybody") or CONFIG.has_option("allowed", RNS.hexrep(message.source_hash, False)) or CONFIG.has_option("allowed", RNS.prettyhexrep(message.source_hash)):
 
         title = message.title.decode('utf-8').strip()
-        denys = config_get(CONFIG, "message", "deny_title")
-        if denys != "":
-            denys = denys.split(",")
+        denys = config_getarray(CONFIG, "message", "deny_title")
+        if len(denys) > 0:
             if "*" in denys:
                 return
             for deny in denys:
@@ -663,9 +662,8 @@ def lxmf_message_received_callback(message):
                     return
 
         content = message.content.decode('utf-8').strip()
-        denys = config_get(CONFIG, "message", "deny_content")
-        if denys != "":
-            denys = denys.split(",")
+        denys = config_getarray(CONFIG, "message", "deny_content")
+        if len(denys) > 0:
             if "*" in denys:
                 return
             for deny in denys:
@@ -673,9 +671,8 @@ def lxmf_message_received_callback(message):
                     return
 
         if message.fields:
-            denys = config_get(CONFIG, "message", "deny_fields")
-            if denys != "":
-                denys = denys.split(",")
+            denys = config_getarray(CONFIG, "message", "deny_fields")
+            if len(denys) > 0:
                 if "*" in denys:
                     return
                 for deny in denys:
@@ -748,6 +745,23 @@ def config_get(config, section, key, default="", lng_key=""):
         return config[section][key+lng_key]
     elif config.has_option(section, key):
         return config[section][key]
+    return default
+
+
+def config_getarray(config, section, key, default=[], lng_key=""):
+    if not config or section == "" or key == "": return default
+    if not config.has_section(section): return default
+    value = ""
+    if config.has_option(section, key+lng_key):
+        value = config[section][key+lng_key]
+    elif config.has_option(section, key):
+        value = config[section][key]
+    if value != "":
+        values_return = []
+        values = value.split(",")
+        for value in values:
+            values_return.append(val_to_val(value.strip()))
+        return values_return
     return default
 
 
@@ -930,8 +944,13 @@ def val_to_val(val):
         return True
     elif val.lower() == "false":
         return False
-    else:
-        return val
+    elif val.startswith("0x") or val.startswith("0X"):
+        try:
+            val_int = int(val, 16)
+            return val_int
+        except:
+            pass
+    return val
 
 
 ##############################################################################################################

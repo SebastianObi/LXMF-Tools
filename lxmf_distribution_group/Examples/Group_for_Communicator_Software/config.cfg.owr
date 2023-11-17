@@ -43,7 +43,7 @@ enabled = False
 
 #### Message settings ####
 [message]
-deny_fields = ts
+deny_fields = 0x09,0xAD
 
 send_title_prefix = !source_name! <!source_address!>
 send_prefix = 
@@ -55,7 +55,7 @@ cluster_send_title_prefix = !source_name! <!source_address!>
 cluster_send_prefix = @!cluster_destination!!n!
 
 fields_remove = 
-fields_remove_anonymous = src,gps
+fields_remove_anonymous = 0x02,0x03,0x04,0xAF,0xA6
 
 
 #### Statistic/Counter settings ####

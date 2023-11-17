@@ -1,0 +1,13 @@
+# This is the user configuration file to override the default configuration file.
+# All settings made here have precedence.
+# This file can be used to clearly summarize all settings that deviate from the default.
+# This also has the advantage that all changed settings can be kept when updating the program.
+[lxmf]
+display_name = Echo Test
+announce_startup = Yes
+announce_periodic = Yes
+announce_periodic_interval = 30 #Minutes
+
+[message]
+deny_fields = 0x09,0xB2,0xA4,0xA5,0xAD
+fields_remove = 0x02,0x03,0x04,0xA6,0xAB

@@ -870,9 +870,8 @@ def lxmf_message_received_callback(message):
         return
 
     title = message.title.decode('utf-8').strip()
-    denys = config_get(CONFIG, "message", "deny_title")
-    if denys != "":
-        denys = denys.split(",")
+    denys = config_getarray(CONFIG, "message", "deny_title")
+    if len(denys) > 0:
         if "*" in denys:
             return
         for deny in denys:
@@ -880,9 +879,8 @@ def lxmf_message_received_callback(message):
                 return
 
     content = message.content.decode('utf-8').strip()
-    denys = config_get(CONFIG, "message", "deny_content")
-    if denys != "":
-        denys = denys.split(",")
+    denys = config_getarray(CONFIG, "message", "deny_content")
+    if len(denys) > 0:
         if "*" in denys:
             return
         for deny in denys:
@@ -890,9 +888,8 @@ def lxmf_message_received_callback(message):
                 return
 
     if message.fields:
-        denys = config_get(CONFIG, "message", "deny_fields")
-        if denys != "":
-            denys = denys.split(",")
+        denys = config_getarray(CONFIG, "message", "deny_fields")
+        if len(denys) > 0:
             if "*" in denys:
                 return
             for deny in denys:
@@ -1263,12 +1260,12 @@ def lxmf_message_received_callback(message):
         else:
             fields = {}
         if CONFIG["main"].getboolean("fields_message"):
-            if not "hash" in fields:
-                fields["hash"] = message.hash
-            if not "anonymous" in source_rights and "src" not in fields:
-                fields["src"] = {}
-                fields["src"]["h"] = message.source_hash
-                fields["src"]["n"] = source_name
+            if not 0xA7 in fields:
+                fields[0xA7] = message.hash
+            if not "anonymous" in source_rights and 0xAF not in fields:
+                fields[0xAF] = {}
+                fields[0xAF]["h"] = message.source_hash
+                fields[0xAF]["n"] = source_name
         fields["c_n"] = CONFIG["cluster"]["name"]
         fields["c_t"] = CONFIG["cluster"]["type"]
 
@@ -1313,13 +1310,13 @@ def lxmf_message_received_callback(message):
 
         if CONFIG["main"].getboolean("fields_message"):
             if CONFIG["lxmf"]["destination_type_conv"] != "":
-                fields["type"] = CONFIG["lxmf"].getint("destination_type_conv")
-            if not "hash" in fields:
-                fields["hash"] = message.hash
-            if not "anonymous" in source_rights and "src" not in fields:
-                fields["src"] = {}
-                fields["src"]["h"] = message.source_hash
-                fields["src"]["n"] = source_name
+                fields[0xB3] = CONFIG["lxmf"].getint("destination_type_conv")
+            if not 0xA7 in fields:
+                fields[0xA7] = message.hash
+            if not "anonymous" in source_rights and 0xAF not in fields:
+                fields[0xAF] = {}
+                fields[0xAF]["h"] = message.source_hash
+                fields[0xAF]["n"] = source_name
 
         for section in sections:
             if "receive_cluster_send" in config_get(CONFIG, "rights", section).split(",") or (cluster_loop and "receive_cluster_loop" in config_get(CONFIG, "rights", section).split(",")):
@@ -1388,13 +1385,13 @@ def lxmf_message_received_callback(message):
 
             if CONFIG["main"].getboolean("fields_message"):
                 if CONFIG["lxmf"]["destination_type_conv"] != "":
-                    fields["type"] = CONFIG["lxmf"].getint("destination_type_conv")
-                if not "hash" in fields:
-                    fields["hash"] = message.hash
-                if not "anonymous" in source_rights and "src" not in fields:
-                    fields["src"] = {}
-                    fields["src"]["h"] = message.source_hash
-                    fields["src"]["n"] = source_name
+                    fields[0xB3] = CONFIG["lxmf"].getint("destination_type_conv")
+                if not 0xA7 in fields:
+                    fields[0xA7] = message.hash
+                if not "anonymous" in source_rights and 0xAF not in fields:
+                    fields[0xAF] = {}
+                    fields[0xAF]["h"] = message.source_hash
+                    fields[0xAF]["n"] = source_name
 
             if config_get(CONFIG, "message", "timestamp", "", lng_key) == "client":
                 timestamp = message.timestamp
@@ -1608,7 +1605,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
             content = config_get(CONFIG, "interface_menu", "leave_ok", "", lng_key)
             content = replace(content, source_hash, source_name, source_right, lng_key)
             if content != "":
-                LXMF_CONNECTION.send(source_hash, content, "", {"data": None, "tpl": "info"}, None, "interface_send")
+                LXMF_CONNECTION.send(source_hash, content, "", {0xA3: None, 0xB1: "info"}, None, "interface_send")
                 content = ""
 
             if CONFIG["main"].getboolean("auto_save_data"):
@@ -2905,7 +2902,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
 
 #### Fields #####
 def fields_remove(fields=None, key="fields_remove"):
-    search = config_get(CONFIG, "message", key).split(",")
+    search = config_getarray(CONFIG, "message", key)
 
     delete = []
     for field in fields:
@@ -2927,64 +2924,64 @@ def fields_generate(lng_key, fields=None, h=None, n=None, m=False, d=False, r=Fa
         fields = {}
 
     if CONFIG["lxmf"]["destination_type_conv"] != "":
-        fields["type"] = CONFIG["lxmf"].getint("destination_type_conv")
+        fields[0xB3] = CONFIG["lxmf"].getint("destination_type_conv")
 
     if h:
-        fields["src"] = {}
-        fields["src"]["h"] = h
+        fields[0xAF] = {}
+        fields[0xAF]["h"] = h
         if n:
-            fields["src"]["n"] = n
+            fields[0xAF]["n"] = n
         else:
-            fields["src"]["n"] = ""
+            fields[0xAF]["n"] = ""
 
     if m or d or r or cmd or config:
-        fields["data"] = {}
+        fields[0xA3] = {}
 
     if m:
-        fields["data"]["m"] = {}
+        fields[0xA3]["m"] = {}
         for (key, val) in CONFIG.items("rights"):
             if DATA.has_section(key):
-                fields["data"]["m"][key] = {}
+                fields[0xA3]["m"][key] = {}
                 for (section_key, section_val) in DATA.items(key):
                     try:
                         h = bytes.fromhex(LXMF_CONNECTION.destination_correct(section_key))
-                        fields["data"]["m"][key][h] = section_val
+                        fields[0xA3]["m"][key][h] = section_val
                     except:
                        pass
 
     if d:
-        fields["data"]["d"] = config_get(DATA, "main", "description", "", lng_key).replace(CONFIG["interface"]["delimiter_output"]+"n"+CONFIG["interface"]["delimiter_output"], "\n")
+        fields[0xA3]["d"] = config_get(DATA, "main", "description", "", lng_key).replace(CONFIG["interface"]["delimiter_output"]+"n"+CONFIG["interface"]["delimiter_output"], "\n")
 
     if r:
-        fields["data"]["r"] = config_get(DATA, "main", "rules", "", lng_key).replace(CONFIG["interface"]["delimiter_output"]+"n"+CONFIG["interface"]["delimiter_output"], "\n")
+        fields[0xA3]["r"] = config_get(DATA, "main", "rules", "", lng_key).replace(CONFIG["interface"]["delimiter_output"]+"n"+CONFIG["interface"]["delimiter_output"], "\n")
 
     if cmd:
-        fields["data"]["cmd"] = []
+        fields[0xA3]["cmd"] = []
         if CONFIG.has_option("cmds", cmd):
             cmds = config_get(CONFIG, "cmds", cmd).split(",")
             for cmd in cmds:
-                fields["data"]["cmd"].append({"c": "/"+cmd})
+                fields[0xA3]["cmd"].append({"c": "/"+cmd})
 
     if config:
-        fields["data"]["config"] = {}
+        fields[0xA3]["config"] = {}
         if CONFIG.has_option("configs", config):
             configs = config_get(CONFIG, "configs", config).split(",")
             for config in configs:
                 if config != "":
                     key, value = config.split("=", 1)
-                    fields["data"]["config"][key] = val_to_val(value)
+                    fields[0xA3]["config"][key] = val_to_val(value)
 
     if cmd or config:
         if DATA.has_section("topics"):
-            fields["data"]["topics"] = {}
+            fields[0xA3]["topics"] = {}
             for (key, val) in DATA.items("topics"):
                 try:
-                    fields["data"]["topics"][int(key)] = val
+                    fields[0xA3]["topics"][int(key)] = val
                 except:
                     pass
 
     if tpl:
-        fields["tpl"] = tpl
+        fields[0xB1] = tpl
 
     return fields
 
@@ -3037,6 +3034,23 @@ def config_get(config, section, key, default="", lng_key=""):
         return config[section][key+lng_key]
     elif config.has_option(section, key):
         return config[section][key]
+    return default
+
+
+def config_getarray(config, section, key, default=[], lng_key=""):
+    if not config or section == "" or key == "": return default
+    if not config.has_section(section): return default
+    value = ""
+    if config.has_option(section, key+lng_key):
+        value = config[section][key+lng_key]
+    elif config.has_option(section, key):
+        value = config[section][key]
+    if value != "":
+        values_return = []
+        values = value.split(",")
+        for value in values:
+            values_return.append(val_to_val(value.strip()))
+        return values_return
     return default
 
 
@@ -3578,8 +3592,13 @@ def val_to_val(val):
         return True
     elif val.lower() == "false":
         return False
-    else:
-        return val
+    elif val.startswith("0x") or val.startswith("0X"):
+        try:
+            val_int = int(val, 16)
+            return val_int
+        except:
+            pass
+    return val
 
 
 ##############################################################################################################
@@ -3771,7 +3790,7 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
     if CONFIG["lxmf"]["destination_type_conv"] != "":
         try:
            if CONFIG["main"].getboolean("fields_announce"):
-               announce_data = umsgpack.packb({"c": CONFIG["lxmf"]["display_name"].encode("utf-8"), "t": None, "f": {"type": CONFIG["lxmf"].getint("destination_type_conv")}})
+               announce_data = umsgpack.packb({"c": CONFIG["lxmf"]["display_name"].encode("utf-8"), "t": None, "f": {0xB3: CONFIG["lxmf"].getint("destination_type_conv")}})
            else:
                display_name += chr(CONFIG["lxmf"].getint("destination_type_conv"))
         except:

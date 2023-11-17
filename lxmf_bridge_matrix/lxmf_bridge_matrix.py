@@ -838,9 +838,8 @@ def lxmf_message_received_callback(message):
             return
 
         title = message.title.decode('utf-8').strip()
-        denys = config_get(CONFIG, "message", "lxmf_to_matrix_deny_title")
-        if denys != "":
-            denys = denys.split(",")
+        denys = config_getarray(CONFIG, "message", "lxmf_to_matrix_deny_title")
+        if len(denys) > 0:
             if "*" in denys:
                 return
             for deny in denys:
@@ -848,9 +847,8 @@ def lxmf_message_received_callback(message):
                     return
 
         content = message.content.decode('utf-8').strip()
-        denys = config_get(CONFIG, "message", "lxmf_to_matrix_deny_content")
-        if denys != "":
-            denys = denys.split(",")
+        denys = config_getarray(CONFIG, "message", "lxmf_to_matrix_deny_content")
+        if len(denys) > 0:
             if "*" in denys:
                 return
             for deny in denys:
@@ -858,9 +856,8 @@ def lxmf_message_received_callback(message):
                     return
 
         if message.fields:
-            denys = config_get(CONFIG, "message", "lxmf_to_matrix_deny_fields")
-            if denys != "":
-                denys = denys.split(",")
+            denys = config_getarray(CONFIG, "message", "lxmf_to_matrix_deny_fields")
+            if len(denys) > 0:
                 if "*" in denys:
                     return
                 for deny in denys:
@@ -881,9 +878,9 @@ def lxmf_message_received_callback(message):
         source_name = ""
 
         if message.fields:
-            if "src" in message.fields:
-                source_address = RNS.hexrep(message.fields["src"]["h"], False)
-                source_name = message.fields["src"]["n"]
+            if 0xAF in message.fields:
+                source_address = RNS.hexrep(message.fields[0xAF]["h"], False)
+                source_name = message.fields[0xAF]["n"]
 
         routing_destination = ROUTING_TABLE[destination_address][0]
         routing_table = ROUTING_TABLE[destination_address][1]
@@ -903,16 +900,16 @@ def lxmf_message_received_callback(message):
 
         content = content_prefix + content + content_suffix
 
-        if message.fields and "hash" in message.fields:
-            hash = message.fields["hash"]
+        if message.fields and 0xA7 in message.fields:
+            hash = message.fields[0xA7]
         else:
             hash = message.hash
 
-        if message.fields and "edit" in message.fields and "hash" in message.fields and message.fields["hash"] in DATA:
-            content = {"msgtype": "m.text", "body": "", "m.new_content": {"body": content, "msgtype": "m.text"}, "m.relates_to": {"event_id": DATA[message.fields["hash"]][0], "rel_type": "m.replace"}}
-        elif message.fields and "delete" in message.fields and "hash" in message.fields and message.fields["hash"] in DATA:
-            content = {"msgtype": "m.text", "body": "", "m.new_content": {"body": config_get(CONFIG, "message", "lxmf_to_matrix_deleted", "-"), "msgtype": "m.text"}, "m.relates_to": {"event_id": DATA[message.fields["hash"]][0], "rel_type": "m.replace"}}
-        elif message.fields and "answer" in message.fields and message.fields["answer"] in DATA:
+        if message.fields and 0xA5 in message.fields and 0xA7 in message.fields and message.fields[0xA7] in DATA:
+            content = {"msgtype": "m.text", "body": "", "m.new_content": {"body": content, "msgtype": "m.text"}, "m.relates_to": {"event_id": DATA[message.fields[0xA7]][0], "rel_type": "m.replace"}}
+        elif message.fields and 0xA4 in message.fields and 0xA7 in message.fields and message.fields[0xA7] in DATA:
+            content = {"msgtype": "m.text", "body": "", "m.new_content": {"body": config_get(CONFIG, "message", "lxmf_to_matrix_deleted", "-"), "msgtype": "m.text"}, "m.relates_to": {"event_id": DATA[message.fields[0xA7]][0], "rel_type": "m.replace"}}
+        elif message.fields and 0xA0 in message.fields and message.fields[0xA0] in DATA:
             content = {"msgtype": "m.text", "body": content, "m.relates_to": {"m.in_reply_to": {"event_id": DATA[message.fields["answer"]][0]}}}
         else:
             content = {"msgtype": "m.text", "body": content}
@@ -920,8 +917,8 @@ def lxmf_message_received_callback(message):
         MATRIX_CONNECTION.send(routing_destination, content, hash)
 
         # TODO
-        #if message.fields and "attachment" in message.fields:
-        #    for attachment in message.fields["attachment"]:
+        #if message.fields and 0xA1 in message.fields:
+        #    for attachment in message.fields[0xA1]:
         #        MATRIX_CONNECTION.send_file(routing_destination, attachment["name"], attachment["size"], attachment["data"])
     else:
         log("LXMF - Source " + RNS.prettyhexrep(message.source_hash) + " not allowed", LOG_DEBUG)
@@ -959,16 +956,16 @@ def matrix_message_received_callback(room: MatrixRoom, event: RoomMessage):
             content = content_dict["m.new_content"]["body"]
             event_id = content_dict["m.relates_to"]["event_id"]
             if event_id in DATA:
-                fields["hash"] = DATA[event_id][0]
+                fields[0xA7] = DATA[event_id][0]
                 if DATA[event_id][1]:
-                    fields["answer"] = DATA[event_id][1]
-                fields["edit"] = time.time()
+                    fields[0xA0] = DATA[event_id][1]
+                fields[0xA5] = time.time()
         elif "m.relates_to" in content_dict and "m.in_reply_to" in content_dict["m.relates_to"]:
             content = content_dict["formatted_body"]
             content = re.sub(r'<mx-reply>.*<\/mx-reply>', '', content)
             event_id = content_dict["m.relates_to"]["m.in_reply_to"]["event_id"]
             if event_id in DATA:
-                fields["answer"] = DATA[event_id][0]
+                fields[0xA0] = DATA[event_id][0]
         else:
             content = event.body
     except:
@@ -1004,15 +1001,15 @@ def matrix_message_received_callback(room: MatrixRoom, event: RoomMessage):
 
     content = content_prefix + content + content_suffix
 
-    fields["src"] = {}
-    fields["src"]["h"] = b''
-    fields["src"]["n"] = replace(config_get(CONFIG, "message", "matrix_to_lxmf"), source_address=event.sender, source_name=user_name, destination_address=room.room_id, destination_name=room.display_name, routing_table=routing_table)
+    fields[0xAF] = {}
+    fields[0xAF]["h"] = b''
+    fields[0xAF]["n"] = replace(config_get(CONFIG, "message", "matrix_to_lxmf"), source_address=event.sender, source_name=user_name, destination_address=room.room_id, destination_name=room.display_name, routing_table=routing_table)
 
     result = LXMF_CONNECTION.send(routing_destination, content, "", fields=fields)
 
     if result:
-        if "answer" in fields:
-            answer = fields["answer"]
+        if 0xA0 in fields:
+            answer = fields[0xA0]
         else:
             answer = None
         DATA[result] = [event.event_id, answer]
@@ -1068,6 +1065,23 @@ def config_get(config, section, key, default="", lng_key=""):
         return config[section][key+lng_key]
     elif config.has_option(section, key):
         return config[section][key]
+    return default
+
+
+def config_getarray(config, section, key, default=[], lng_key=""):
+    if not config or section == "" or key == "": return default
+    if not config.has_section(section): return default
+    value = ""
+    if config.has_option(section, key+lng_key):
+        value = config[section][key+lng_key]
+    elif config.has_option(section, key):
+        value = config[section][key]
+    if value != "":
+        values_return = []
+        values = value.split(",")
+        for value in values:
+            values_return.append(val_to_val(value.strip()))
+        return values_return
     return default
 
 
@@ -1309,8 +1323,13 @@ def val_to_val(val):
         return True
     elif val.lower() == "false":
         return False
-    else:
-        return val
+    elif val.startswith("0x") or val.startswith("0X"):
+        try:
+            val_int = int(val, 16)
+            return val_int
+        except:
+            pass
+    return val
 
 
 ##############################################################################################################
