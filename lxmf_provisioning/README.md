@@ -5,7 +5,7 @@ For more information, see the configuration options (at the end of the program f
 
 
 ### Features
-- Compatible with all Reticulum managed apps (Communicator)
+- Compatible with all Reticulum managed apps (Communicator which is another project that is not part of this github)
 - Announcement of the server and software versions
 - User registration
 - Collection of telemetry data

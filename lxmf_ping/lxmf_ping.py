@@ -36,6 +36,7 @@ import sys
 import os
 import time
 import argparse
+import random
 
 #### JSON ####
 import json
@@ -72,7 +73,7 @@ NAME = "LXMF Ping"
 DESCRIPTION = "Periodically sends pings/messages and evaluates the status"
 VERSION = "0.0.1 (2022-10-21)"
 COPYRIGHT = "(c) 2022 Sebastian Obele  /  obele.eu"
-PATH = os.path.expanduser("~") + "/." + os.path.splitext(os.path.basename(__file__))[0]
+PATH = os.path.expanduser("~")+"/.config/"+os.path.splitext(os.path.basename(__file__))[0]
 PATH_RNS = None
 
 
@@ -122,12 +123,16 @@ class lxmf_connection:
 
         self.announce_startup = announce_startup
         self.announce_startup_delay = int(announce_startup_delay)
+        if self.announce_startup_delay == 0:
+            self.announce_startup_delay = random.randint(5, 30)
 
         self.announce_periodic = announce_periodic
         self.announce_periodic_interval = int(announce_periodic_interval)
 
         self.sync_startup = sync_startup
         self.sync_startup_delay = int(sync_startup_delay)
+        if self.sync_startup_delay == 0:
+            self.sync_startup_delay = random.randint(5, 30)
         self.sync_limit = int(sync_limit)
         self.sync_periodic = sync_periodic
         self.sync_periodic_interval = int(sync_periodic_interval)
@@ -301,6 +306,9 @@ class lxmf_connection:
 
 
     def send_message(self, destination, source, content="", title="", fields=None, timestamp=None, app_data=""):
+        if destination == self.destination:
+            return None
+
         if self.desired_method_direct:
             desired_method = LXMF.LXMessage.DIRECT
         else:
@@ -396,14 +404,14 @@ class lxmf_connection:
         elif app_data != None:
             if isinstance(app_data, str):
                 self.destination.announce(app_data.encode("utf-8"), attached_interface=attached_interface)
-                log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()) +":" + app_data, LOG_DEBUG)
+                log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()) +": " + app_data, LOG_DEBUG)
             else:
                 self.destination.announce(app_data, attached_interface=attached_interface)
                 log("LMF - Announced: " + RNS.prettyhexrep(self.destination_hash()), LOG_DEBUG)
         elif self.announce_data:
             if isinstance(self.announce_data, str):
                 self.destination.announce(self.announce_data.encode("utf-8"), attached_interface=attached_interface)
-                log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()) +":" + self.announce_data, LOG_DEBUG)
+                log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()) +": " + self.announce_data, LOG_DEBUG)
             else:
                 self.destination.announce(self.announce_data, attached_interface=attached_interface)
                 log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()), LOG_DEBUG)

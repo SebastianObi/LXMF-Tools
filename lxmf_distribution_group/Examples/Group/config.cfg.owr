@@ -26,6 +26,16 @@ sync_periodic_interval = 5 #Minutes
 sync_limit = 0
 
 
+#### Telemetry settings ####
+[telemetry]
+location_enabled = False
+location_lat = 0
+location_lon = 0
+
+state_enabled = False
+state_data = 0
+
+
 #### Cluster settings ####
 [cluster]
 enabled = False
@@ -43,7 +53,7 @@ enabled = False
 
 #### Message settings ####
 [message]
-deny_fields = 0x09,0xAD
+deny_fields = 0xB2
 
 send_title_prefix = !source_name! <!source_address!>
 send_prefix = 
@@ -54,8 +64,8 @@ cluster_receive_prefix = @!cluster_source!->
 cluster_send_title_prefix = !source_name! <!source_address!>
 cluster_send_prefix = @!cluster_destination!!n!
 
-fields_remove = 
-fields_remove_anonymous = 0x02,0x03,0x04,0xAF,0xA6
+fields_remove = 0x09,0xA2,0xBA
+fields_remove_anonymous = 0x02,0x03,0x04,0x09,0xA2,0xA8,0xAC,0xB5,0xB8,0xB9,0xBA
 
 
 #### Statistic/Counter settings ####
@@ -73,16 +83,30 @@ wait = join,leave
 
 
 #### User cmd assignment ####
-[cmds]
-admin = update,update_all,leave,invite,kick,block,unblock
-mod = update,update_all,leave,invite,kick,block,unblock
-user = update,leave
-guest = update,leave
-wait = update,leave
+[cmd]
+admin = update,update_all,leave
+mod = update,update_all,leave
+user = leave
+guest = leave
+wait = leave
+
+[cmd_menu]
+admin = invite
+mod = invite
+user = invite
+guest = 
+wait = 
+
+[cmd_src]
+admin = kick,block,unblock,right_admin,right_mod,right_user,right_guest
+mod = kick,block,unblock,right_user,right_guest
+user = 
+guest = 
+wait = 
 
 
 #### User config assignment ####
-[configs]
+[config]
 admin = 
 mod = 
 user = 
@@ -114,40 +138,43 @@ invite_guest-de = Sie wurden in die Gruppe "!display_name!" eingeladen!!n!!n!!de
 invite_wait = You have been invited to the group "!display_name!"!!n!!n!You still need to be allowed to join. You will be notified automatically.
 invite_wait-de = Sie wurden in die Gruppe "!display_name!" eingeladen!!n!!n!Der Beitritt muss ihnen noch erlaubt werden. Sie werden darüber automatisch benachrichtigt.
 
-allow_admin = You have been allowed to join the group "!display_name!"!!n!!n!!description!!n!!n!The messages sent here are distributed to all group members.
-allow_admin-de = Sie wurden erlaubt der Gruppe "!display_name!" beizutreten!!n!!n!!description!!n!!n!Die hier gesendeten Nachrichten werden an alle Gruppenmitglieder verteilt.
-allow_mod = You have been allowed to join the group "!display_name!"!!n!!n!!description!!n!!n!The messages sent here are distributed to all group members.
-allow_mod-de = Sie wurden erlaubt der Gruppe "!display_name!" beizutreten!!n!!n!!description!!n!!n!Die hier gesendeten Nachrichten werden an alle Gruppenmitglieder verteilt.
-allow_user = You have been allowed to join the group "!display_name!"!!n!!n!!description!!n!!n!The messages sent here are distributed to all group members.
-allow_user-de = Sie wurden erlaubt der Gruppe "!display_name!" beizutreten!!n!!n!!description!!n!!n!Die hier gesendeten Nachrichten werden an alle Gruppenmitglieder verteilt.
-allow_guest = You have been allowed to join the group "!display_name!"!!n!!n!!description!!n!!n!You can only receive messages.
-allow_guest-de = Sie wurden erlaubt der Gruppe "!display_name!" beizutreten!!n!!n!!description!!n!!n!Sie können nur Nachrichten empfangen.
-allow_wait = 
-allow_wait-de = 
-
-member_join = Joins the group.
-member_join-de = Tritt der Gruppe bei.
-member_leave = Leave the group.
-member_leave-de = Verlässt die Gruppe.
-member_invite = Was invited to the group by !source_name!
-member_invite-de = Wurde in die Gruppe eingeladen von !source_name!
-member_kick = Was kicked out of the group by !source_name!
-member_kick-de = Wurde aus der Gruppe geworfen von !source_name!
-member_block = Was blocked by !source_name!
-member_block-de = Wurde geblockt von !source_name!
-member_unblock = Was unblocked by !source_name!
-member_unblock-de = Wurde entsperrt von !source_name!
-member_allow = Was allowed by !source_name!
-member_allow-de = Wurde erlaubt von !source_name!
-member_deny = Was denied by !source_name!
-member_deny-de = Wurde abgelehnt von !source_name!
-member_name_def = Name defined
-member_name_def-de = Name definiert
-member_name_change = Name changed
-member_name_change-de = Namen geändert
+member_join = 
+member_join-de = 
+member_leave = 
+member_leave-de = 
+member_invite = 
+member_invite-de = 
+member_kick = 
+member_kick-de =
+member_block = 
+member_block-de = 
+member_unblock = 
+member_unblock-de = 
+member_name_def = 
+member_name_def-de = 
+member_name_change = 
+member_name_change-de = 
+description = 
+description-de = 
 
 
 #### Interface settings - Menu/command ####
 [interface_menu]
+description = 
+description-de = 
+update_ok = 
+update_ok-de = 
+update_all_ok = 
+update_all_ok-de = 
+leave_ok = 
+leave_ok-de = 
+invite_ok = 
+invite_ok-de = 
+kick_ok = 
+kick_ok-de = 
+block_ok = 
+block_ok-de = 
+unblock_ok = 
+unblock_ok-de = 
 cmd_unknown = ERROR: Unknown command.
 cmd_unknown-de = FEHLER: Unbekannter Befehl.

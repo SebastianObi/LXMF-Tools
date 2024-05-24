@@ -90,7 +90,7 @@ Die vollständige Dokumentation ist noch nicht verfügbar. Aus Zeitmangel kann i
 - Kopieren Sie den folgenden Inhalt und passen Sie ihn an Ihre eigenen Bedürfnisse an.
   ```bash
   [Unit]
-  Description=lxmf_cmd.py Daemon
+  Description=lxmf_cmd
   After=multi-user.target
   [Service]
   # ExecStartPre=/bin/sleep 10

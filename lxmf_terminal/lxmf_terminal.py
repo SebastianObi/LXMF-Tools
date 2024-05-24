@@ -36,6 +36,7 @@ import sys
 import os
 import time
 import argparse
+import random
 
 #### Config ####
 import configparser
@@ -80,7 +81,7 @@ NAME = "LXMF Terminal"
 DESCRIPTION = ""
 VERSION = "0.0.1 (2022-10-21)"
 COPYRIGHT = "(c) 2022 Sebastian Obele  /  obele.eu"
-PATH = os.path.expanduser("~") + "/." + os.path.splitext(os.path.basename(__file__))[0]
+PATH = os.path.expanduser("~")+"/.config/"+os.path.splitext(os.path.basename(__file__))[0]
 PATH_RNS = None
 
 
@@ -113,7 +114,7 @@ class terminal_class:
         if not read_bytes:
             read_bytes = self.read_bytes
         if not self.fd: return ["", 0]
-        (data_ready, _, _) = select.select([self.fd], [], [], self.timeout)
+        (data_ready, _, _) = select.select([self.fd], [], [], timeout)
         if not data_ready: return ["", 0]
         output = ""
         state = 0
@@ -139,6 +140,24 @@ class terminal_class:
         return True
 
 
+    def set_env(self, env=None):
+        if not env: return
+        if len(env) == 0: return
+
+        if "bash" in self.cmd:
+            cmd = "export"
+        elif "sh" in self.cmd:
+            cmd = "setenv"
+        else:
+            cmd = ""
+
+        if cmd != "":
+            for key in env.keys():
+                self.set(cmd + " " + key + "=" + env[key])
+            time.sleep(1)
+            self.get()
+
+
     def start(self):
         if not self.pid:
             (pid, fd) = pty.fork()
@@ -150,6 +169,7 @@ class terminal_class:
                 self.fd = fd
                 self.pid = pid
                 self.size(self.fd, self.rows, self.cols)
+            self.set_env(self.env)
 
 
     def stop(self):
@@ -164,10 +184,11 @@ class terminal_class:
         return True
 
 
-    def __init__(self, path="", cmd="bash", cmd_args="", timeout=0, read_bytes=20, rows=100, cols=200, restart_session=True):
+    def __init__(self, path="", cmd="bash", cmd_args="", env=None, timeout=0, read_bytes=20, rows=100, cols=200, restart_session=True):
         self.path = path
         self.cmd = cmd
         self.cmd_args = cmd_args
+        self.env = env
         self.timeout = timeout
         self.read_bytes = read_bytes
         self.rows = rows
@@ -222,12 +243,16 @@ class lxmf_connection:
 
         self.announce_startup = announce_startup
         self.announce_startup_delay = int(announce_startup_delay)
+        if self.announce_startup_delay == 0:
+            self.announce_startup_delay = random.randint(5, 30)
 
         self.announce_periodic = announce_periodic
         self.announce_periodic_interval = int(announce_periodic_interval)
 
         self.sync_startup = sync_startup
         self.sync_startup_delay = int(sync_startup_delay)
+        if self.sync_startup_delay == 0:
+            self.sync_startup_delay = random.randint(5, 30)
         self.sync_limit = int(sync_limit)
         self.sync_periodic = sync_periodic
         self.sync_periodic_interval = int(sync_periodic_interval)
@@ -401,6 +426,9 @@ class lxmf_connection:
 
 
     def send_message(self, destination, source, content="", title="", fields=None, timestamp=None, app_data=""):
+        if destination == self.destination:
+            return None
+
         if self.desired_method_direct:
             desired_method = LXMF.LXMessage.DIRECT
         else:
@@ -496,14 +524,14 @@ class lxmf_connection:
         elif app_data != None:
             if isinstance(app_data, str):
                 self.destination.announce(app_data.encode("utf-8"), attached_interface=attached_interface)
-                log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()) +":" + app_data, LOG_DEBUG)
+                log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()) +": " + app_data, LOG_DEBUG)
             else:
                 self.destination.announce(app_data, attached_interface=attached_interface)
                 log("LMF - Announced: " + RNS.prettyhexrep(self.destination_hash()), LOG_DEBUG)
         elif self.announce_data:
             if isinstance(self.announce_data, str):
                 self.destination.announce(self.announce_data.encode("utf-8"), attached_interface=attached_interface)
-                log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()) +":" + self.announce_data, LOG_DEBUG)
+                log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()) +": " + self.announce_data, LOG_DEBUG)
             else:
                 self.destination.announce(self.announce_data, attached_interface=attached_interface)
                 log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()), LOG_DEBUG)

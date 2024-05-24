@@ -37,6 +37,7 @@ import os
 import time
 import datetime
 import argparse
+import random
 
 #### Config ####
 import configparser
@@ -78,7 +79,7 @@ NAME = "LXMF Bridge MQTT"
 DESCRIPTION = ""
 VERSION = "0.0.1 (2022-10-21)"
 COPYRIGHT = "(c) 2022 Sebastian Obele  /  obele.eu"
-PATH = os.path.expanduser("~") + "/." + os.path.splitext(os.path.basename(__file__))[0]
+PATH = os.path.expanduser("~")+"/.config/"+os.path.splitext(os.path.basename(__file__))[0]
 PATH_RNS = None
 
 
@@ -87,6 +88,10 @@ CONFIG = None
 RNS_CONNECTION = None
 LXMF_CONNECTION = None
 MQTT_CONNECTION = None
+
+ANNOUNCE_DATA_CONTENT = 0x00
+ANNOUNCE_DATA_FIELDS  = 0x01
+ANNOUNCE_DATA_TITLE   = 0x02
 
 
 ##############################################################################################################
@@ -129,12 +134,16 @@ class lxmf_connection:
 
         self.announce_startup = announce_startup
         self.announce_startup_delay = int(announce_startup_delay)
+        if self.announce_startup_delay == 0:
+            self.announce_startup_delay = random.randint(5, 30)
 
         self.announce_periodic = announce_periodic
         self.announce_periodic_interval = int(announce_periodic_interval)
 
         self.sync_startup = sync_startup
         self.sync_startup_delay = int(sync_startup_delay)
+        if self.sync_startup_delay == 0:
+            self.sync_startup_delay = random.randint(5, 30)
         self.sync_limit = int(sync_limit)
         self.sync_periodic = sync_periodic
         self.sync_periodic_interval = int(sync_periodic_interval)
@@ -308,6 +317,9 @@ class lxmf_connection:
 
 
     def send_message(self, destination, source, content="", title="", fields=None, timestamp=None, app_data=""):
+        if destination == self.destination:
+            return None
+
         if self.desired_method_direct:
             desired_method = LXMF.LXMessage.DIRECT
         else:
@@ -403,14 +415,14 @@ class lxmf_connection:
         elif app_data != None:
             if isinstance(app_data, str):
                 self.destination.announce(app_data.encode("utf-8"), attached_interface=attached_interface)
-                log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()) +":" + app_data, LOG_DEBUG)
+                log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()) +": " + app_data, LOG_DEBUG)
             else:
                 self.destination.announce(app_data, attached_interface=attached_interface)
                 log("LMF - Announced: " + RNS.prettyhexrep(self.destination_hash()), LOG_DEBUG)
         elif self.announce_data:
             if isinstance(self.announce_data, str):
                 self.destination.announce(self.announce_data.encode("utf-8"), attached_interface=attached_interface)
-                log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()) +":" + self.announce_data, LOG_DEBUG)
+                log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()) +": " + self.announce_data, LOG_DEBUG)
             else:
                 self.destination.announce(self.announce_data, attached_interface=attached_interface)
                 log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()), LOG_DEBUG)
@@ -640,8 +652,8 @@ class lxmf_announce_callback:
 
         try:
             app_data_dict = umsgpack.unpackb(app_data)
-            if isinstance(app_data_dict, dict) and "c" in app_data_dict:
-                app_data = app_data_dict["c"]
+            if isinstance(app_data_dict, dict) and ANNOUNCE_DATA_CONTENT in app_data_dict:
+                app_data = app_data_dict[ANNOUNCE_DATA_CONTENT]
         except:
             pass
 
@@ -895,6 +907,13 @@ def mqtt_message_received_callback_send(client, userdata, message):
     if "fields" not in message_data:
         message_data["fields"] = None
 
+    if message_data["fields"]:
+        fields = {}
+        for key, value in message_data["fields"].items():
+            fields[val_to_val(key)] = value
+    else:
+        fields = None
+
     timestamp = None
     if "timestamp" in message_data and timestamp is None:
         message_data["timestamp"] = message_data["timestamp"].strip()
@@ -906,7 +925,7 @@ def mqtt_message_received_callback_send(client, userdata, message):
         if message_data["date_time"] != "":
             timestamp = time.mktime(datetime.datetime.strptime(message_data["date_time"], '%Y-%m-%d %H:%M:%S').timetuple())
 
-    LXMF_CONNECTION.send(message_data["destination"].strip(), content, message_data["title"].strip(), message_data["fields"], timestamp)
+    LXMF_CONNECTION.send(message_data["destination"].strip(), content, message_data["title"].strip(), fields, timestamp)
 
 
 ##############################################################################################################

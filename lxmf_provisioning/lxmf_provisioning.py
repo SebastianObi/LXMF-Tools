@@ -37,6 +37,7 @@ import os
 import time
 from datetime import datetime, timezone
 import argparse
+import random
 
 #### Config ####
 import configparser
@@ -84,7 +85,7 @@ NAME = "LXMF Provisioning Server"
 DESCRIPTION = ""
 VERSION = "0.0.1 (2022-12-05)"
 COPYRIGHT = "(c) 2022 Sebastian Obele  /  obele.eu"
-PATH = os.path.expanduser("~") + "/." + os.path.splitext(os.path.basename(__file__))[0]
+PATH = os.path.expanduser("~")+"/.config/"+os.path.splitext(os.path.basename(__file__))[0]
 PATH_RNS = None
 
 
@@ -97,6 +98,54 @@ CONFIG = None
 RNS_CONNECTION = None
 LXMF_CONNECTION = None
 DB_CONNECTION = None
+
+ANNOUNCE_DATA_CONTENT = 0x00
+ANNOUNCE_DATA_FIELDS  = 0x01
+ANNOUNCE_DATA_TITLE   = 0x02
+
+MSG_FIELD_EMBEDDED_LXMS    = 0x01
+MSG_FIELD_TELEMETRY        = 0x02
+MSG_FIELD_TELEMETRY_STREAM = 0x03
+MSG_FIELD_ICON             = 0x04
+MSG_FIELD_FILE_ATTACHMENTS = 0x05
+MSG_FIELD_IMAGE            = 0x06
+MSG_FIELD_AUDIO            = 0x07
+MSG_FIELD_THREAD           = 0x08
+MSG_FIELD_COMMANDS         = 0x09
+MSG_FIELD_RESULTS          = 0x0A
+
+MSG_FIELD_ANSWER             = 0xA0
+MSG_FIELD_ATTACHMENT         = 0xA1
+MSG_FIELD_COMMANDS_EXECUTE   = 0xA2
+MSG_FIELD_COMMANDS_RESULT    = 0xA3
+MSG_FIELD_CONTACT            = 0xA4
+MSG_FIELD_DATA               = 0xA5
+MSG_FIELD_DELETE             = 0xA6
+MSG_FIELD_EDIT               = 0xA7
+MSG_FIELD_GPS                = 0xA8
+MSG_FIELD_HASH               = 0xA9
+MSG_FIELD_ICON_MENU          = 0xAA
+MSG_FIELD_ICON_SRC           = 0xAB
+MSG_FIELD_KEYBOARD           = 0xAC
+MSG_FIELD_KEYBOARD_INLINE    = 0xAD
+MSG_FIELD_LOCATION           = 0xAE
+MSG_FIELD_POLL               = 0xAF
+MSG_FIELD_POLL_ANSWER        = 0xB0
+MSG_FIELD_REACTION           = 0xB1
+MSG_FIELD_RECEIPT            = 0xB2
+MSG_FIELD_SCHEDULED          = 0xB3
+MSG_FIELD_SILENT             = 0xB4
+MSG_FIELD_SRC                = 0xB5
+MSG_FIELD_STATE              = 0xB6
+MSG_FIELD_STICKER            = 0xB7
+MSG_FIELD_TELEMETRY_DB       = 0xB8
+MSG_FIELD_TELEMETRY_PEER     = 0xB9
+MSG_FIELD_TELEMETRY_COMMANDS = 0xBA
+MSG_FIELD_TEMPLATE           = 0xBB
+MSG_FIELD_TOPIC              = 0xBC
+MSG_FIELD_TYPE               = 0xBD
+MSG_FIELD_TYPE_FIELDS        = 0xBE
+MSG_FIELD_VOICE              = 0xBF
 
 
 ##############################################################################################################
@@ -139,12 +188,16 @@ class lxmf_connection:
 
         self.announce_startup = announce_startup
         self.announce_startup_delay = int(announce_startup_delay)
+        if self.announce_startup_delay == 0:
+            self.announce_startup_delay = random.randint(5, 30)
 
         self.announce_periodic = announce_periodic
         self.announce_periodic_interval = int(announce_periodic_interval)
 
         self.sync_startup = sync_startup
         self.sync_startup_delay = int(sync_startup_delay)
+        if self.sync_startup_delay == 0:
+            self.sync_startup_delay = random.randint(5, 30)
         self.sync_limit = int(sync_limit)
         self.sync_periodic = sync_periodic
         self.sync_periodic_interval = int(sync_periodic_interval)
@@ -318,6 +371,9 @@ class lxmf_connection:
 
 
     def send_message(self, destination, source, content="", title="", fields=None, timestamp=None, app_data=""):
+        if destination == self.destination:
+            return None
+
         if self.desired_method_direct:
             desired_method = LXMF.LXMessage.DIRECT
         else:
@@ -413,14 +469,14 @@ class lxmf_connection:
         elif app_data != None:
             if isinstance(app_data, str):
                 self.destination.announce(app_data.encode("utf-8"), attached_interface=attached_interface)
-                log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()) +":" + app_data, LOG_DEBUG)
+                log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()) +": " + app_data, LOG_DEBUG)
             else:
                 self.destination.announce(app_data, attached_interface=attached_interface)
                 log("LMF - Announced: " + RNS.prettyhexrep(self.destination_hash()), LOG_DEBUG)
         elif self.announce_data:
             if isinstance(self.announce_data, str):
                 self.destination.announce(self.announce_data.encode("utf-8"), attached_interface=attached_interface)
-                log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()) +":" + self.announce_data, LOG_DEBUG)
+                log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()) +": " + self.announce_data, LOG_DEBUG)
             else:
                 self.destination.announce(self.announce_data, attached_interface=attached_interface)
                 log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()), LOG_DEBUG)
@@ -1392,29 +1448,32 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
     if path is None:
         path = PATH
 
-    announce_data = {}
+    display_name = CONFIG["lxmf"]["display_name"]
+    announce_data = None
     if CONFIG["features"].getboolean("announce_data"):
         section = "data"
         if CONFIG.has_section(section):
+            type_fields = {}
             for (key, val) in CONFIG.items(section):
                 if "=" in val or ";" in val:
-                    announce_data[key] = {}
+                    type_fields[key] = {}
                     keys = val.split(";")
                     for val in keys:
                         val = val.split("=")
                         if len(val) == 2:
-                            announce_data[key][val[0]] = val_to_val(val[1])
+                            type_fields[key][val[0]] = val_to_val(val[1])
                 else:
-                    announce_data[key] = val
-    announce_data["c"] = CONFIG["lxmf"]["display_name"].encode("utf-8")
+                    type_fields[key] = val
+            if len(type_fields) > 0:
+                announce_data = umsgpack.packb({ANNOUNCE_DATA_CONTENT: CONFIG["lxmf"]["display_name"].encode("utf-8"), ANNOUNCE_DATA_TITLE: None, ANNOUNCE_DATA_FIELDS: {MSG_FIELD_TYPE_FIELDS: type_fields}})
 
     LXMF_CONNECTION = lxmf_connection(
         storage_path=path,
         destination_name=CONFIG["lxmf"]["destination_name"],
         destination_type=CONFIG["lxmf"]["destination_type"],
-        display_name=CONFIG["lxmf"]["display_name"],
+        display_name=display_name,
         announce_hidden=CONFIG["lxmf"].getboolean("announce_hidden"),
-        announce_data = umsgpack.packb(announce_data),
+        announce_data=announce_data,
         send_delay=CONFIG["lxmf"]["send_delay"],
         desired_method=CONFIG["lxmf"]["desired_method"],
         propagation_node=config_propagation_node,

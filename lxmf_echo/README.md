@@ -5,7 +5,7 @@ For more information, see the configuration options (at the end of the program f
 
 
 ### Features
-- Compatible with all LXMF applications (Communicator, NomadNet, Sideband, ...)
+- Compatible with all LXMF applications (NomadNet, Sideband, ...)
 
 
 ## Examples of use
@@ -91,7 +91,7 @@ The full documentation is not yet available. Due to lack of time I can also not 
 - Copy and edit the following content to your own needs.
   ```bash
   [Unit]
-  Description=lxmf_echo.py Daemon
+  Description=lxmf_echo
   After=multi-user.target
   [Service]
   # ExecStartPre=/bin/sleep 10

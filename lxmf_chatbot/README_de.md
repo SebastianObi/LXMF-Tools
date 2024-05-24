@@ -99,7 +99,7 @@ Alle anderen Einstellungen befinden sich in `config.cfg`.
 - Kopieren Sie den folgenden Inhalt und passen Sie ihn an Ihre eigenen Bedürfnisse an.
   ```bash
   [Unit]
-  Description=lxmf_chatbot.py Daemon
+  Description=lxmf_chatbot
   After=multi-user.target
   [Service]
   # ExecStartPre=/bin/sleep 10

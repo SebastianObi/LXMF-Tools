@@ -36,6 +36,7 @@ import sys
 import os
 import time
 import argparse
+import random
 
 #### Config ####
 import configparser
@@ -71,14 +72,63 @@ NAME = "LXMF Echo"
 DESCRIPTION = ""
 VERSION = "0.0.1 (2022-10-21)"
 COPYRIGHT = "(c) 2022 Sebastian Obele  /  obele.eu"
-PATH = os.path.expanduser("~") + "/." + os.path.splitext(os.path.basename(__file__))[0]
+PATH = os.path.expanduser("~")+"/.config/"+os.path.splitext(os.path.basename(__file__))[0]
 PATH_RNS = None
 
 
 #### Global Variables - System (Not changeable) ####
+DATA = None
 CONFIG = None
 RNS_CONNECTION = None
 LXMF_CONNECTION = None
+
+ANNOUNCE_DATA_CONTENT = 0x00
+ANNOUNCE_DATA_FIELDS  = 0x01
+ANNOUNCE_DATA_TITLE   = 0x02
+
+MSG_FIELD_EMBEDDED_LXMS    = 0x01
+MSG_FIELD_TELEMETRY        = 0x02
+MSG_FIELD_TELEMETRY_STREAM = 0x03
+MSG_FIELD_ICON             = 0x04
+MSG_FIELD_FILE_ATTACHMENTS = 0x05
+MSG_FIELD_IMAGE            = 0x06
+MSG_FIELD_AUDIO            = 0x07
+MSG_FIELD_THREAD           = 0x08
+MSG_FIELD_COMMANDS         = 0x09
+MSG_FIELD_RESULTS          = 0x0A
+
+MSG_FIELD_ANSWER             = 0xA0
+MSG_FIELD_ATTACHMENT         = 0xA1
+MSG_FIELD_COMMANDS_EXECUTE   = 0xA2
+MSG_FIELD_COMMANDS_RESULT    = 0xA3
+MSG_FIELD_CONTACT            = 0xA4
+MSG_FIELD_DATA               = 0xA5
+MSG_FIELD_DELETE             = 0xA6
+MSG_FIELD_EDIT               = 0xA7
+MSG_FIELD_GPS                = 0xA8
+MSG_FIELD_HASH               = 0xA9
+MSG_FIELD_ICON_MENU          = 0xAA
+MSG_FIELD_ICON_SRC           = 0xAB
+MSG_FIELD_KEYBOARD           = 0xAC
+MSG_FIELD_KEYBOARD_INLINE    = 0xAD
+MSG_FIELD_LOCATION           = 0xAE
+MSG_FIELD_POLL               = 0xAF
+MSG_FIELD_POLL_ANSWER        = 0xB0
+MSG_FIELD_REACTION           = 0xB1
+MSG_FIELD_RECEIPT            = 0xB2
+MSG_FIELD_SCHEDULED          = 0xB3
+MSG_FIELD_SILENT             = 0xB4
+MSG_FIELD_SRC                = 0xB5
+MSG_FIELD_STATE              = 0xB6
+MSG_FIELD_STICKER            = 0xB7
+MSG_FIELD_TELEMETRY_DB       = 0xB8
+MSG_FIELD_TELEMETRY_PEER     = 0xB9
+MSG_FIELD_TELEMETRY_COMMANDS = 0xBA
+MSG_FIELD_TEMPLATE           = 0xBB
+MSG_FIELD_TOPIC              = 0xBC
+MSG_FIELD_TYPE               = 0xBD
+MSG_FIELD_TYPE_FIELDS        = 0xBE
+MSG_FIELD_VOICE              = 0xBF
 
 
 ##############################################################################################################
@@ -121,12 +171,16 @@ class lxmf_connection:
 
         self.announce_startup = announce_startup
         self.announce_startup_delay = int(announce_startup_delay)
+        if self.announce_startup_delay == 0:
+            self.announce_startup_delay = random.randint(5, 30)
 
         self.announce_periodic = announce_periodic
         self.announce_periodic_interval = int(announce_periodic_interval)
 
         self.sync_startup = sync_startup
         self.sync_startup_delay = int(sync_startup_delay)
+        if self.sync_startup_delay == 0:
+            self.sync_startup_delay = random.randint(5, 30)
         self.sync_limit = int(sync_limit)
         self.sync_periodic = sync_periodic
         self.sync_periodic_interval = int(sync_periodic_interval)
@@ -300,6 +354,9 @@ class lxmf_connection:
 
 
     def send_message(self, destination, source, content="", title="", fields=None, timestamp=None, app_data=""):
+        if destination == self.destination:
+            return None
+
         if self.desired_method_direct:
             desired_method = LXMF.LXMessage.DIRECT
         else:
@@ -395,14 +452,14 @@ class lxmf_connection:
         elif app_data != None:
             if isinstance(app_data, str):
                 self.destination.announce(app_data.encode("utf-8"), attached_interface=attached_interface)
-                log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()) +":" + app_data, LOG_DEBUG)
+                log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()) +": " + app_data, LOG_DEBUG)
             else:
                 self.destination.announce(app_data, attached_interface=attached_interface)
                 log("LMF - Announced: " + RNS.prettyhexrep(self.destination_hash()), LOG_DEBUG)
         elif self.announce_data:
             if isinstance(self.announce_data, str):
                 self.destination.announce(self.announce_data.encode("utf-8"), attached_interface=attached_interface)
-                log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()) +":" + self.announce_data, LOG_DEBUG)
+                log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()) +": " + self.announce_data, LOG_DEBUG)
             else:
                 self.destination.announce(self.announce_data, attached_interface=attached_interface)
                 log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()), LOG_DEBUG)
@@ -631,11 +688,46 @@ class lxmf_announce_callback:
             return
 
         try:
+            app_data_dict = umsgpack.unpackb(app_data)
+            if isinstance(app_data_dict, dict) and ANNOUNCE_DATA_CONTENT in app_data_dict:
+                app_data = app_data_dict[ANNOUNCE_DATA_CONTENT]
+                if ANNOUNCE_DATA_FIELDS in app_data_dict and MSG_FIELD_TYPE in app_data_dict[ANNOUNCE_DATA_FIELDS]:
+                    denys = config_getarray(CONFIG, "lxmf", "announce_auto_message_deny_type")
+                    if len(denys) > 0:
+                        if "*" in denys:
+                            return
+                        for deny in denys:
+                            if app_data_dict[ANNOUNCE_DATA_FIELDS][MSG_FIELD_TYPE] == deny:
+                                return
+        except:
+            pass
+
+        try:
             app_data = app_data.decode("utf-8").strip()
         except:
             return
 
         log("LXMF - Received an announce from " + RNS.prettyhexrep(destination_hash) + ": " + app_data, LOG_INFO)
+
+        global DATA
+
+        if CONFIG["lxmf"].getboolean("announce_auto_message") and DATA.has_section("user"):
+            source_hash = RNS.hexrep(destination_hash, False)
+            exist = False
+            for (key, val) in DATA.items("user"):
+                if key == source_hash:
+                    exist = True
+                    break
+
+            if not exist:
+                DATA["user"][source_hash] = ""
+                if CONFIG["main"].getboolean("auto_save_data"):
+                    DATA.remove_option("main", "unsaved")
+                    if not data_save(PATH + "/data.cfg"):
+                        DATA["main"]["unsaved"] = "True"
+                else:
+                    DATA["main"]["unsaved"] = "True"
+                LXMF_CONNECTION.send(source_hash, config_get(CONFIG, "lxmf", "announce_auto_message_content", "").replace("!n!", "\n"), "")
 
 
 #### LXMF - Message ####
@@ -927,6 +1019,90 @@ def config_default(file=None, file_override=None):
 
 
 ##############################################################################################################
+# Data
+
+
+#### Data - Read #####
+def data_read(file=None):
+    global DATA
+
+    if file is None:
+        return False
+    else:
+        DATA = configparser.ConfigParser(allow_no_value=True, inline_comment_prefixes="#")
+        DATA.sections()
+        if os.path.isfile(file):
+            try:
+                DATA.read(file)
+            except Exception as e:
+                return False
+        else:
+            if not data_default(file=file):
+                return False
+    return True
+
+
+#### Data - Save #####
+def data_save(file=None):
+    global DATA
+
+    if file is None:
+        return False
+    else:
+        if os.path.isfile(file):
+            try:
+                with open(file,"w") as file:
+                    DATA.write(file)
+            except Exception as e:
+                return False
+        else:
+            return False
+    return True
+
+
+#### Data - Save #####
+def data_save_periodic(initial=False):
+    data_timer = threading.Timer(CONFIG.getint("main", "periodic_save_data_interval")*60, data_save_periodic)
+    data_timer.daemon = True
+    data_timer.start()
+
+    if initial:
+        return
+
+    global DATA
+    if DATA.has_section("main"):
+        if DATA["main"].getboolean("unsaved"):
+            DATA.remove_option("main", "unsaved")
+            if not data_save(PATH + "/data.cfg"):
+                DATA["main"]["unsaved"] = "True"
+
+
+#### Data - Default #####
+def data_default(file=None):
+    global DATA
+
+    if file is None:
+        return False
+    elif DEFAULT_DATA != "":
+        if not os.path.isdir(os.path.dirname(file)):
+            try:
+                os.makedirs(os.path.dirname(file))
+            except Exception:
+                return False
+        try:
+            data_file = open(file, "w")
+            data_file.write(DEFAULT_DATA)
+            data_file.close()
+            if not data_read(file=file):
+                return False
+        except:
+            return False
+    else:
+        return False
+    return True
+
+
+##############################################################################################################
 # Value convert
 
 
@@ -1090,6 +1266,10 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
         print("Config - Error reading config file " + PATH + "/config.cfg")
         panic()
 
+    if not data_read(PATH + "/data.cfg"):
+        print("Data - Error reading data file " + PATH + "/data.cfg")
+        panic()
+
     if CONFIG["main"].getboolean("default_config"):
         print("Exit!")
         print("First start with the default config!")
@@ -1108,6 +1288,7 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
     log("        Name: " + CONFIG["main"]["name"], LOG_INFO)
     log("Program File: " + __file__, LOG_INFO)
     log(" Config File: " + PATH + "/config", LOG_INFO)
+    log("   Data File: " + PATH + "/data.cfg", LOG_INFO)
     log("     Version: " + VERSION, LOG_INFO)
     log("   Copyright: " + COPYRIGHT, LOG_INFO)
     log("...............................................................................", LOG_INFO)
@@ -1158,6 +1339,9 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
     log("...............................................................................", LOG_FORCE)
     log("LXMF - Address: " + RNS.prettyhexrep(LXMF_CONNECTION.destination_hash()), LOG_FORCE)
     log("...............................................................................", LOG_FORCE)
+
+    if CONFIG["main"].getboolean("periodic_save_data"):
+        data_save_periodic(True)
 
     while True:
         time.sleep(1)
@@ -1223,6 +1407,16 @@ enabled = True
 # Name of the program. Only for display in the log or program startup.
 name = Echo Test
 
+# Auto save changes.
+# If there are changes in the data, they can be saved directly in the files.
+# Attention: This can lead to very high write cycles.
+# If you want to prevent frequent writing, please set this to 'False' and use the peridodic save function.
+auto_save_data = True
+
+# Periodic actions - Save changes periodically.
+periodic_save_data = True
+periodic_save_data_interval = 30 #Minutes
+
 
 #### LXMF connection settings ####
 [lxmf]
@@ -1265,6 +1459,13 @@ announce_periodic_interval = 360 #Minutes
 # The announce is hidden for client applications
 # but is still used for the routing tables.
 announce_hidden = No
+
+# Announce welcome message.
+# This function allows you to welcome new users to the network
+# by sending a message to all newly received announcements.
+announce_auto_message = False
+announce_auto_message_content = Welcome to the Reticulum network! This is an echo test that you can use to test the message functionality. It will respond to every message you send.
+announce_auto_message_deny_type = 0x04,0x06
 
 # Some waiting time after message send
 # for LXMF/Reticulum processing.
@@ -1347,6 +1548,21 @@ fields_remove =
 
 any
 #2858b7a096899116cd529559cc679ffe
+'''
+
+
+#### Default data file ####
+DEFAULT_DATA = '''# This is the data file. It is automatically created and saved/overwritten.
+# It contains data managed by the software itself.
+# If manual adjustments are made here, the program must be shut down first!
+
+
+#### Main program settings ####
+[main]
+
+
+#### User ####
+[user]
 '''
 
 

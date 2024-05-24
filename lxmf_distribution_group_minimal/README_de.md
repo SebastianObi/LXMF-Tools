@@ -1,5 +1,5 @@
 # lxmf_distribution_group_minimal
-Dieses Programm ist eine minimalistische Version der normalen Verteilungsgruppe. Die Funktionalität ist auf ein Minimum reduziert. Es können nur Absender und Empfänger definiert werden. Die Nachrichten werden dann entsprechend an die anderen Benutzer gesendet. Es gibt keine Benutzeroberfläche oder sonstige Benachrichtigungen. Lediglich die Nachrichten werden 1:1 verteilt. Die Verwaltung erfolgt komplett über die jeweiligen Konfigurationsdateien, die entsprechend zu bearbeiten sind.
+Dieses Programm ist eine minimalistische Version der erweiterten Verteilungsgruppe. Die Funktionalität ist auf ein Minimum reduziert. Es können nur Absender und Empfänger definiert werden. Die Nachrichten werden dann entsprechend an die anderen Benutzer gesendet. Es gibt keine Benutzeroberfläche oder sonstige Benachrichtigungen. Lediglich die Nachrichten werden 1:1 verteilt. Die Verwaltung erfolgt komplett über die jeweiligen Konfigurationsdateien, die entsprechend zu bearbeiten sind.
 
 Weitere Informationen finden Sie in den Konfigurationsoptionen (am Ende der Programmdateien). Alles Weitere ist dort kurz dokumentiert. Nach dem ersten Start wird diese Konfiguration als Standardkonfiguration in der entsprechenden Datei angelegt.
 
@@ -118,7 +118,7 @@ Die vollständige Dokumentation ist noch nicht verfügbar. Aus Zeitmangel kann i
 - Kopieren Sie den folgenden Inhalt und passen Sie ihn an Ihre eigenen Bedürfnisse an.
   ```bash
   [Unit]
-  Description=lxmf_distribution_group_minimal.py Daemon
+  Description=lxmf_distribution_group_minimal
   After=multi-user.target
   [Service]
   # ExecStartPre=/bin/sleep 10

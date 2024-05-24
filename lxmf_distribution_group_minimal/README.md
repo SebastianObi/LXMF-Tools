@@ -1,11 +1,11 @@
 # lxmf_distribution_group_minimal
-This program is a minimalist version of the normal distribution group. The functionality is reduced to a minimum. Only sender and receiver users can be defined. Messages are then sent to the other users accordingly. There is no user interface or other notifications. Only the messages are distributed 1:1. The administration is done completely by the respective configuration files which are to be edited accordingly.
+This program is a minimalist version of the extended distribution group. The functionality is reduced to a minimum. Only sender and receiver users can be defined. Messages are then sent to the other users accordingly. There is no user interface or other notifications. Only the messages are distributed 1:1. The administration is done completely by the respective configuration files which are to be edited accordingly.
 
 For more information, see the configuration options (at the end of the program files). Everything else is briefly documented there. After the first start this configuration will be created as default config in the corresponding file.
 
 
 ### Features
-- Compatible with all LXMF applications (Communicator, NomadNet, Sideband, ...)
+- Compatible with all LXMF applications (NomadNet, Sideband, ...)
 - Server/Node based message routing and processing
 - Direct or propagated message delivery (receive/send)
 - Easy distribution of incoming messages to recipients
@@ -120,7 +120,7 @@ The full documentation is not yet available. Due to lack of time I can also not 
 - Copy and edit the following content to your own needs.
   ```bash
   [Unit]
-  Description=lxmf_distribution_group_minimal.py Daemon
+  Description=lxmf_distribution_group_minimal
   After=multi-user.target
   [Service]
   # ExecStartPre=/bin/sleep 10

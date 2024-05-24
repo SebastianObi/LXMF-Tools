@@ -37,6 +37,7 @@ import os
 import time
 import datetime
 import argparse
+import random
 
 #### Config ####
 import configparser
@@ -79,7 +80,7 @@ NAME = "LXMF Bridge Matrix"
 DESCRIPTION = ""
 VERSION = "0.0.1 (2023-05-05)"
 COPYRIGHT = "(c) 2023 Sebastian Obele  /  obele.eu"
-PATH = os.path.expanduser("~") + "/." + os.path.splitext(os.path.basename(__file__))[0]
+PATH = os.path.expanduser("~")+"/.config/"+os.path.splitext(os.path.basename(__file__))[0]
 PATH_RNS = None
 
 # Number of message ids which will be saved (older will be deleted).
@@ -93,6 +94,50 @@ ROUTING_TABLE = {}
 RNS_CONNECTION = None
 LXMF_CONNECTION = None
 MATRIX_CONNECTION = None
+
+MSG_FIELD_EMBEDDED_LXMS    = 0x01
+MSG_FIELD_TELEMETRY        = 0x02
+MSG_FIELD_TELEMETRY_STREAM = 0x03
+MSG_FIELD_ICON             = 0x04
+MSG_FIELD_FILE_ATTACHMENTS = 0x05
+MSG_FIELD_IMAGE            = 0x06
+MSG_FIELD_AUDIO            = 0x07
+MSG_FIELD_THREAD           = 0x08
+MSG_FIELD_COMMANDS         = 0x09
+MSG_FIELD_RESULTS          = 0x0A
+
+MSG_FIELD_ANSWER             = 0xA0
+MSG_FIELD_ATTACHMENT         = 0xA1
+MSG_FIELD_COMMANDS_EXECUTE   = 0xA2
+MSG_FIELD_COMMANDS_RESULT    = 0xA3
+MSG_FIELD_CONTACT            = 0xA4
+MSG_FIELD_DATA               = 0xA5
+MSG_FIELD_DELETE             = 0xA6
+MSG_FIELD_EDIT               = 0xA7
+MSG_FIELD_GPS                = 0xA8
+MSG_FIELD_HASH               = 0xA9
+MSG_FIELD_ICON_MENU          = 0xAA
+MSG_FIELD_ICON_SRC           = 0xAB
+MSG_FIELD_KEYBOARD           = 0xAC
+MSG_FIELD_KEYBOARD_INLINE    = 0xAD
+MSG_FIELD_LOCATION           = 0xAE
+MSG_FIELD_POLL               = 0xAF
+MSG_FIELD_POLL_ANSWER        = 0xB0
+MSG_FIELD_REACTION           = 0xB1
+MSG_FIELD_RECEIPT            = 0xB2
+MSG_FIELD_SCHEDULED          = 0xB3
+MSG_FIELD_SILENT             = 0xB4
+MSG_FIELD_SRC                = 0xB5
+MSG_FIELD_STATE              = 0xB6
+MSG_FIELD_STICKER            = 0xB7
+MSG_FIELD_TELEMETRY_DB       = 0xB8
+MSG_FIELD_TELEMETRY_PEER     = 0xB9
+MSG_FIELD_TELEMETRY_COMMANDS = 0xBA
+MSG_FIELD_TEMPLATE           = 0xBB
+MSG_FIELD_TOPIC              = 0xBC
+MSG_FIELD_TYPE               = 0xBD
+MSG_FIELD_TYPE_FIELDS        = 0xBE
+MSG_FIELD_VOICE              = 0xBF
 
 
 ##############################################################################################################
@@ -135,12 +180,16 @@ class lxmf_connection:
 
         self.announce_startup = announce_startup
         self.announce_startup_delay = int(announce_startup_delay)
+        if self.announce_startup_delay == 0:
+            self.announce_startup_delay = random.randint(5, 30)
 
         self.announce_periodic = announce_periodic
         self.announce_periodic_interval = int(announce_periodic_interval)
 
         self.sync_startup = sync_startup
         self.sync_startup_delay = int(sync_startup_delay)
+        if self.sync_startup_delay == 0:
+            self.sync_startup_delay = random.randint(5, 30)
         self.sync_limit = int(sync_limit)
         self.sync_periodic = sync_periodic
         self.sync_periodic_interval = int(sync_periodic_interval)
@@ -314,6 +363,9 @@ class lxmf_connection:
 
 
     def send_message(self, destination, source, content="", title="", fields=None, timestamp=None, app_data=""):
+        if destination == self.destination:
+            return None
+
         if self.desired_method_direct:
             desired_method = LXMF.LXMessage.DIRECT
         else:
@@ -409,14 +461,14 @@ class lxmf_connection:
         elif app_data != None:
             if isinstance(app_data, str):
                 self.destination.announce(app_data.encode("utf-8"), attached_interface=attached_interface)
-                log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()) +":" + app_data, LOG_DEBUG)
+                log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()) +": " + app_data, LOG_DEBUG)
             else:
                 self.destination.announce(app_data, attached_interface=attached_interface)
                 log("LMF - Announced: " + RNS.prettyhexrep(self.destination_hash()), LOG_DEBUG)
         elif self.announce_data:
             if isinstance(self.announce_data, str):
                 self.destination.announce(self.announce_data.encode("utf-8"), attached_interface=attached_interface)
-                log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()) +":" + self.announce_data, LOG_DEBUG)
+                log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()) +": " + self.announce_data, LOG_DEBUG)
             else:
                 self.destination.announce(self.announce_data, attached_interface=attached_interface)
                 log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()), LOG_DEBUG)
@@ -878,9 +930,9 @@ def lxmf_message_received_callback(message):
         source_name = ""
 
         if message.fields:
-            if 0xAF in message.fields:
-                source_address = RNS.hexrep(message.fields[0xAF]["h"], False)
-                source_name = message.fields[0xAF]["n"]
+            if MSG_FIELD_SRC in message.fields:
+                source_address = RNS.hexrep(message.fields[MSG_FIELD_SRC]["h"], False)
+                source_name = message.fields[MSG_FIELD_SRC]["n"]
 
         routing_destination = ROUTING_TABLE[destination_address][0]
         routing_table = ROUTING_TABLE[destination_address][1]
@@ -900,25 +952,25 @@ def lxmf_message_received_callback(message):
 
         content = content_prefix + content + content_suffix
 
-        if message.fields and 0xA7 in message.fields:
-            hash = message.fields[0xA7]
+        if message.fields and MSG_FIELD_HASH in message.fields:
+            hash = message.fields[MSG_FIELD_HASH]
         else:
             hash = message.hash
 
-        if message.fields and 0xA5 in message.fields and 0xA7 in message.fields and message.fields[0xA7] in DATA:
-            content = {"msgtype": "m.text", "body": "", "m.new_content": {"body": content, "msgtype": "m.text"}, "m.relates_to": {"event_id": DATA[message.fields[0xA7]][0], "rel_type": "m.replace"}}
-        elif message.fields and 0xA4 in message.fields and 0xA7 in message.fields and message.fields[0xA7] in DATA:
-            content = {"msgtype": "m.text", "body": "", "m.new_content": {"body": config_get(CONFIG, "message", "lxmf_to_matrix_deleted", "-"), "msgtype": "m.text"}, "m.relates_to": {"event_id": DATA[message.fields[0xA7]][0], "rel_type": "m.replace"}}
-        elif message.fields and 0xA0 in message.fields and message.fields[0xA0] in DATA:
-            content = {"msgtype": "m.text", "body": content, "m.relates_to": {"m.in_reply_to": {"event_id": DATA[message.fields["answer"]][0]}}}
+        if message.fields and MSG_FIELD_EDIT in message.fields and MSG_FIELD_HASH in message.fields and message.fields[MSG_FIELD_HASH] in DATA:
+            content = {"msgtype": "m.text", "body": "", "m.new_content": {"body": content, "msgtype": "m.text"}, "m.relates_to": {"event_id": DATA[message.fields[MSG_FIELD_HASH]][0], "rel_type": "m.replace"}}
+        elif message.fields and MSG_FIELD_DELETE in message.fields and MSG_FIELD_HASH in message.fields and message.fields[MSG_FIELD_HASH] in DATA:
+            content = {"msgtype": "m.text", "body": "", "m.new_content": {"body": config_get(CONFIG, "message", "lxmf_to_matrix_deleted", "-"), "msgtype": "m.text"}, "m.relates_to": {"event_id": DATA[message.fields[MSG_FIELD_HASH]][0], "rel_type": "m.replace"}}
+        elif message.fields and MSG_FIELD_ANSWER in message.fields and message.fields[MSG_FIELD_ANSWER] in DATA:
+            content = {"msgtype": "m.text", "body": content, "m.relates_to": {"m.in_reply_to": {"event_id": DATA[message.fields[MSG_FIELD_ANSWER]][0]}}}
         else:
             content = {"msgtype": "m.text", "body": content}
 
         MATRIX_CONNECTION.send(routing_destination, content, hash)
 
         # TODO
-        #if message.fields and 0xA1 in message.fields:
-        #    for attachment in message.fields[0xA1]:
+        #if message.fields and MSG_FIELD_ATTACHMENT in message.fields:
+        #    for attachment in message.fields[MSG_FIELD_ATTACHMENT]:
         #        MATRIX_CONNECTION.send_file(routing_destination, attachment["name"], attachment["size"], attachment["data"])
     else:
         log("LXMF - Source " + RNS.prettyhexrep(message.source_hash) + " not allowed", LOG_DEBUG)
@@ -956,16 +1008,16 @@ def matrix_message_received_callback(room: MatrixRoom, event: RoomMessage):
             content = content_dict["m.new_content"]["body"]
             event_id = content_dict["m.relates_to"]["event_id"]
             if event_id in DATA:
-                fields[0xA7] = DATA[event_id][0]
+                fields[MSG_FIELD_HASH] = DATA[event_id][0]
                 if DATA[event_id][1]:
-                    fields[0xA0] = DATA[event_id][1]
-                fields[0xA5] = time.time()
+                    fields[MSG_FIELD_ANSWER] = DATA[event_id][1]
+                fields[MSG_FIELD_EDIT] = time.time()
         elif "m.relates_to" in content_dict and "m.in_reply_to" in content_dict["m.relates_to"]:
             content = content_dict["formatted_body"]
             content = re.sub(r'<mx-reply>.*<\/mx-reply>', '', content)
             event_id = content_dict["m.relates_to"]["m.in_reply_to"]["event_id"]
             if event_id in DATA:
-                fields[0xA0] = DATA[event_id][0]
+                fields[MSG_FIELD_ANSWER] = DATA[event_id][0]
         else:
             content = event.body
     except:
@@ -1001,15 +1053,15 @@ def matrix_message_received_callback(room: MatrixRoom, event: RoomMessage):
 
     content = content_prefix + content + content_suffix
 
-    fields[0xAF] = {}
-    fields[0xAF]["h"] = b''
-    fields[0xAF]["n"] = replace(config_get(CONFIG, "message", "matrix_to_lxmf"), source_address=event.sender, source_name=user_name, destination_address=room.room_id, destination_name=room.display_name, routing_table=routing_table)
+    fields[MSG_FIELD_SRC] = {}
+    fields[MSG_FIELD_SRC]["h"] = b''
+    fields[MSG_FIELD_SRC]["n"] = replace(config_get(CONFIG, "message", "matrix_to_lxmf"), source_address=event.sender, source_name=user_name, destination_address=room.room_id, destination_name=room.display_name, routing_table=routing_table)
 
     result = LXMF_CONNECTION.send(routing_destination, content, "", fields=fields)
 
     if result:
-        if 0xA0 in fields:
-            answer = fields[0xA0]
+        if MSG_FIELD_ANSWER in fields:
+            answer = fields[MSG_FIELD_ANSWER]
         else:
             answer = None
         DATA[result] = [event.event_id, answer]

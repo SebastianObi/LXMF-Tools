@@ -1,25 +1,18 @@
 # lxmf_distribution_group
-Dieses Programm bietet eine E-Mail-ähnliche Verteilergruppe. Es verteilt eingehende LXMF-Nachrichten an mehrere Empfänger. Da dieses Programm wie ein normaler LXMF-Endpunkt agiert, können alle kompatiblen Chat-Anwendungen verwendet werden. Zusätzlich zum einfachen Messaging gibt es eine einfache kommandobasierte Benutzeroberfläche. Hier können alle relevanten Aktionen für die tägliche Verwaltung durchgeführt werden. Die Grundkonfiguration wird in den Konfigurationsdateien vorgenommen. Es gibt verschiedene Optionen, um das gesamte Verhalten der Gruppe an die eigenen Bedürfnisse anzupassen. Diese Verteilergruppe ist viel mehr als eine Standard-E-Mail-Verteilergruppe. Sie emuliert erweiterte Gruppenfunktionen mit automatischen Benachrichtigungen usw. Es können verschiedene Benutzerberechtigungen definiert werden. Für jeden Benutzertyp kann der Funktionsumfang individuell festgelegt werden. Die normalen Benutzer haben nur geringe Rechte. Während ein Moderator oder Admin mit einfachen Befehlen alles Notwendige erledigen kann. Ist die Grundkonfiguration einmal erledigt, kann alles Weitere über LXMF-Nachrichten als Befehle erfolgen.
+Dieses Programm bietet eine E-Mail-ähnliche Verteilergruppe für die "Communicator" app. Welches ein anderes Projekt ist, das nicht Teil dieses github ist. Es verteilt eingehende LXMF-Nachrichten an mehrere Empfänger.
 
 Weitere Informationen finden Sie in den Konfigurationsoptionen (am Ende der Programmdateien). Alles Weitere ist dort kurz dokumentiert. Nach dem ersten Start wird diese Konfiguration als Standardkonfiguration in der entsprechenden Datei angelegt.
 
 
 ### Merkmale
-- Kompatibel mit allen LXMF-Anwendungen (NomadNet, Sideband, ...)
+- Kompatibel mit (Communicator welches ein anderes Projekt ist, das nicht Teil dieses github ist)
 - Server-/Node-basierte Nachrichtenweiterleitung und -verarbeitung
 - Direkte oder propagierte Nachrichtenzustellung (Empfangen/Senden)
 - Einfache Gruppenfunktionen (wie in anderen Messenger-Apps)
 - Benutzerautorisierung und Berechtigungen
 - Verschiedene Benutzertypen mit unterschiedlichen Berechtigungen
 - Automatischer oder manueller Gruppenbeitritt
-- Textbasierte Schnittstelle zur Anzeige von erweiterten Funktionen oder Informationen
-- Cluster von mehreren Gruppen (Kommunikation zwischen Gruppen mit verschiedenen Levels)
-- Automatisches Aushandeln von Clustern
-- Statistiken auf Cluster-, Router-, Gruppen- und Benutzerebene
 - Einfache Konfiguration in lesbaren Konfigurationsdateien
-- Verschiedene Admin-Befehle für die täglichen Aufgaben, die über LXMF-Nachrichten gesteuert werden
-- Gruppenbeschreibung, Regeln und gepinnte Nachrichten
-- Optional aktivierbarer Warteraum für neue Mitglieder vor dem Beitritt zur Gruppe
 - Unterstützung mehrerer Sprachen (Englisch & Deutsch sind voreingestellt)
 
 
@@ -31,22 +24,10 @@ In einer kleinen Gruppe von Personen kann diese Gruppensoftware auf einem zentra
 ### Mehrere lokale autarke Gruppen
 Auf demselben Knoten/Server können mehrere Gruppen unabhängig voneinander betrieben werden. Wie das funktioniert, wird weiter unten in der Installationsanleitung beschrieben.
 
-### Vernetzung von Gruppen zu einem Cluster
-Es ist möglich, mehrere lokal unabhängige Gruppen zu einem Cluster zu verbinden. Dadurch ist es möglich, Nachrichten von einer Gruppe zur anderen zu senden.
-
-### Hierarchische Clustergruppen über weit verteilte Gebiete
-Ein Gruppencluster kann in mehreren Ebenen gebildet werden. Entsprechend der Benennung der Ebenen kann eine Gruppe mit mehreren Namen versehen werden.
-Dadurch ist es möglich, z.B. eine Nachricht an mehrere Gruppen gleichzeitig zu senden. So könnten Sie die Gruppennamen wie folgt definieren. Land/Region/Stadt".
-Damit ist es möglich, alle Gruppen eines bestimmten Landes oder einer bestimmten Region zu kontaktieren.
-
 ### Allgemeine Informationen zum Transport der Nachrichten
-Alle Nachrichten zwischen Client<->Gruppenserver und Gruppenserver<->Gruppenserver werden als einzelne 1:1 Nachrichten im LXMF/Reticulum Netzwerk transportiert.
+Alle Nachrichten zwischen Client<->Gruppenserver werden als einzelne 1:1 Nachrichten im LXMF/Reticulum Netzwerk transportiert.
 Dementsprechend findet zwischen diesen Endpunkten eine Verschlüsselung statt.
 Wenn eine direkte Zustellung der Nachricht nicht funktioniert, wird sie an einen Propagierungsknoten gesendet. Dort wird sie zwischengespeichert und kann später vom Client abgerufen werden.
-
-Da es sich um normale LXMF-Nachrichten handelt, kann jede LXMF-fähige Anwendung zur Kommunikation mit der Gruppe verwendet werden.
-
-Wenn eine Nachricht an einen mehrstufigen (hierarchischen) Cluster gesendet wird. Es wird immer eine 1:1-Verbindung von der Quelle zu jeder Zielgruppe in dieser Clusterebene hergestellt.
 
 Es gibt keinen zentralen Server für die Kommunikation zwischen den einzelnen Gruppen. Dies bietet den Vorteil, dass alle Gruppen autonom arbeiten. Ein Ausfall einer Gruppe betrifft nur diese eine lokale Gruppe. 
 
@@ -63,19 +44,6 @@ Die vollständige Dokumentation ist noch nicht verfügbar. Aus Zeitmangel kann i
 
 ## Entwicklungsfahrplan
 - Geplant, aber noch nicht terminiert
-  - Propagationsknoten-Fallback
-  - Automatisches Erkennen von Propagationsknoten
-  - Propagation Node auto select
-  - Parameter für die Sicherung/Wiederherstellung von Konfiguration und Daten
-  - Parameter für die Sicherung/Wiederherstellung der Identität
-  - Cluster-Brücken/Wiederholer
-  - Unterschiedliche Nachrichtenprioritäten
-  - Fallback-Lösung: Master/Slave
-  - Zentralisierte Benutzer-/Gruppenautorisierung
-  - Interne Warteschlange mit Priorisierung
-  - Intelligenteres Senden von Nachrichten
-  - Befehl zur Anzeige des Sendestatus der letzten Nachricht
-  - Automatische Sendebestätigung
   - Vollständige Dokumentation
 
 
@@ -218,7 +186,7 @@ Die vollständige Dokumentation ist noch nicht verfügbar. Aus Zeitmangel kann i
 - Kopieren Sie den folgenden Inhalt und passen Sie ihn an Ihre eigenen Bedürfnisse an.
   ```bash
   [Unit]
-  Description=lxmf_distribution_group.py Daemon
+  Description=lxmf_distribution_group
   After=multi-user.target
   [Service]
   # ExecStartPre=/bin/sleep 10
@@ -324,117 +292,6 @@ Alle Konfigurationen müssen in der Datei `config.cfg.owr` vorgenommen werden.
 Alle möglichen Einstellungen sind in der Standard-Konfigurationsdatei `config.cfg` zu sehen.
 
 
-### Cluster:
-Dieses Beispiel zeigt die Konfiguration für einen Cluster mit 2 Gruppen. Dies ermöglicht die Kommunikation zwischen beiden Gruppen.
-Es ist möglich, direkt in jede Gruppe zu schreiben oder in die übergeordnete Ebene, die dann beide Gruppen umfasst.
-
-- Group #1 `config.cfg.owr`
-  ```
-  [lxmf]
-  display_name = Group Test 1
-  [cluster]
-  enabled = True
-  name = test
-  type = cluster
-  display_name = Germany/NRW/Düsseldorf
-  ```
-
-- Group #1 `data.cfg`
-  ```
-  [main]
-  enabled_cluster = True
-  auto_add_cluster = True
-  ```
-
-- Group #2 `config.cfg.owr`
-  ```
-  [lxmf]
-  display_name = Group Test 2
-  [cluster]
-  enabled = True
-  name = test
-  type = cluster
-  display_name = Germany/Bayern/München
-  ```
-
-- Group #2 `data.cfg`
-  ```
-  [main]
-  enabled_cluster = True
-  auto_add_cluster = True
-  ```
-
-
-### 2 unabhängige Cluster:
-Dieses Beispiel zeigt die Konfiguration für 2 separate Cluster.
-Damit ist es möglich, mehrere Cluster parallel über das gleiche Kommunikationsnetz zu betreiben.
-Es ist wichtig, `Name` und `Typ` unterschiedlich zu konfigurieren.
-
-- Cluster #1 - Group #1 `config.cfg.owr`
-  ```
-  [lxmf]
-  display_name = Group Test 1
-  [cluster]
-  enabled = True
-  name = test1
-  type = cluster
-  display_name = Germany/NRW/Düsseldorf
-  ```
-
-- Cluster #1 - Group #1 `data.cfg`
-  ```
-  [main]
-  enabled_cluster = True
-  auto_add_cluster = True
-  ```
-
-- Cluster #2 - Group #1 `config.cfg.owr`
-  ```
-  [lxmf]
-  display_name = Group Test 1
-  [cluster]
-  enabled = True
-  name = test2
-  type = cluster
-  display_name = Germany/NRW/Düsseldorf
-  ```
-
-- Cluster #2 - Group #1 `data.cfg`
-  ```
-  [main]
-  enabled_cluster = True
-  auto_add_cluster = True
-  ```
-
-
-### Mitglieder/Cluster:
-Normalerweise werden alle Daten hier (`data.cfg`) automatisch von der Software erstellt. Basierend auf der automatischen Erstellung von neuen Benutzern/Clustern oder ausgeführten Befehlen zur Verwaltung.
-Hier sind ein paar Beispiele, wie der Inhalt aussehen kann. Natürlich kann die Datei auch manuell bearbeitet werden. Dies ist notwendig, wenn ein automatisches Hinzufügen deaktiviert ist.
-Bitte vergessen Sie nicht, das Programm vorher zu schließen!
-
-- Group #1 `data.cfg`
-  ```
-  [user]
-  04652a820cc69d47940ce39050c455a6 = Test User 1
-  
-  [cluster]
-  d1b551e1b89fff5a4a6f2aaff2464971 = Germany/Bayern/München
-    ```
-
-- Group #2 `data.cfg`
-  ```
-    [user]
-  18201a931dd69d47940ce39050c487c9 = Test User 1
-  
-  [cluster]
-  801f48d54bc71cb3e0886944832aaf8d = Germany/NRW/Düsseldorf
-    ```
-
-
-### Cluster router:
-Noch nicht umgesetzt
-
-
 ### Ankündigung der Gruppe:
 - `config.cfg.owr`
   ```
@@ -469,181 +326,10 @@ Noch nicht umgesetzt
   ```
 
 
-### Warteraum für neue Mitglieder:
-Dieses Beispiel zeigt die Konfiguration für einen Warteraum für neue Mitglieder.
-Wenn ein unbekannter Benutzer der Gruppe durch die erste Nachricht an die Gruppe beitritt, wird er zum Typ "Warten" hinzugefügt.
-Dort befindet er sich dann in einer Art Warteraum, in dem keine Nachrichten geschrieben und empfangen werden können.
-Ein Admin oder Moderator kann dann diesen Benutzer zulassen oder verbieten.
-
-Die Konfiguration zeigt nur den minimal notwendigen Teil für diese Funktionalität. Natürlich können den Benutzern weitere Rechte zugewiesen werden.
-
-- `config.cfg.owr`
-  ```
-  [rights]
-  admin = interface,receive_join,allow,deny
-  mod = interface,receive_join,allow,deny
-  wait = 
-  
-  [interface_messages]
-  auto_add_wait = Welcome to the group "!display_name!"!!n!!n!You still need to be allowed to join. You will be notified automatically.
-  auto_add_wait-de = Willkommen in der Gruppe "!display_name!"!!n!!n!Der Beitritt muss ihnen noch erlaubt werden. Sie werden darüber automatisch benachrichtigt.
-  
-  allow_user = You have been allowed to join the group "!display_name!"!!n!!n!!description!!n!!n!The messages sent here are distributed to all group members.!n!!n!For help enter /?!n!!n!To read the group rules use the command /rules!n!!n!Please assign a nickname with the command /name
-  allow_user-de = Sie wurden erlaubt der Gruppe "!display_name!" beizutreten!!n!!n!!description!!n!!n!Die hier gesendeten Nachrichten werden an alle Gruppenmitglieder verteilt.!n!!n!Für Hilfe geben Sie /? ein.!n!!n!Um die Gruppenregeln zu lesen verwenden Sie den Befehl /rules!n!!n!Bitte vergeben Sie einen Nickname mit dem Befehl /name
-  
-  deny_user = You have been denied to join the group "!display_name!"!
-  deny_user-de = Ihnen wurde der Beitritt in die Gruppe "!display_name!" abgelehnt!
-  
-  member_join = !source_name! <!source_address!> joins the waiting room and must be allowed to join the group.
-  member_join-de = !source_name! <!source_address!> betritt den Warteraum und muss zur Gruppe zugelassen werden.
-  ```
-
-- `data.cfg`
-  ```
-  [main]
-  auto_add_user = True
-  auto_add_user_type = wait
-  allow_user = True
-  allow_user_type = user
-  deny_user = True
-  deny_user_type = block_wait
-  ```
-
-
 ## Administratoren Handbuch
 Dieses Handbuch gilt für alle Admins. Hier werden die administrativen Möglichkeiten kurz erläutert.
 
 Ein Administartor hat entsprechend höhere Rechte und es stehen mehr Befehle zur Verfügung. Generell können die Berechtigungen frei definiert werden. Alle Benutzer/Admins etc. können auch generell die gleichen Berechtigungen haben.
-
-
-### Aktivieren/Deaktivieren von Funktionen:
-Die folgenden Funktionen können per Befehl entsprechend eingestellt werden.
-
-`/enable_local <true/false>` = Lokales Nachrichten Routing
-
-`/enable_cluster <true/false>` = Cluster Nachrichten Routing
-
-`/auto_add_user <true/false>` = Funktionalität für unbekannte Benutzer hinzufügen
-
-`/auto_add_cluster <true/false>` = Funktionalität für unbekannte Cluster hinzufügen
-
-### Werte ändern:
-`/description <description>` = Beschreibung ändern
-
-`/rules <description>` = Regeln ändern
-
-
-### Senden Sie eine manuelle Ankündigung der Gruppe und des Clusters:
-`/announce`
-
-
-### Benutzer verwalten (Anzeige der vorhandenen Benutzer):
-`/show or /list`
-
-`/show or /list <admin/mod/user/guest>`
-
-`/search <nickname/user_address>`
-
-
-### Verwalten von Benutzern (einladen):
-Zusätzliche Benutzer können eingeladen werden, dies geschieht mit dem Befehl `/invite <Benutzer_Adresse>`.
-Dann erhält der Benutzer eine Willkommensnachricht und tritt der Gruppe bei.
-
-
-### Benutzer verwalten (zulassen/verweigern):
-Wenn das Wartezimmer aktiviert ist, können die Benutzer mit den folgenden 2 Befehlen verwaltet werden.
-
-`/allow <user_address>`
-
-`/deny <user_address>`
-
-
-### Verwalten von Benutzern (hinzufügen/löschen/verschieben):
-Die folgenden Befehle können zur Verwaltung der Benutzer verwendet werden.
-Nur im Falle einer Einladung wird eine Willkommensnachricht an den Benutzer gesendet. Benutzer, die hier hinzugefügt werden, erhalten keine Benachrichtigung und müssen die erste Konversation mit der Gruppe selbst beginnen. Oder sie bekommen direkt eine Nachricht zugesandt.
-
-`/add <admin/mod/user/guest> <user_address> <user_name>`
-
-`/del or /rm <admin/mod/user/guest> <user_address>`
-
-`/del or /rm <user_address>`
-
-`/move <admin/mod/user/guest> <user_address>`
-
-
-### Benutzer verwalten (kick/block/unblock):
-Mit den folgenden Befehlen können Sie Benutzer entfernen/aktivieren.
-
-`/kick <user_address>`
-
-`/block <user_address>`
-
-`/unblock <user_address>`
-
-
-### Daten speichern:
-Wenn in der Konfiguration ein automatisches Speichern eingestellt ist, muss hier nichts gemacht werden. Falls nicht oder zusätzlich können die Daten mit dem folgenden Befehl gespeichert werden.
-
-`/save`
-
-
-### Hilfe:
-Um die Hilfe und alle verfügbaren Befehle anzuzeigen, können die folgenden Befehle verwendet werden. `/help` oder `/?`
-
-
-### Beispiele für mögliche Befehle:
-```
-/help or /? = Zeigt diese Hilfe an
-/leave or /part = Gruppe verlassen
-/name = Aktuellen Nickname anzeigen
-/nick = Aktuellen Nickname anzeigen
-/name <your nickname> = Spitznamen ändern/festlegen
-/nick <your nickname> = Spitznamen ändern/festlegen
-/address = Adressdaten anzeigen
-/info = Gruppeninfo anzeigen
-/description = Aktuelle Beschreibung anzeigen
-/rules = Aktuelle Regeln anzeigen
-/version = Versionsinformationen anzeigen
-/groups or /cluster = Alle Gruppen/Cluster anzeigen
-/groups <name> = Suche nach einer Gruppe/einem Cluster anhand des Namens
-/members or /names or /who = Alle Gruppenmitglieder zeigen
-/admins = Gruppenadmins anzeigen
-/moderators or /mods = Gruppenmoderatoren anzeigen
-/users = Gruppenbenutzer anzeigen
-/guests = Gruppengäste anzeigen
-/search <nickname/user_address> = Sucht nach einem Benutzer anhand seines Spitznamens oder seiner Adresse
-/whois <nickname/user_address> = Sucht nach einem Benutzer anhand seines Spitznamens oder seiner Adresse
-/activitys = Benutzeraktivitäten anzeigen
-/statistic or /stat = Gruppenstatistik anzeigen
-/status = Status anzeigen
-/delivery or /message = Zustellungsstatus der letzten Nachricht anzeigen
-/enable_local <true/false> = Lokales Nachrichten Routing an/ausschalten
-/enable_cluster <true/false> = Weiterleitung von Cluster Nachrichten an/ausschalten
-/auto_add_user <true/false> = Funktionalität für unbekannte Benutzer an/ausschalten
-/auto_add_user_type <admin/mod/user/guest>
-/auto_add_cluster <true/false> = Unbekannte Cluster-Funktionalität hinzufügen
-/invite_user <true/false> = Einladungsfunktion
-/invite_user_type <admin/mod/user/guest>
-/description <description> = Beschreibung ändern
-/rules <description> = Regeln ändern
-/announce = Ankündigung senden
-/sync = Nachrichten mit dem Verbreitungsknoten synchronisieren
-/show run = Aktuelle Konfiguration anzeigen
-/show or /list
-/show or /list <admin/mod/user/guest>
-/add <admin/mod/user/guest> <user_address> <user_name>
-/del or /rm <admin/mod/user/guest> <user_address>
-/del or /rm <user_address>
-/move <admin/mod/user/guest> <user_address>
-/invite <user_address> = Lädt Benutzer zur Gruppe ein
-/kick <user_address> = Schmeißt den Benutzer aus der Gruppe
-/block <user_address> = Benutzer sperren
-/ban <user_address> = Benutzer sperren
-/unblock <user_address> = Benutzer entsperren
-/unban <user_address> = Benutzer entsperren
-/load or /read = Lesen der Konfiguration/Daten
-/save or /wr = Speichert die aktuelle Konfiguration/Daten
-```
 
 
 ## User Handbuch
@@ -653,96 +339,6 @@ Diese Anleitung gilt für Benutzer oder Administratoren. Hier werden kurz die no
 ### Starten Sie die Gruppe und treten Sie ihr bei:
 Senden Sie einfach eine erste Nachricht an die Gruppenadresse mit Sideband/NomadNet.
 Dies ist jedoch nur möglich, wenn der automatische Beitritt zur Gruppe aktiviert ist.
-
-
-### Lokale Gruppennachricht senden:
-Jeder normale Text ohne `/` oder `@` am Anfang wird als normale Nachricht interpretiert und entsprechend an alle lokalen Mitglieder gesendet. Es gibt hier nichts weiter zu beachten.
-
-
-### Clusternachricht senden:
-Es ist möglich, Nachrichten an andere Gruppen zu senden, die Teil des Clusters sind. Dazu müssen Sie zuerst den Befehl `@` gefolgt vom Zielnamen der Gruppe und dann den normalen Nachrichtentext eingeben.
-
-Zum Beispiel `@Berlin Hallo dies ist ein Test :)`. Dieses Beispiel würde also diese Nachricht an die Gruppe Berlin senden.
-
-Eine Gruppe in einem Cluster kann hierarchisch in verschiedenen Ebenen angeordnet sein. Wenn die übergeordnete Ebene als Ziel definiert ist, erhalten alle darunter liegenden Gruppen diese Nachricht.
-
-Zum Beispiel gibt es die folgenden 3 Gruppen `Deutschland/Berlin` und `Deutschland/Hamburg` und `Deutschland/München`. Entsprechend können diese direkt oder eine höhere Ebene angeschrieben werden.
-
-Mit dem Befehl `@Germany` sind nun alle 3 Gruppen erreichbar. Mit dem Befehl `@München` ist nur diese eine Gruppe zugänglich.
-
-
-### Nachricht anheften (lokale Gruppe):
-Es ist möglich, Nachrichten der lokalen Gruppe dauerhaft anzuheften. Diese wird dann an alle Mitglieder gesendet. Außerdem können alle angehefteten Nachrichten später angezeigt werden.
-
-Diese Funktion ist nützlich, um neuen Mitgliedern Zugang zu wichtigen Nachrichten aus der Vergangenheit zu geben.
-
-/pin" = Alle angehefteten Nachrichten anzeigen
-
-/pin <Nachrichtentext>` = Eine neue Nachricht anheften
-
-`/unpin <#id>` = Eine angeheftete Nachricht entfernen
-
-
-### Nachricht anheften (Clustergruppe):
-Es ist möglich, Nachrichten der Clustergruppe dauerhaft zu pinnen. Diese wird dann an alle Mitglieder gesendet. Außerdem können alle gepinnten Nachrichten später angezeigt werden.
-
-Diese Funktion ist nützlich, um neuen Mitgliedern Zugang zu wichtigen Nachrichten aus der Vergangenheit zu geben.
-
-`@Group /pin <Nachrichtentext>` = Eine neue Nachricht anheften
-
-
-### Schnittstelle/Befehle:
-Eine einfache textnachrichtenbasierte Benutzeroberfläche ist integriert. Wie Sie es vielleicht von anderen Chat-Programmen kennen. Jeder Befehl muss mit dem Begrenzungszeichen `/` beginnen. Dann folgen der Befehl und eventuelle Daten. Zum Beispiel `/name Mein neuer Nickname`.
-
-Wenn kein `/` am Anfang steht, ist dies eine normale Nachricht und wird an die anderen Mitglieder gesendet.
-
-
-### Hilfe:
-Um die Hilfe und alle verfügbaren Befehle anzuzeigen, können die folgenden Befehle verwendet werden. `/help` oder `/?`
-
-
-### Die Gruppe verlassen:
-Der Befehl `/leave` wird verwendet, um die Gruppe zu verlassen. Danach kann die Gruppe wieder betreten werden (wenn dies erlaubt ist).
-
-
-### Benutzer einladen:
-Wenn der Administrator erlaubt hat, dass weitere Benutzer eingeladen werden, kann dies mit dem Befehl `/invite <Benutzer_Adresse>` geschehen.
-Dann erhält der Benutzer eine Willkommensnachricht und tritt der Gruppe bei.
-
-
-### Nickname ändern:
-Der eigene Nickname wird entweder automatisch über die empfangene Ankündigung (nach dem Beitritt zur Gruppe) vergeben oder kann über den folgenden Befehl geändert werden.
-
-`/name <Ihr neuer Nickname>` Zum Beispiel `/name Max Walker`.
-
-
-### Beispiele für mögliche Befehle:
-```
-/help or /? = Zeigt diese Hilfe
-/leave or /part = Gruppe verlassen
-/name = Aktuellen Namen anzeigen
-/nick = Aktuellen Namen anzeigen
-/name <your nickname> = Name ändern/festlegen
-/nick <your nickname> = Name ändern/festlegen
-/address = Adressinformationen anzeigen
-/info = Gruppeninformationen anzeigen
-/description = Aktuelle Beschreibung anzeigen
-/rules = Aktuelle Regeln anzeigen
-/version = Versionsinformationen anzeigen
-/groups or /cluster = Alle Gruppen/Cluster anzeigen
-/groups <name> = Suche nach einer Gruppe/einem Cluster anhand des Namens
-/members or /names or /who = Alle Gruppenmitglieder anzeigen
-/admins = Gruppenadministratoren anzeigen
-/moderators or /mods = Gruppenmoderatoren anzeigen
-/users = Gruppenbenutzer anzeigen
-/guests = Gruppengäste anzeigen
-/search <nickname/user_address> = Sucht nach einem Benutzer anhand seines Namens oder seiner Adresse
-/whois <nickname/user_address> = Sucht nach einem Benutzer anhand seines Namens oder seiner Adresse
-/activitys = Benutzeraktivitäten anzeigen
-/statistic or /stat = Gruppenstatistik anzeigen
-/delivery or /message = Zustellungsstatus der letzten Nachricht anzeigen
-/invite <user_address> = Lädt Benutzer zur Gruppe ein
-```
 
 
 ## FAQ
