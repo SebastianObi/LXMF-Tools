@@ -114,7 +114,7 @@ MSG_FIELD_CONTACT            = 0xA4
 MSG_FIELD_DATA               = 0xA5
 MSG_FIELD_DELETE             = 0xA6
 MSG_FIELD_EDIT               = 0xA7
-MSG_FIELD_GPS                = 0xA8
+MSG_FIELD_GROUP              = 0xA8
 MSG_FIELD_HASH               = 0xA9
 MSG_FIELD_ICON_MENU          = 0xAA
 MSG_FIELD_ICON_SRC           = 0xAB
@@ -931,8 +931,8 @@ def lxmf_message_received_callback(message):
 
         if message.fields:
             if MSG_FIELD_SRC in message.fields:
-                source_address = RNS.hexrep(message.fields[MSG_FIELD_SRC]["h"], False)
-                source_name = message.fields[MSG_FIELD_SRC]["n"]
+                source_address = RNS.hexrep(message.fields[MSG_FIELD_SRC][0], False)
+                source_name = message.fields[MSG_FIELD_SRC][1]
 
         routing_destination = ROUTING_TABLE[destination_address][0]
         routing_table = ROUTING_TABLE[destination_address][1]
@@ -1053,9 +1053,7 @@ def matrix_message_received_callback(room: MatrixRoom, event: RoomMessage):
 
     content = content_prefix + content + content_suffix
 
-    fields[MSG_FIELD_SRC] = {}
-    fields[MSG_FIELD_SRC]["h"] = b''
-    fields[MSG_FIELD_SRC]["n"] = replace(config_get(CONFIG, "message", "matrix_to_lxmf"), source_address=event.sender, source_name=user_name, destination_address=room.room_id, destination_name=room.display_name, routing_table=routing_table)
+    fields[MSG_FIELD_SRC] = [b'', replace(config_get(CONFIG, "message", "matrix_to_lxmf"), source_address=event.sender, source_name=user_name, destination_address=room.room_id, destination_name=room.display_name, routing_table=routing_table)]
 
     result = LXMF_CONNECTION.send(routing_destination, content, "", fields=fields)
 

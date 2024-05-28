@@ -119,7 +119,7 @@ MSG_FIELD_CONTACT            = 0xA4
 MSG_FIELD_DATA               = 0xA5
 MSG_FIELD_DELETE             = 0xA6
 MSG_FIELD_EDIT               = 0xA7
-MSG_FIELD_GPS                = 0xA8
+MSG_FIELD_GROUP              = 0xA8
 MSG_FIELD_HASH               = 0xA9
 MSG_FIELD_ICON_MENU          = 0xAA
 MSG_FIELD_ICON_SRC           = 0xAB
@@ -1379,9 +1379,7 @@ def lxmf_message_received_callback(message):
             if not MSG_FIELD_HASH in fields:
                 fields[MSG_FIELD_HASH] = message.hash
             if not "anonymous" in source_rights and MSG_FIELD_SRC not in fields:
-                fields[MSG_FIELD_SRC] = {}
-                fields[MSG_FIELD_SRC]["h"] = message.source_hash
-                fields[MSG_FIELD_SRC]["n"] = source_name
+                fields[MSG_FIELD_SRC] = [message.source_hash, source_name]
         fields["c_n"] = CONFIG["cluster"]["name"]
         fields["c_t"] = CONFIG["cluster"]["type"]
 
@@ -1430,9 +1428,7 @@ def lxmf_message_received_callback(message):
             if not MSG_FIELD_HASH in fields:
                 fields[MSG_FIELD_HASH] = message.hash
             if not "anonymous" in source_rights and MSG_FIELD_SRC not in fields:
-                fields[MSG_FIELD_SRC] = {}
-                fields[MSG_FIELD_SRC]["h"] = message.source_hash
-                fields[MSG_FIELD_SRC]["n"] = source_name
+                fields[MSG_FIELD_SRC] = [message.source_hash, source_name]
 
         for section in sections:
             if "receive_cluster_send" in config_get(CONFIG, "rights", section).split(",") or (cluster_loop and "receive_cluster_loop" in config_get(CONFIG, "rights", section).split(",")):
@@ -1505,9 +1501,7 @@ def lxmf_message_received_callback(message):
                 if not MSG_FIELD_HASH in fields:
                     fields[MSG_FIELD_HASH] = message.hash
                 if not "anonymous" in source_rights and MSG_FIELD_SRC not in fields:
-                    fields[MSG_FIELD_SRC] = {}
-                    fields[MSG_FIELD_SRC]["h"] = message.source_hash
-                    fields[MSG_FIELD_SRC]["n"] = source_name
+                    fields[MSG_FIELD_SRC] = [message.source_hash, source_name]
 
             if config_get(CONFIG, "message", "timestamp", "", lng_key) == "client":
                 timestamp = message.timestamp
@@ -3243,12 +3237,7 @@ def fields_generate(lng_key, fields=None, h=None, n=None, m=False, d=False, cmd=
         fields[MSG_FIELD_TYPE] = CONFIG["lxmf"].getint("destination_type_conv")
 
     if h:
-        fields[MSG_FIELD_SRC] = {}
-        fields[MSG_FIELD_SRC]["h"] = h
-        if n:
-            fields[MSG_FIELD_SRC]["n"] = n
-        else:
-            fields[MSG_FIELD_SRC]["n"] = ""
+        fields[MSG_FIELD_SRC] = [h, n]
 
     if m or d or r or cmd or config:
         fields[MSG_FIELD_DATA] = {}
@@ -4219,7 +4208,7 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
                 pass
         if CONFIG["telemetry"].getboolean("location_enabled"):
             try:
-               fields[MSG_FIELD_GPS] = {"lat": CONFIG["telemetry"].getfloat("location_lat"), "lon": CONFIG["telemetry"].getfloat("location_lon")}
+               fields[MSG_FIELD_LOCATION] = [CONFIG["telemetry"].getfloat("location_lat"), CONFIG["telemetry"].getfloat("location_lon")]
             except:
                 pass
         if CONFIG["telemetry"].getboolean("state_enabled"):

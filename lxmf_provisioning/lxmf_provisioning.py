@@ -122,7 +122,7 @@ MSG_FIELD_CONTACT            = 0xA4
 MSG_FIELD_DATA               = 0xA5
 MSG_FIELD_DELETE             = 0xA6
 MSG_FIELD_EDIT               = 0xA7
-MSG_FIELD_GPS                = 0xA8
+MSG_FIELD_GROUP              = 0xA8
 MSG_FIELD_HASH               = 0xA9
 MSG_FIELD_ICON_MENU          = 0xAA
 MSG_FIELD_ICON_SRC           = 0xAB
@@ -146,6 +146,8 @@ MSG_FIELD_TOPIC              = 0xBC
 MSG_FIELD_TYPE               = 0xBD
 MSG_FIELD_TYPE_FIELDS        = 0xBE
 MSG_FIELD_VOICE              = 0xBF
+
+TYPE_PROV = 0xAE
 
 
 ##############################################################################################################
@@ -723,6 +725,15 @@ def lxmf_message_received_callback(message):
     if not message.fields:
         return
 
+    if not MSG_FIELD_TYPE in message.fields:
+        return
+
+    if not message.fields[MSG_FIELD_TYPE] == TYPE_PROV:
+        return
+
+    if not MSG_FIELD_TYPE_FIELDS in message.fields:
+        return
+
     hash_destination = RNS.hexrep(message.source_hash, delimit=False)
     hash_identity = ""
     #hash_identity = RNS.Identity.recall(message.source_hash)
@@ -731,25 +742,22 @@ def lxmf_message_received_callback(message):
     #else:
     #    hash_identity = ""
 
-    for key in message.fields:
+    for key, value in message.fields[MSG_FIELD_TYPE_FIELDS].items():
         try:
-            data = message.fields[key]
-            if not isinstance(data, dict):
+            if "type" not in value:
                 continue
-            if "type" not in data:
-                continue
-            if data["type"] == "":
+            if value["type"] == "":
                 continue
 
-            data["hash_destination"] = hash_destination
-            data["hash_identity"] = hash_identity
-            data["timestamp_client"] = message.timestamp
-            data["timestamp_server"] = time.time()
+            value["hash_destination"] = hash_destination
+            value["hash_identity"] = hash_identity
+            value["timestamp_client"] = message.timestamp
+            value["timestamp_server"] = time.time()
 
-            if "password" in data:
-                data["password"] = str(base64.b32encode(data["password"]))
+            if "password" in value:
+                value["password"] = str(base64.b32encode(value["password"]))
 
-            CACHE["in"][str(uuid.uuid4())] = data
+            CACHE["in"][str(uuid.uuid4())] = value
             CACHE_CHANGE = True
         except:
             pass
@@ -766,17 +774,57 @@ def lxmf_message_notification_success_callback(message):
 
 
 #### Jobs ####
+def jobs():
+    global CACHE, CACHE_CHANGE
+
+    while True:
+        time.sleep(CONFIG["processing"].getint("interval"))
+        log("Jobs - Loop/Execute", LOG_DEBUG)
+
+        db = None
+        try:
+            db = psycopg2.connect(user=CONFIG["database"]["user"], password=CONFIG["database"]["password"], host=CONFIG["database"]["host"], port=CONFIG["database"]["port"], database=CONFIG["database"]["database"], client_encoding=CONFIG["database"]["encoding"])
+            dbc = db.cursor()
+
+            dbc.execute("SELECT members.member_user_id, members.member_auth_state, members.member_auth_role, devices.device_rns_id FROM members LEFT JOIN devices ON devices.device_user_id = members.member_user_id WHERE members.member_update = '1'")
+            results = dbc.fetchall()
+            if len(results) > 0:
+                for result in results:
+                    dbc.execute("UPDATE members SET member_update = '0' WHERE member_user_id = %s", (result[0].strip(),))
+                    fields = {
+                        "auth_state": int(result[1].strip()),
+                        "auth_role": int(result[2].strip())
+                    }
+                    CACHE["out"][str(uuid.uuid4())] = {"hash_destination": result[3].strip(), "fields": fields}
+                    CACHE_CHANGE = True
+                    db.commit()
+
+        except psycopg2.DatabaseError as e:
+            log("DB - Error: "+str(e), LOG_ERROR)
+            db.rollback()
+
+        if db:
+            dbc.close()
+            db.close()
+            db = None
+
+        if CACHE_CHANGE:
+            if cache_save(PATH + "/cache.data"):
+                CACHE_CHANGE = False
+
+
+#### Jobs ####
 def jobs_in():
     global CACHE, CACHE_CHANGE
 
     while True:
         time.sleep(CONFIG["processing"].getint("interval_in"))
-        log("Jobs - Loop/Execute", LOG_DEBUG)
+        log("Jobs In - Loop/Execute", LOG_DEBUG)
 
         if len(CACHE["in"]) > 0:
             log("Cache - Available -> Execute", LOG_DEBUG)
 
-            CACHE_DEL = []
+            cache_del = []
             db = None
             try:
                 db = psycopg2.connect(user=CONFIG["database"]["user"], password=CONFIG["database"]["password"], host=CONFIG["database"]["host"], port=CONFIG["database"]["port"], database=CONFIG["database"]["database"], client_encoding=CONFIG["database"]["encoding"])
@@ -789,13 +837,15 @@ def jobs_in():
 
                         data = CACHE["in"][key]
 
-                        if data["type"] == "account_add" and CONFIG["features"].getboolean("account_add"):
+                        if data["type"] == "account":
                             # members
                             dbc.execute("SELECT member_user_id FROM members WHERE member_email = %s AND member_password = %s", (data["email"], data["password"]))
                             result = dbc.fetchall()
                             if len(result) == 0:
+                                if not CONFIG["features"].getboolean("account_add"):
+                                    continue
                                 user_id = str(uuid.uuid4())
-                                dbc.execute("INSERT INTO members (member_user_id, member_email, member_password, member_dob, member_sex, member_introduction, member_country, member_state, member_city, member_occupation, member_skills, member_tasks, member_wallet_address, member_accept_rules, member_language, member_locale, member_ts_add, member_ts_edit, member_auth_state, member_auth_role) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, '0', '0')", (
+                                dbc.execute("INSERT INTO members (member_user_id, member_email, member_password, member_dob, member_sex, member_introduction, member_country, member_state, member_city, member_occupation, member_skills, member_tasks, member_wallet_address, member_accept_rules, member_language, member_locale, member_ts_add, member_ts_edit, member_auth_state, member_auth_role, member_update) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, '0', '0', '0')", (
                                     user_id,
                                     data["email"],
                                     data["password"],
@@ -817,70 +867,15 @@ def jobs_in():
                                     )
                                 )
                                 if CONFIG["features"].getboolean("account_add_auth"):
-                                    fields = {}
-                                    if CONFIG["lxmf"]["destination_type_conv"] != "":
-                                        fields["type"] = CONFIG["lxmf"].getint("destination_type_conv")
-                                    fields["prov"] = {}
-                                    fields["prov"]["auth_state"] = CONFIG["features"].getint("account_add_auth_state")
-                                    fields["prov"]["auth_role"] = CONFIG["features"].getint("account_add_auth_role")
-                                    CACHE["out"][str(uuid.uuid4())] = {"hash_destination": data["hash_destination"], "content": "", "title": "", "fields": fields}
+                                    fields = {
+                                        "auth_state": CONFIG["features"].getint("account_add_auth_state"),
+                                        "auth_role": CONFIG["features"].getint("account_add_auth_role")
+                                    }
+                                    CACHE["out"][str(uuid.uuid4())] = {"hash_destination": data["hash_destination"], "fields": fields}
                                     CACHE_CHANGE = True
                             elif len(result) == 1:
-                                user_id = result[0][0]
-                            else:
-                                continue
-
-                            # devices
-                            dbc.execute("DELETE FROM devices WHERE device_id = %s OR device_rns_id = %s", (data["device_id"], data["hash_destination"]))
-                            dbc.execute("INSERT INTO devices (device_id, device_user_id, device_name, device_display_name, device_rns_id) VALUES (%s, %s, %s, %s, %s)", (
-                                data["device_id"],
-                                user_id,
-                                data["device_name"],
-                                data["device_display_name"],
-                                data["hash_destination"]
-                                )
-                            )
-
-                            db.commit()
-                            CACHE_DEL.append(key)
-
-                        if data["type"] == "account_edit" and CONFIG["features"].getboolean("account_edit"):
-                            # members
-                            dbc.execute("SELECT member_user_id FROM members WHERE member_email = %s AND member_password = %s", (data["email"], data["password"]))
-                            result = dbc.fetchall()
-                            if len(result) == 0:
-                                user_id = str(uuid.uuid4())
-                                dbc.execute("INSERT INTO members (member_user_id, member_email, member_password, member_dob, member_sex, member_introduction, member_country, member_state, member_city, member_occupation, member_skills, member_tasks, member_wallet_address, member_accept_rules, member_language, member_locale, member_ts_add, member_ts_edit, member_auth_state, member_auth_role) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, '0', '0')", (
-                                    user_id,
-                                    data["email"],
-                                    data["password"],
-                                    data["dob"],
-                                    data["sex"],
-                                    data["introduction"],
-                                    data["country"],
-                                    data["state"],
-                                    data["city"],
-                                    data["occupation"],
-                                    data["skills"],
-                                    data["tasks"],
-                                    data["wallet_address"],
-                                    data["accept_rules"],
-                                    data["language"],
-                                    data["language"],
-                                    datetime.now(timezone.utc),
-                                    datetime.now(timezone.utc)
-                                    )
-                                )
-                                if CONFIG["features"].getboolean("account_add_auth"):
-                                    fields = {}
-                                    if CONFIG["lxmf"]["destination_type_conv"] != "":
-                                        fields["type"] = CONFIG["lxmf"].getint("destination_type_conv")
-                                    fields["prov"] = {}
-                                    fields["prov"]["auth_state"] = CONFIG["features"].getint("account_add_auth_state")
-                                    fields["prov"]["auth_role"] = CONFIG["features"].getint("account_add_auth_role")
-                                    CACHE["out"][str(uuid.uuid4())] = {"hash_destination": data["hash_destination"], "content": "", "title": "", "fields": fields}
-                                    CACHE_CHANGE = True
-                            elif len(result) == 1:
+                                if not CONFIG["features"].getboolean("account_edit"):
+                                    continue
                                 user_id = result[0][0]
                                 dbc.execute("UPDATE members SET member_email = %s, member_password = %s, member_dob = %s, member_sex = %s, member_introduction = %s, member_country = %s, member_state = %s, member_city = %s, member_occupation = %s, member_skills = %s, member_tasks = %s, member_wallet_address = %s, member_accept_rules = %s, member_language = %s, member_locale = %s, member_ts_edit = %s WHERE member_user_id = %s", (
                                     data["email"],
@@ -903,13 +898,11 @@ def jobs_in():
                                     )
                                 )
                                 if CONFIG["features"].getboolean("account_edit_auth"):
-                                    fields = {}
-                                    if CONFIG["lxmf"]["destination_type_conv"] != "":
-                                        fields["type"] = CONFIG["lxmf"].getint("destination_type_conv")
-                                    fields["prov"] = {}
-                                    fields["prov"]["auth_state"] = CONFIG["features"].getint("account_edit_auth_state")
-                                    fields["prov"]["auth_role"] = CONFIG["features"].getint("account_edit_auth_role")
-                                    CACHE["out"][str(uuid.uuid4())] = {"hash_destination": data["hash_destination"], "content": "", "title": "", "fields": fields}
+                                    fields = {
+                                        "auth_state": CONFIG["features"].getint("account_edit_auth_state"),
+                                        "auth_role": CONFIG["features"].getint("account_edit_auth_role")
+                                    }
+                                    CACHE["out"][str(uuid.uuid4())] = {"hash_destination": data["hash_destination"], "fields": fields}
                                     CACHE_CHANGE = True
                             else:
                                 continue
@@ -926,9 +919,9 @@ def jobs_in():
                             )
 
                             db.commit()
-                            CACHE_DEL.append(key)
+                            cache_del.append(key)
 
-                        if data["type"] == "account_prove" and CONFIG["features"].getboolean("account_prove"):
+                        if data["type"] == "prove" and CONFIG["features"].getboolean("account_prove"):
                             dbc.execute("SELECT device_user_id FROM devices LEFT JOIN members ON members.member_user_id = devices.device_user_id WHERE devices.device_rns_id = %s and members.member_auth_state = '1'", (data["hash_destination"], ))
                             result = dbc.fetchall()
                             if len(result) == 1:
@@ -946,17 +939,15 @@ def jobs_in():
                                         if len(result) >= 2:
                                             dbc.execute("UPDATE members SET member_auth_state = '1' WHERE member_user_id = %s AND member_auth_state = '0'", (destination_user_id,))
                                             if CONFIG["features"].getboolean("account_prove_auth"):
-                                                fields = {}
-                                                if CONFIG["lxmf"]["destination_type_conv"] != "":
-                                                    fields["type"] = CONFIG["lxmf"].getint("destination_type_conv")
-                                                fields["prov"] = {}
-                                                fields["prov"]["auth_state"] = CONFIG["features"].getint("account_prove_auth_state")
-                                                fields["prov"]["auth_role"] = CONFIG["features"].getint("account_prove_auth_role")
-                                                CACHE["out"][str(uuid.uuid4())] = {"hash_destination": data["prove"], "content": "", "title": "", "fields": fields}
+                                                fields = {
+                                                    "auth_state": CONFIG["features"].getint("account_prove_auth_state"),
+                                                    "auth_role": CONFIG["features"].getint("account_prove_auth_role")
+                                                }
+                                                CACHE["out"][str(uuid.uuid4())] = {"hash_destination": data["prove"], "fields": fields}
                                                 CACHE_CHANGE = True
 
                                     db.commit()
-                                    CACHE_DEL.append(key)
+                                    cache_del.append(key)
 
                     except psycopg2.DatabaseError as e:
                         log("Loop - DB - Error: "+str(e), LOG_ERROR)
@@ -966,8 +957,8 @@ def jobs_in():
                 log("DB - Error: "+str(e), LOG_ERROR)
                 db.rollback()
 
-            if len(CACHE_DEL) > 0:
-                for key in CACHE_DEL:
+            if len(cache_del) > 0:
+                for key in cache_del:
                     del CACHE["in"][key]
                 CACHE_CHANGE = True
 
@@ -992,19 +983,22 @@ def jobs_out():
         if len(CACHE["out"]) > 0:
             log("Cache - Available -> Execute", LOG_DEBUG)
 
-            CACHE_DEL = []
-            for key in CACHE["out"]:
+            cache_del = []
+            for key, value in CACHE["out"].items():
                 try:
                     log("-> Execute", LOG_EXTREME)
-                    log(CACHE["out"][key], LOG_EXTREME)
+                    log(value, LOG_EXTREME)
 
-                    data = CACHE["out"][key]
-                    LXMF_CONNECTION.send(data["hash_destination"], data["content"], data["title"], data["fields"], app_data=key, destination_name="lxmf", destination_type="delivery")
+                    fields = {}
+                    if CONFIG["lxmf"]["destination_type_conv"] != "":
+                        fields[MSG_FIELD_TYPE] = CONFIG["lxmf"].getint("destination_type_conv")
+                    fields[MSG_FIELD_TYPE_FIELDS] = value["fields"]
+                    LXMF_CONNECTION.send(value["hash_destination"], "", "", fields=fields, app_data=key, destination_name="lxmf", destination_type="delivery")
                 except:
                     pass
 
-            if len(CACHE_DEL) > 0:
-                for key in CACHE_DEL:
+            if len(cache_del) > 0:
+                for key in cache_del:
                     del CACHE["out"][key]
                 CACHE_CHANGE = True
 
@@ -1505,11 +1499,9 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
     log(CACHE, LOG_EXTREME)
     log("...............................................................................", LOG_EXTREME)
 
-    jobs_in_thread = threading.Thread(target=jobs_in, daemon=True)
-    jobs_in_thread.start()
-
-    jobs_out_thread = threading.Thread(target=jobs_out, daemon=True)
-    jobs_out_thread.start()
+    threading.Thread(target=jobs, daemon=True).start()
+    threading.Thread(target=jobs_in, daemon=True).start()
+    threading.Thread(target=jobs_out, daemon=True).start()
 
     while True:
         time.sleep(1)
@@ -1574,8 +1566,9 @@ account_prove = True
 telemetry = False
 
 [processing]
-interval_in = 5 #Seconds
-interval_out = 60 #Seconds
+interval = 60 #Seconds
+interval_in = 10 #Seconds
+interval_out = 120 #Seconds
 
 [data]
 v_s = 0.0.0 #Version software
@@ -1696,8 +1689,8 @@ account_edit_auth_role = 3
 
 account_del = True
 
-account_prove = True
-account_prove_auth = True
+account_prove = False
+account_prove_auth = False
 account_prove_auth_state = 1
 account_prove_auth_role = 3
 
@@ -1706,8 +1699,9 @@ telemetry = False
 
 #### Processing ####
 [processing]
-interval_in = 5 #Seconds
-interval_out = 60 #Seconds
+interval = 60 #Seconds
+interval_in = 10 #Seconds
+interval_out = 120 #Seconds
 
 
 #### Data settings ####
