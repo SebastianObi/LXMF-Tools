@@ -64,8 +64,8 @@ cluster_receive_prefix = @!cluster_source!->
 cluster_send_title_prefix = !source_name! <!source_address!>
 cluster_send_prefix = @!cluster_destination!!n!
 
-fields_remove = 0x02,0x03,0x04,0x09,0xA2,0xA8,0xB8,0xB9,0xBA
-fields_remove_anonymous = 0x02,0x03,0x04,0x09,0xA2,0xA8,0xAC,0xB5,0xB8,0xB9,0xBA
+fields_remove = 0x02,0x03,0x04,0x09,0xA2,0xA8,0xAE,0xB8,0xB9,0xBA
+fields_remove_anonymous = 0x02,0x03,0x04,0x09,0xA2,0xA8,0xAC,0xAE,0xB5,0xB8,0xB9,0xBA
 
 
 #### Statistic/Counter settings ####
@@ -84,7 +84,7 @@ wait = join
 
 #### User cmd assignment ####
 [cmd]
-admin = update,update_all,leave
+admin = update,update_all,leave,announce,sync
 mod = update,update_all,leave
 user = leave
 guest = leave
@@ -176,5 +176,9 @@ block_ok =
 block_ok-de = 
 unblock_ok = 
 unblock_ok-de = 
+announce = 
+announce-de = 
+sync = 
+sync-de = 
 cmd_unknown = ERROR: Unknown command.
 cmd_unknown-de = FEHLER: Unbekannter Befehl.

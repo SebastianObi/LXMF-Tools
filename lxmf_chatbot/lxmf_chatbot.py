@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 ##############################################################################################################
 #
-# Copyright (c) 2022 Sebastian Obele  /  obele.eu
+# Copyright (c) 2024 Sebastian Obele  /  obele.eu
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -75,8 +75,8 @@ from rivescript import RiveScript
 #### Global Variables - Configuration ####
 NAME = "LXMF Chatbot"
 DESCRIPTION = "Simple chatbot (RiveScript) for LXMF messages"
-VERSION = "0.0.1 (2022-10-21)"
-COPYRIGHT = "(c) 2022 Sebastian Obele  /  obele.eu"
+VERSION = "0.0.1 (2024-05-31)"
+COPYRIGHT = "(c) 2024 Sebastian Obele  /  obele.eu"
 PATH = os.path.expanduser("~")+"/.config/"+os.path.splitext(os.path.basename(__file__))[0]
 PATH_RNS = None
 

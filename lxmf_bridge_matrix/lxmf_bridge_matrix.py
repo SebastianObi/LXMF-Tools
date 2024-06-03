@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 ##############################################################################################################
 #
-# Copyright (c) 2023 Sebastian Obele  /  obele.eu
+# Copyright (c) 2024 Sebastian Obele  /  obele.eu
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -78,8 +78,8 @@ from nio import AsyncClient, LoginResponse, UploadResponse, SyncResponse, Matrix
 #### Global Variables - Configuration ####
 NAME = "LXMF Bridge Matrix"
 DESCRIPTION = ""
-VERSION = "0.0.1 (2023-05-05)"
-COPYRIGHT = "(c) 2023 Sebastian Obele  /  obele.eu"
+VERSION = "0.0.1 (2024-05-31)"
+COPYRIGHT = "(c) 2024 Sebastian Obele  /  obele.eu"
 PATH = os.path.expanduser("~")+"/.config/"+os.path.splitext(os.path.basename(__file__))[0]
 PATH_RNS = None
 

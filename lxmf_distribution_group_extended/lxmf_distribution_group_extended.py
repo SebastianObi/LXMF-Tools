@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 ##############################################################################################################
 #
-# Copyright (c) 2022 Sebastian Obele  /  obele.eu
+# Copyright (c) 2024 Sebastian Obele  /  obele.eu
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -77,8 +77,8 @@ import RNS.vendor.umsgpack as umsgpack
 #### Global Variables - Configuration ####
 NAME = "LXMF Distribution Group"
 DESCRIPTION = "Server-Side group functions for LXMF based apps"
-VERSION = "0.0.1 (2022-10-21)"
-COPYRIGHT = "(c) 2022 Sebastian Obele  /  obele.eu"
+VERSION = "0.0.1 (2024-05-31)"
+COPYRIGHT = "(c) 2024 Sebastian Obele  /  obele.eu"
 PATH = os.path.expanduser("~")+"/.config/"+os.path.splitext(os.path.basename(__file__))[0]
 PATH_RNS = None
 
@@ -2387,6 +2387,8 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
     elif cmd == "announce" and "announce" in source_rights:
         content = config_get(CONFIG, "interface_menu", "announce", "", lng_key)
         content = replace(content, source_hash, source_name, source_right, lng_key)
+        LXMF_CONNECTION.send(source_hash, content, "", fields_generate(lng_key, result="announce"), None, "interface_send")
+        content = ""
         LXMF_CONNECTION.announce_now()
         if CONFIG["cluster"].getboolean("enabled"):
             RNS_CONNECTION.announce_now()
@@ -2396,6 +2398,8 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
     elif cmd == "sync" and "sync" in source_rights:
         content = config_get(CONFIG, "interface_menu", "sync", "", lng_key)
         content = replace(content, source_hash, source_name, source_right, lng_key)
+        LXMF_CONNECTION.send(source_hash, content, "", fields_generate(lng_key, result="sync"), None, "interface_send")
+        content = ""
         LXMF_CONNECTION.sync_now()
 
 
@@ -3239,7 +3243,7 @@ def fields_generate(lng_key, fields=None, h=None, n=None, m=False, d=False, cmd=
     if h:
         fields[MSG_FIELD_SRC] = [h, n]
 
-    if m or d or r or cmd or config:
+    if m or d or cmd or config:
         fields[MSG_FIELD_DATA] = {}
 
     if m:

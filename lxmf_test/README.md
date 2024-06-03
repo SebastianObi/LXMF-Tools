@@ -95,10 +95,6 @@ optional arguments:
 ```
 
 
-## User manual
-This guide applies to users or admins. Here are briefly explained the normal possibilities of the software.
-
-
 ## FAQ
 
 ### How do I start with the software?

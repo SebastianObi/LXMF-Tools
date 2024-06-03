@@ -57,16 +57,20 @@ Dieses Programm ist ein einfacher Echo-Server. Alle empfangenen Nachrichten werd
 Weitere Informationen finden Sie in der ausführlichen [README.md](lxmf_echo).
 
 
-## lxmf_ping
-Dieses Programm sendet eine einstellbare Anzahl von LXMF-Nachrichten an ein Ziel. Anschließend wird eine einfache Statistik erstellt, um den Erfolg oder Misserfolg einer einzelnen Nachricht zu überprüfen. Dieses Tool kann nützlich sein, um das LXMF/Reticulum-Netzwerk mit einer bestimmten Anzahl von Nachrichten zu belasten. Damit lässt sich eine bestimmte Anzahl von Benutzern simulieren.
-
-Weitere Informationen finden Sie in der ausführlichen [README.md](lxmf_ping).
+## lxmf_provisioning
+Weitere Informationen finden Sie in der ausführlichen [README.md](lxmf_provisioning).
 
 
 ## lxmf_terminal
 Dieses Programm bietet eine vollständige Terminalsitzung auf dem Server. Es können beliebige Befehle auf dem Zielgerät ausgeführt werden. Die Kommunikation erfolgt über einzelne LXMF-Nachrichten. Dies bietet den Vorteil, dass einfache Terminalbefehle von jeder LXMF-fähigen Anwendung genutzt werden können.
 
 Weitere Informationen finden Sie in der ausführlichen [README.md](lxmf_terminal).
+
+
+## lxmf_test
+Dieses Programm sendet eine einstellbare Anzahl von LXMF-Nachrichten an ein Ziel. Anschließend wird eine einfache Statistik erstellt, um den Erfolg oder Misserfolg einer einzelnen Nachricht zu überprüfen. Dieses Tool kann nützlich sein, um das LXMF/Reticulum-Netzwerk mit einer bestimmten Anzahl von Nachrichten zu belasten. Damit lässt sich eine bestimmte Anzahl von Benutzern simulieren.
+
+Weitere Informationen finden Sie in der ausführlichen [README.md](lxmf_test).
 
 
 ## Allgemeine Informationen für alle Tools/Programme

@@ -95,10 +95,6 @@ optionale Argumente:
 ```
 
 
-## User Handbuch
-Diese Anleitung gilt für Benutzer oder Administratoren. Hier werden kurz die normalen Möglichkeiten der Software erklärt.
-
-
 ## FAQ
 
 ### Wie kann ich mit der Software beginnen?

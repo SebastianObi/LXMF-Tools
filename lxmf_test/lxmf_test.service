@@ -1,5 +1,5 @@
 [Unit]
-Description=lxmf_ping
+Description=lxmf_test
 After=multi-user.target
 [Service]
 ExecStartPre=/bin/sleep 10
@@ -7,6 +7,6 @@ Type=simple
 Restart=always
 RestartSec=3
 User=root
-ExecStart=/root/LXMF-Tools/lxmf_ping/lxmf_ping.py
+ExecStart=/root/LXMF-Tools/lxmf_test/lxmf_test.py
 [Install]
 WantedBy=multi-user.target

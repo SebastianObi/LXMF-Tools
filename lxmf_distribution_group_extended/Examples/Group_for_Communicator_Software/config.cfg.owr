@@ -84,7 +84,7 @@ wait = join,leave
 
 #### User cmd assignment ####
 [cmd]
-admin = update,update_all,leave
+admin = update,update_all,leave,announce,sync
 mod = update,update_all,leave
 user = leave
 guest = leave
@@ -176,5 +176,9 @@ block_ok =
 block_ok-de = 
 unblock_ok = 
 unblock_ok-de = 
+announce = 
+announce-de = 
+sync = 
+sync-de = 
 cmd_unknown = ERROR: Unknown command.
 cmd_unknown-de = FEHLER: Unbekannter Befehl.

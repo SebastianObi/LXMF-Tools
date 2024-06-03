@@ -56,16 +56,20 @@ This program is a simple echo server. All received messages are sent back 1:1 as
 For more information, see the detailed [README.md](lxmf_echo).
 
 
-## lxmf_ping
-This program sends an adjustable number of LXMF messages to a destination. Then a simple statistic is created to check the success or failure of a single message. This tool can be useful to load the LXMF/Reticulum network with a defined load of messages. This can be used to simulate a certain amount of users.
-
-For more information, see the detailed [README.md](lxmf_ping).
+## lxmf_provisioning
+For more information, see the detailed [README.md](lxmf_provisioning).
 
 
 ## lxmf_terminal
 This program provides a complete terminal session on the server. Any commands can be executed on the target device. The communication is done by single LXMF messages. This offers the advantage that simple terminal commands can be used by any LXMF capable application.
 
 For more information, see the detailed [README.md](lxmf_terminal).
+
+
+## lxmf_test
+This program sends an adjustable number of LXMF messages to a destination. Then a simple statistic is created to check the success or failure of a single message. This tool can be useful to load the LXMF/Reticulum network with a defined load of messages. This can be used to simulate a certain amount of users.
+
+For more information, see the detailed [README.md](lxmf_test).
 
 
 ## General Information for all tools/programs
