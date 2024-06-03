@@ -1,4 +1,4 @@
-# lxmf_ping
+# lxmf_test
 This program sends an adjustable number of LXMF messages to a destination. Then a simple statistic is created to check the success or failure of a single message. This tool can be useful to load the LXMF/Reticulum network with a defined load of messages. This can be used to simulate a certain amount of users.
 
 For more information, see the configuration options (at the end of the program files). Everything else is briefly documented there. After the first start this configuration will be created as default config in the corresponding file.
@@ -31,7 +31,7 @@ The full documentation is not yet available. Due to lack of time I can also not 
 
 
 ## Screenshots / Usage examples
-<img src="../docs/screenshots/lxmf_ping_01.png" width="1000px">
+<img src="../docs/screenshots/lxmf_test_01.png" width="1000px">
 
 
 ## Installation manual
@@ -56,27 +56,27 @@ The full documentation is not yet available. Due to lack of time I can also not 
   ```bash
   nano /.reticulum/config
   ```
-- Download the [file](lxmf_ping.py) from this repository.
+- Download the [file](lxmf_test.py) from this repository.
   ```bash
-  wget https://raw.githubusercontent.com/SebastianObi/LXMF-Tools/main/lxmf_ping/lxmf_ping.py
+  wget https://raw.githubusercontent.com/SebastianObi/LXMF-Tools/main/lxmf_test/lxmf_test.py
   ```
 - Make it executable with the following command
   ```bash
-  chmod +x lxmf_ping.py
+  chmod +x lxmf_test.py
   ```
 
 ### Start:
 - Start it
   ```bash
-  ./lxmf_ping.py
+  ./lxmf_test.py
   ```
 
 
 ### Startup parameters:
 ```bash
-usage: lxmf_ping.py [-h] [-p PATH] [-pr PATH_RNS] [-pl PATH_LOG] [-l LOGLEVEL] -d DEST [-t TIME] [-s SIZE] [-c COUNT] [-i INST]
+usage: lxmf_test.py [-h] [-p PATH] [-pr PATH_RNS] [-pl PATH_LOG] [-l LOGLEVEL] -d DEST [-t TIME] [-s SIZE] [-c COUNT] [-i INST]
 
-LXMF Ping - Periodically sends pings/messages and evaluates the status
+LXMF Test - Periodically sends messages and evaluates the status
 
 optional arguments:
   -h, --help            show this help message and exit

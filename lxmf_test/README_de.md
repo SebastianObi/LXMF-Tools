@@ -1,4 +1,4 @@
-# lxmf_ping
+# lxmf_test
 Dieses Programm sendet eine einstellbare Anzahl von LXMF-Nachrichten an ein Ziel. Anschließend wird eine einfache Statistik erstellt, um den Erfolg oder Misserfolg einer einzelnen Nachricht zu überprüfen. Dieses Tool kann nützlich sein, um das LXMF/Reticulum-Netzwerk mit einer bestimmten Anzahl von Nachrichten zu belasten. Damit lässt sich eine bestimmte Anzahl von Benutzern simulieren.
 
 Weitere Informationen finden Sie in den Konfigurationsoptionen (am Ende der Programmdateien). Alles Weitere ist dort kurz dokumentiert. Nach dem ersten Start wird diese Konfiguration als Standardkonfiguration in der entsprechenden Datei angelegt.
@@ -31,7 +31,7 @@ Die vollständige Dokumentation ist noch nicht verfügbar. Aus Zeitmangel kann i
 
 
 ## Bilder/ Verwendungsbeispiele
-<img src="../docs/screenshots/lxmf_ping_01.png" width="1000px">
+<img src="../docs/screenshots/lxmf_test_01.png" width="1000px">
 
 
 ## Installations Handbuch
@@ -56,27 +56,27 @@ Die vollständige Dokumentation ist noch nicht verfügbar. Aus Zeitmangel kann i
   ```bash
   nano /.reticulum/config
   ```
-- Laden Sie die [Datei](lxmf_ping.py) aus diesem Repository herunter.
+- Laden Sie die [Datei](lxmf_test.py) aus diesem Repository herunter.
   ```bash
-  wget https://raw.githubusercontent.com/SebastianObi/LXMF-Tools/main/lxmf_ping/lxmf_ping.py
+  wget https://raw.githubusercontent.com/SebastianObi/LXMF-Tools/main/lxmf_test/lxmf_test.py
   ```
 - Machen Sie es mit folgendem Befehl ausführbar
   ```bash
-  chmod +x lxmf_ping.py
+  chmod +x lxmf_test.py
   ```
 
 ### Starten:
 - Start mit
   ```bash
-  ./lxmf_ping.py
+  ./lxmf_test.py
   ```
 
 
 ### Inbetriebnahme Parameter:
 ```bash
-usage: lxmf_ping.py [-h] [-p PATH] [-pr PATH_RNS] [-pl PATH_LOG] [-l LOGLEVEL] -d DEST [-t TIME] [-s SIZE] [-c COUNT] [-i INST]
+usage: lxmf_test.py [-h] [-p PATH] [-pr PATH_RNS] [-pl PATH_LOG] [-l LOGLEVEL] -d DEST [-t TIME] [-s SIZE] [-c COUNT] [-i INST]
 
-LXMF Ping - Sendet periodisch Pings/Nachrichten und wertet den Status aus
+LXMF Test - Sendet periodisch Nachrichten und wertet den Status aus
 
 optionale Argumente:
   -h, --help            diese Hilfemeldung anzeigen und beenden

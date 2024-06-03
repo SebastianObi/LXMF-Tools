@@ -815,12 +815,12 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, dest="", inter
 
     RNS_CONNECTION = RNS.Reticulum(configdir=PATH_RNS, loglevel=rns_loglevel)
 
-    print("...............................................................................")
-    print("        Name: " + NAME + " - " + DESCRIPTION)
-    print("Program File: " + __file__)
-    print("     Version: " + VERSION)
-    print("   Copyright: " + COPYRIGHT)
-    print("...............................................................................")
+    log("...............................................................................", LOG_INFO)
+    log("        Name: " + NAME + " - " + DESCRIPTION, LOG_INFO)
+    log("Program File: " + __file__, LOG_INFO)
+    log("     Version: " + VERSION, LOG_INFO)
+    log("   Copyright: " + COPYRIGHT, LOG_INFO)
+    log("...............................................................................", LOG_INFO)
 
     log("LXMF - Connecting ...", LOG_DEBUG)
 
@@ -865,7 +865,9 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, dest="", inter
                 else:
                     LXMF_CONNECTION.send(key, content)
                 print("Destination: " + str (key) + "  |  #: " + str(DATA[key]["count"]) + "  |  Messages delivered: " + str(DATA[key]["count_success"]) + "/" + str(DATA[key]["count"]) + " (" + str(round(100/DATA[key]["count"]*DATA[key]["count_success"], 2)) + "%)  |  Time (min / max / avg): " + str(DATA[key]["time_min"]) + " / " + str(DATA[key]["time_max"]) + " / " + str(DATA[key]["time_avg"]) + "  |  Info: Sending/Queued")
-        time.sleep(interval)
+            time.sleep(interval)
+        else:
+            time.sleep(5)
 
 
 #### Start ####
