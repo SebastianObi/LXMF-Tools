@@ -311,7 +311,7 @@ class lxmf_connection:
                 log("LXMF - Destination length is invalid", LOG_ERROR)
                 return False
 
-            try:    
+            try:
                 destination = bytes.fromhex(destination)
             except Exception as e:
                 log("LXMF - Destination is invalid", LOG_ERROR)
@@ -1189,7 +1189,7 @@ def config_set(key=None, value=""):
             fh = open(file,'w')
             fh.write(data)
             fh.close()
-    
+
         file = PATH + "/config.cfg"
         if os.path.isfile(file):
             fh = open(file,'r')
@@ -1445,7 +1445,7 @@ def log(text, level=3, file=None):
                 file_handle = open(file, "a")
                 file_handle.write(text + "\n")
                 file_handle.close()
-                
+
                 if os.path.getsize(file) > LOG_MAXSIZE:
                     file_prev = file + ".1"
                     if os.path.isfile(file_prev):
@@ -1777,7 +1777,7 @@ matrix_to_lxmf = True
 
 #### Message routing table ####
 # Definition of the assignment of lxmf addresses to matrix room ids (bidirectional routing).
-# Format: <LXMF address> = <Matrix room id> = <Name (for display)> 
+# Format: <LXMF address> = <Matrix room id> = <Name (for display)>
 # Example: 2858b7a096899116cd529559cc679ffe = !ADeAldKEzhgebazEzG:matrix.org = Test-Room
 [routing_table]
 

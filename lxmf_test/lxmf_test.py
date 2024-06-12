@@ -254,7 +254,7 @@ class lxmf_connection:
                 log("LXMF - Destination length is invalid", LOG_ERROR)
                 return False
 
-            try:    
+            try:
                 destination = bytes.fromhex(destination)
             except Exception as e:
                 log("LXMF - Destination is invalid", LOG_ERROR)
@@ -759,7 +759,7 @@ def log(text, level=3, file=None):
                 file_handle = open(file, "a")
                 file_handle.write(text + "\n")
                 file_handle.close()
-                
+
                 if os.path.getsize(file) > LOG_MAXSIZE:
                     file_prev = file + ".1"
                     if os.path.isfile(file_prev):
@@ -839,7 +839,7 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, dest="", inter
     log("...............................................................................", LOG_FORCE)
 
     DATA = {}
-    destinations = dest.split(",") 
+    destinations = dest.split(",")
     for key in destinations:
         DATA[key] = {}
         DATA[key]["count"] = 0

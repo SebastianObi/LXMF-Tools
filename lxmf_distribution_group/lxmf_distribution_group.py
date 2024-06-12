@@ -316,7 +316,7 @@ class lxmf_connection:
                 log("LXMF - Destination length is invalid", LOG_ERROR)
                 return False
 
-            try:    
+            try:
                 destination = bytes.fromhex(destination)
             except Exception as e:
                 log("LXMF - Destination is invalid", LOG_ERROR)
@@ -775,7 +775,7 @@ class rns_connection:
                 log("RNS - Destination length is invalid", LOG_ERROR)
                 return False
 
-            try:    
+            try:
                 destination = bytes.fromhex(destination)
             except Exception as e:
                 log("RNS - Destination is invalid", LOG_ERROR)
@@ -1963,7 +1963,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
             cmd, value = cmd.split(" ", 1)
         except:
             value = "day"
-        values = ["day", "last_day", "week", "last_week", "month", "last_month", "year", "last_year", "all", "max"] 
+        values = ["day", "last_day", "week", "last_week", "month", "last_month", "year", "last_year", "all", "max"]
         if value in values:
             if CONFIG["statistic"].getboolean("enabled") and CONFIG["statistic"].getboolean("cluster") and "statistic_cluster" in source_rights and ("statistic_min" in source_rights or "statistic_full" in source_rights):
                 content = content + replace(config_get(CONFIG, "interface_menu", "statistic_header_cluster", "", lng_key), source_hash, source_name, source_right, lng_key).replace(delimiter+"value"+delimiter, value)
@@ -2543,7 +2543,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                     else:
                         DATA["main"]["unsaved"] = "True"
                 else:
-                    content = config_get(CONFIG, "interface_menu", "user_found_error", "", lng_key) 
+                    content = config_get(CONFIG, "interface_menu", "user_found_error", "", lng_key)
             else:
                 content = config_get(CONFIG, "interface_menu", "user_format_error", "", lng_key)
         except:
@@ -2650,9 +2650,9 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                     else:
                         DATA["main"]["unsaved"] = "True"
                 else:
-                    content = config_get(CONFIG, "interface_menu", "kick_found_error", "", lng_key) 
+                    content = config_get(CONFIG, "interface_menu", "kick_found_error", "", lng_key)
             else:
-                content = config_get(CONFIG, "interface_menu", "kick_format_error", "", lng_key) 
+                content = config_get(CONFIG, "interface_menu", "kick_format_error", "", lng_key)
         except:
            content = config_get(CONFIG, "interface_menu", "cmd_error", "", lng_key)
 
@@ -3423,7 +3423,7 @@ def config_set(key=None, value=""):
             fh = open(file,'w')
             fh.write(data)
             fh.close()
-    
+
         file = PATH + "/config.cfg"
         if os.path.isfile(file):
             fh = open(file,'r')
@@ -4071,7 +4071,7 @@ def log(text, level=3, file=None):
                 file_handle = open(file, "a")
                 file_handle.write(text + "\n")
                 file_handle.close()
-                
+
                 if os.path.getsize(file) > LOG_MAXSIZE:
                     file_prev = file + ".1"
                     if os.path.isfile(file_prev):
