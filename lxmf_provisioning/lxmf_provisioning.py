@@ -1449,17 +1449,29 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
         if CONFIG.has_section(section):
             type_fields = {}
             for (key, val) in CONFIG.items(section):
-                if "=" in val or ";" in val:
-                    type_fields[key] = {}
-                    keys = val.split(";")
-                    for val in keys:
-                        val = val.split("=")
-                        if len(val) == 2:
-                            type_fields[key][val[0]] = val_to_val(val[1])
+                if key == "config_lxm":
+                    try:
+                        if val != "":
+                            val = base64.urlsafe_b64decode(val.replace("lxm://", "").replace("/", "")+"==")
+                            val = umsgpack.unpackb(val)
+                            if val and "data" in val:
+                                type_fields["config"] = val["data"]["data"]
+                    except:
+                        pass
                 else:
-                    type_fields[key] = val
+                    if "=" in val or ";" in val:
+                        type_fields[key] = {}
+                        keys = val.split(";")
+                        for val in keys:
+                            val = val.split("=")
+                            if len(val) == 2:
+                                type_fields[key][val[0]] = val_to_val(val[1])
+                    else:
+                        type_fields[key] = val
             if len(type_fields) > 0:
-                announce_data = umsgpack.packb({ANNOUNCE_DATA_CONTENT: CONFIG["lxmf"]["display_name"].encode("utf-8"), ANNOUNCE_DATA_TITLE: None, ANNOUNCE_DATA_FIELDS: {MSG_FIELD_TYPE_FIELDS: type_fields}})
+                announce_data = {ANNOUNCE_DATA_CONTENT: CONFIG["lxmf"]["display_name"].encode("utf-8"), ANNOUNCE_DATA_TITLE: None, ANNOUNCE_DATA_FIELDS: {MSG_FIELD_TYPE_FIELDS: type_fields}}
+                log("LXMF - Configured announce data: "+str(announce_data), LOG_DEBUG)
+                announce_data = umsgpack.packb(announce_data)
 
     LXMF_CONNECTION = lxmf_connection(
         storage_path=path,
@@ -1576,6 +1588,7 @@ u_s = #URL Software
 i_s = #Info Software
 cmd = #CMD
 config = #Config
+config_lxm = #Config as lxm string
 '''
 
 
@@ -1712,6 +1725,7 @@ u_s = #URL Software
 i_s = #Info Software
 cmd = #CMD
 config = #Config
+config_lxm = #Config as lxm string
 '''
 
 

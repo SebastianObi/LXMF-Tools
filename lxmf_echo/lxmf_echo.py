@@ -714,6 +714,15 @@ class lxmf_announce_callback:
         if CONFIG["lxmf"].getboolean("announce_auto_message") and DATA.has_section("user"):
             source_hash = RNS.hexrep(destination_hash, False)
             exist = False
+
+            hop_count = RNS.Transport.hops_to(destination_hash)
+            hop_min = CONFIG.getint("lxmf", "announce_auto_message_hop_min")
+            hop_max = CONFIG.getint("lxmf", "announce_auto_message_hop_max")
+            if hop_min > 0 and hop_count < hop_min:
+                exist = True
+            if hop_max > 0 and hop_count < hop_max:
+                exist = True
+
             for (key, val) in DATA.items("user"):
                 if key == source_hash:
                     exist = True
@@ -1464,6 +1473,8 @@ announce_hidden = No
 # This function allows you to welcome new users to the network
 # by sending a message to all newly received announcements.
 announce_auto_message = False
+announce_auto_message_hop_min = 0
+announce_auto_message_hop_max = 0
 announce_auto_message_content = Welcome to the Reticulum network! This is an echo test that you can use to test the message functionality. It will respond to every message you send.
 announce_auto_message_deny_type = 0x04,0x06
 

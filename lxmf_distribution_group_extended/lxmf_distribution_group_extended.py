@@ -896,6 +896,15 @@ class lxmf_announce_callback:
         if DATA["main"].getboolean("auto_add_user_announce"):
             source_hash = RNS.hexrep(destination_hash, False)
             exist = False
+
+            hop_count = RNS.Transport.hops_to(destination_hash)
+            hop_min = DATA.getint("main", "auto_add_user_announce_hop_min")
+            hop_max = DATA.getint("main", "auto_add_user_announce_hop_max")
+            if hop_min > 0 and hop_count < hop_min:
+                exist = True
+            if hop_max > 0 and hop_count < hop_max:
+                exist = True
+
             for section in DATA.sections():
                 for (key, val) in DATA.items(section):
                     if key == source_hash:
@@ -4221,7 +4230,9 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
             except:
                 pass
         if len(fields) > 0:
-            announce_data = umsgpack.packb({ANNOUNCE_DATA_CONTENT: CONFIG["lxmf"]["display_name"].encode("utf-8"), ANNOUNCE_DATA_TITLE: None, ANNOUNCE_DATA_FIELDS: fields})
+            announce_data = {ANNOUNCE_DATA_CONTENT: CONFIG["lxmf"]["display_name"].encode("utf-8"), ANNOUNCE_DATA_TITLE: None, ANNOUNCE_DATA_FIELDS: fields}
+            log("LXMF - Configured announce data: "+str(announce_data), LOG_DEBUG)
+            announce_data = umsgpack.packb(announce_data)
     elif CONFIG["lxmf"]["destination_type_conv"] != "":
         display_name += chr(CONFIG["lxmf"].getint("destination_type_conv"))
 
@@ -5735,6 +5746,8 @@ last_heartbeat = 0000-00-00 00:00:00
 enabled_local = True
 enabled_cluster = True
 auto_add_user_announce = False
+auto_add_user_announce_hop_min = 0
+auto_add_user_announce_hop_max = 0
 auto_add_user_message = True
 auto_add_user_type = user
 auto_add_cluster = True
