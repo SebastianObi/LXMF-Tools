@@ -98,14 +98,6 @@ The full documentation is not yet available. Due to lack of time I can also not 
   # This file can be used to clearly summarize all settings that deviate from the default.
   # This also has the advantage that all changed settings can be kept when updating the program.
   
-  
-  #### Main program settings ####
-  [main]
-  
-  # Default language.
-  lng = en # en/de
-  
-  
   #### LXMF connection settings ####
   [lxmf]
   
@@ -113,9 +105,6 @@ The full documentation is not yet available. Due to lack of time I can also not 
   # on the network, and included in announces.
   # It is also used in the group description/info.
   display_name = Distribution Group
-  
-  # Propagation node address/hash.
-  propagation_node = ca2762fe5283873719aececfb9e18835
   
   # Set propagation node automatically.
   propagation_node_auto = True
@@ -125,55 +114,14 @@ The full documentation is not yet available. Due to lack of time I can also not 
   try_propagation_on_fail = Yes
   
   
-  #### Cluster settings ####
-  [cluster]
+  #### Telemetry settings ####
+  [telemetry]
+  location_enabled = False
+  location_lat = 0
+  location_lon = 0
   
-  # Enable/Disable this functionality.
-  enabled = True
-  
-  # To use several completely separate clusters/groups,
-  # an individual name and type can be assigned here.
-  name = grp
-  type = cluster
-  
-  # Slash-separated list with the names of this cluster.
-  # This feature can be used to build multi level group structures.
-  # All send messages that match the name (all levels) will be received.
-  # The last name is the main name of this group and is used as source for send messages.
-  # No spaces are allowed in the name.
-  display_name = County/Region/City
-  
-  
-  #### Router settings ####
-  [router]
-  
-  # Enable/Disable router functionality.
-  enabled = True
-  
-  # Comma-separated list with the names for which the messages are to be routed/repeated.
-  # The names and levels must match the used display_name of the cluster accordingly.
-  # No spaces are allowed in the name.
-  display_name = Country,Country/Region
-  
-  
-  #### High availability settings ####
-  [high_availability]
-  
-  # Enable/Disable this functionality.
-  enabled = False
-  
-  # Role of this node (master/slave)
-  role = master
-  
-  # Peer address
-  peer = 
-  
-  
-  #### Statistic/Counter settings ####
-  [statistic]
-  
-  # Enable/Disable this functionality.
-  enabled = True
+  state_enabled = False
+  state_data = 0
   ```
 - Start it again. Finished!
   ```bash

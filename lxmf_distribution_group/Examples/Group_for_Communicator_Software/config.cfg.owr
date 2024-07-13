@@ -1,7 +1,5 @@
 #### Main program settings ####
 [main]
-lng = de # en/de
-
 fields_announce = True
 fields_message = True
 
@@ -36,50 +34,21 @@ state_enabled = False
 state_data = 0
 
 
-#### Cluster settings ####
-[cluster]
-enabled = False
-
-
-#### Router settings ####
-[router]
-enabled = False
-
-
-#### High availability settings ####
-[high_availability]
-enabled = False
-
-
 #### Message settings ####
 [message]
 deny_fields = 0xB2
-
-send_title_prefix = !source_name! <!source_address!>
-send_prefix = 
-
-cluster_receive_title_prefix = 
-cluster_receive_prefix = @!cluster_source!->
-
-cluster_send_title_prefix = !source_name! <!source_address!>
-cluster_send_prefix = @!cluster_destination!!n!
 
 fields_remove = 0x09,0xA2,0xBA
 fields_remove_anonymous = 0x02,0x03,0x04,0x09,0xA2,0xA8,0xAC,0xAE,0xB5,0xB8,0xB9,0xBA
 
 
-#### Statistic/Counter settings ####
-[statistic]
-enabled = True
-
-
 #### User rights assignment ####
 [rights]
-admin = receive_local,receive_join,receive_leave,receive_invite,receive_kick,receive_block,receive_unblock,send_local,join
-mod = receive_local,receive_join,receive_leave,receive_invite,receive_kick,receive_block,receive_unblock,send_local,join
-user = receive_local,receive_join,receive_leave,receive_invite,receive_kick,receive_block,receive_unblock,send_local,join
-guest = receive_local,join
-wait = join,leave
+admin = receive,send,receive_join,receive_leave,receive_invite,receive_kick,receive_block,receive_unblock,join
+mod = receive,send,receive_join,receive_leave,receive_invite,receive_kick,receive_block,receive_unblock,join
+user = receive,send,receive_join,receive_leave,receive_invite,receive_kick,receive_block,receive_unblock,join
+guest = receive,join
+wait = join
 
 
 #### User cmd assignment ####
@@ -112,73 +81,3 @@ mod =
 user = 
 guest = 
 wait = 
-
-
-#### Interface settings - Messages ####
-[interface_messages]
-auto_add_admin = Welcome to the group "!display_name!"!!n!!n!!description!!n!!n!The messages sent here are distributed to all group members.
-auto_add_admin-de = Willkommen in der Gruppe "!display_name!"!!n!!n!!description!!n!!n!Die hier gesendeten Nachrichten werden an alle Gruppenmitglieder verteilt.
-auto_add_mod = Welcome to the group "!display_name!"!!n!!n!!description!!n!!n!The messages sent here are distributed to all group members.
-auto_add_mod-de = Willkommen in der Gruppe "!display_name!"!!n!!n!!description!!n!!n!Die hier gesendeten Nachrichten werden an alle Gruppenmitglieder verteilt.
-auto_add_user = Welcome to the group "!display_name!"!!n!!n!!description!!n!!n!The messages sent here are distributed to all group members.
-auto_add_user-de = Willkommen in der Gruppe "!display_name!"!!n!!n!!description!!n!!n!Die hier gesendeten Nachrichten werden an alle Gruppenmitglieder verteilt.
-auto_add_guest = Welcome to the group "!display_name!"!!n!!n!!description!!n!!n!You can only receive messages.
-auto_add_guest-de = Willkommen in der Gruppe "!display_name!"!!n!!n!!description!!n!!n!Sie können nur Nachrichten empfangen.
-auto_add_wait = Welcome to the group "!display_name!"!!n!!n!You still need to be allowed to join. You will be notified automatically.
-auto_add_wait-de = Willkommen in der Gruppe "!display_name!"!!n!!n!Der Beitritt muss ihnen noch erlaubt werden. Sie werden darüber automatisch benachrichtigt.
-
-invite_admin = You have been invited to the group "!display_name!"!!n!!n!!description!!n!!n!The messages sent here are distributed to all group members.
-invite_admin-de = Sie wurden in die Gruppe "!display_name!" eingeladen!!n!!n!!description!!n!!n!Die hier gesendeten Nachrichten werden an alle Gruppenmitglieder verteilt.
-invite_mod = You have been invited to the group "!display_name!"!!n!!n!!description!!n!!n!The messages sent here are distributed to all group members.
-invite_mod-de = Sie wurden in die Gruppe "!display_name!" eingeladen!!n!!n!!description!!n!!n!Die hier gesendeten Nachrichten werden an alle Gruppenmitglieder verteilt.
-invite_user = You have been invited to the group "!display_name!"!!n!!n!!description!!n!!n!The messages sent here are distributed to all group members.
-invite_user-de = Sie wurden in die Gruppe "!display_name!" eingeladen!!n!!n!!description!!n!!n!Die hier gesendeten Nachrichten werden an alle Gruppenmitglieder verteilt.
-invite_guest = You have been invited to the group "!display_name!"!!n!!n!!description!!n!!n!You can only receive messages.
-invite_guest-de = Sie wurden in die Gruppe "!display_name!" eingeladen!!n!!n!!description!!n!!n!Sie können nur Nachrichten empfangen.
-invite_wait = You have been invited to the group "!display_name!"!!n!!n!You still need to be allowed to join. You will be notified automatically.
-invite_wait-de = Sie wurden in die Gruppe "!display_name!" eingeladen!!n!!n!Der Beitritt muss ihnen noch erlaubt werden. Sie werden darüber automatisch benachrichtigt.
-
-member_join = 
-member_join-de = 
-member_leave = 
-member_leave-de = 
-member_invite = 
-member_invite-de = 
-member_kick = 
-member_kick-de =
-member_block = 
-member_block-de = 
-member_unblock = 
-member_unblock-de = 
-member_name_def = 
-member_name_def-de = 
-member_name_change = 
-member_name_change-de = 
-description = 
-description-de = 
-
-
-#### Interface settings - Menu/command ####
-[interface_menu]
-description = 
-description-de = 
-update_ok = 
-update_ok-de = 
-update_all_ok = 
-update_all_ok-de = 
-leave_ok = 
-leave_ok-de = 
-invite_ok = 
-invite_ok-de = 
-kick_ok = 
-kick_ok-de = 
-block_ok = 
-block_ok-de = 
-unblock_ok = 
-unblock_ok-de = 
-announce = 
-announce-de = 
-sync = 
-sync-de = 
-cmd_unknown = ERROR: Unknown command.
-cmd_unknown-de = FEHLER: Unbekannter Befehl.

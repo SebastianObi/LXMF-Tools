@@ -93,84 +93,35 @@ Die vollständige Dokumentation ist noch nicht verfügbar. Aus Zeitmangel kann i
   nano /root/.lxmf_distribution_group/config.cfg.owr
   ```
   ```bash
-  # Dies ist die Benutzerkonfigurationsdatei, die die Standardkonfigurationsdatei außer Kraft setzt.
-  # Alle hier vorgenommenen Einstellungen haben Vorrang.
-  # Diese Datei kann verwendet werden, um alle Einstellungen, die vom Standard abweichen, übersichtlich zusammenzufassen.
-  # Dies hat auch den Vorteil, dass alle geänderten Einstellungen bei einem Update des Programms erhalten bleiben können.
+  # This is the user configuration file to override the default configuration file.
+  # All settings made here have precedence.
+  # This file can be used to clearly summarize all settings that deviate from the default.
+  # This also has the advantage that all changed settings can be kept when updating the program.
   
-  
-  #### Hauptprogrammeinstellungen ####
-  [main]
-  
-  # Standardsprache wählen.
-  lng = en # en/de
-  
-  
-  #### LXMF-Verbindungseinstellungen ####
+  #### LXMF connection settings ####
   [lxmf]
   
-  # Der Name ist für andere Peers sichtbar
-  # im Netzwerk sichtbar und in Ankündigungen enthalten.
-  # Er wird auch in der Gruppenbeschreibung/Info verwendet.
+  # The name will be visible to other peers
+  # on the network, and included in announces.
+  # It is also used in the group description/info.
   display_name = Distribution Group
   
-  # Propagationsknoten Adresse/Hash.
-  propagation_node = ca2762fe5283873719aececfb9e18835
+  # Set propagation node automatically.
+  propagation_node_auto = True
   
-  # Versuchen Sie, eine Nachricht über das LXMF-Verbreitungsnetz zuzustellen,
-  # wenn eine direkte Zustellung an den Empfänger nicht möglich ist.
+  # Try to deliver a message via the LXMF propagation network,
+  # if a direct delivery to the recipient is not possible.
   try_propagation_on_fail = Yes
   
   
-  #### Cluster Einstellungen ####
-  [cluster]
+  #### Telemetry settings ####
+  [telemetry]
+  location_enabled = False
+  location_lat = 0
+  location_lon = 0
   
-  # Aktivieren/Deaktivieren Sie diese Funktion.
-  enabled = True
-  
-  # Um mehrere komplett getrennte Cluster/Gruppen zu verwenden,
-  # kann hier ein individueller Name und Typ vergeben werden.
-  name = grp
-  type = cluster
-  
-  # Schrägstrich-getrennte Liste mit den Namen dieses Clusters.
-  # Diese Funktion kann verwendet werden, um mehrstufige Gruppenstrukturen aufzubauen.
-  # Alle Sendenachrichten, die mit dem Namen übereinstimmen (alle Ebenen), werden empfangen.
-  # Der letzte Name ist der Hauptname dieser Gruppe und wird als Quelle für Sendenachrichten verwendet.
-  # Leerzeichen sind im Namen nicht erlaubt.
-  display_name = County/Region/City
-  
-  
-  #### Router Einstellungen ####
-  [router]
-  
-  # Aktivieren/Deaktivieren der Routerfunktionalität.
-  enabled = True
-  
-  # Komma-getrennte Liste mit den Namen, für die die Nachrichten weitergeleitet/wiederholt werden sollen.
-  # Die Namen und Ebenen müssen mit dem verwendeten display_name des Clusters übereinstimmen.
-  # Es sind keine Leerzeichen im Namen erlaubt.
-  display_name = Country,County/Region
-  
-  
-  #### Hochverfügbarkeitseinstellungen ####
-  [high_availability]
-  
-  # Aktivieren/Deaktivieren Sie diese Funktion.
-  enabled = False
-  
-  # Rolle dieses Knotens (Master/Slave)
-  role = master
-  
-  # Peer Addresse
-  peer = 
-  
-  
-  #### Statistik/Zähler-Einstellungen ####
-  [statistic]
-  
-  # Aktivieren/Deaktivieren Sie diese Funktion.
-  enabled = True
+  state_enabled = False
+  state_data = 0
   ```
 - Starten Sie erneut. Fetig!
   ```bash
