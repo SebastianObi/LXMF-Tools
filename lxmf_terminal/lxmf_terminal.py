@@ -69,7 +69,7 @@ import signal
 # Source: https://markqvist.github.io
 import RNS
 import LXMF
-import RNS.vendor.umsgpack as umsgpack
+import RNS.vendor.umsgpack as msgpack
 
 
 ##############################################################################################################
@@ -722,7 +722,7 @@ class lxmf_connection_propagation():
             return
 
         try:
-            unpacked = umsgpack.unpackb(app_data)
+            unpacked = msgpack.unpackb(app_data)
             node_active = unpacked[0]
             emitted = unpacked[1]
             hop_count = RNS.Transport.hops_to(destination_hash)

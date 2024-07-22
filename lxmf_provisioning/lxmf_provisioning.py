@@ -67,7 +67,7 @@ import threading
 # Source: https://markqvist.github.io
 import RNS
 import LXMF
-import RNS.vendor.umsgpack as umsgpack
+import RNS.vendor.umsgpack as msgpack
 
 #### PostgreSQL ####
 # Install: pip3 install psycopg2
@@ -669,7 +669,7 @@ class lxmf_connection_propagation():
             return
 
         try:
-            unpacked = umsgpack.unpackb(app_data)
+            unpacked = msgpack.unpackb(app_data)
             node_active = unpacked[0]
             emitted = unpacked[1]
             hop_count = RNS.Transport.hops_to(destination_hash)
@@ -1022,7 +1022,7 @@ def cache_read(file=None):
         if os.path.isfile(file):
             try:
                 fh = open(file, "rb")
-                CACHE = umsgpack.unpackb(fh.read())
+                CACHE = msgpack.unpackb(fh.read())
                 fh.close()
             except Exception as e:
                 return False
@@ -1043,7 +1043,7 @@ def cache_save(file=None):
         if os.path.isfile(file):
             try:
                 fh = open(file, "wb")
-                fh.write(umsgpack.packb(CACHE))
+                fh.write(msgpack.packb(CACHE))
                 fh.close()
             except Exception as e:
                 return False
@@ -1067,7 +1067,7 @@ def cache_default(file=None):
                 return False
         try:
             fh = open(file, "wb")
-            fh.write(umsgpack.packb(CACHE))
+            fh.write(msgpack.packb(CACHE))
             fh.close()
         except:
             return False
@@ -1453,7 +1453,7 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
                     try:
                         if val != "":
                             val = base64.urlsafe_b64decode(val.replace("lxm://", "").replace("/", "")+"==")
-                            val = umsgpack.unpackb(val)
+                            val = msgpack.unpackb(val)
                             if val and "data" in val:
                                 type_fields["config"] = val["data"]["data"]
                     except:
@@ -1471,7 +1471,7 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
             if len(type_fields) > 0:
                 announce_data = {ANNOUNCE_DATA_CONTENT: CONFIG["lxmf"]["display_name"].encode("utf-8"), ANNOUNCE_DATA_TITLE: None, ANNOUNCE_DATA_FIELDS: {MSG_FIELD_TYPE_FIELDS: type_fields}}
                 log("LXMF - Configured announce data: "+str(announce_data), LOG_DEBUG)
-                announce_data = umsgpack.packb(announce_data)
+                announce_data = msgpack.packb(announce_data)
 
     LXMF_CONNECTION = lxmf_connection(
         storage_path=path,

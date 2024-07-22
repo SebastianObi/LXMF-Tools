@@ -61,7 +61,7 @@ import threading
 # Source: https://markqvist.github.io
 import RNS
 import LXMF
-import RNS.vendor.umsgpack as umsgpack
+import RNS.vendor.umsgpack as msgpack
 
 #### Matrix ####
 # Install: apt-get install libolm-dev
@@ -659,7 +659,7 @@ class lxmf_connection_propagation():
             return
 
         try:
-            unpacked = umsgpack.unpackb(app_data)
+            unpacked = msgpack.unpackb(app_data)
             node_active = unpacked[0]
             emitted = unpacked[1]
             hop_count = RNS.Transport.hops_to(destination_hash)
@@ -1303,7 +1303,7 @@ def data_read(file=None):
         if os.path.isfile(file):
             try:
                 fh = open(file , "rb")
-                DATA = umsgpack.unpackb(fh.read())
+                DATA = msgpack.unpackb(fh.read())
                 fh.close()
             except Exception as e:
                 DATA = {}
@@ -1326,7 +1326,7 @@ def data_save(file=None):
                 for key in keys:
                     del DATA[key]
             fh = open(file, "wb")
-            fh.write(umsgpack.packb(DATA))
+            fh.write(msgpack.packb(DATA))
             fh.close()
         except Exception as e:
             return False

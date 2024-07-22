@@ -67,7 +67,7 @@ import threading
 # Source: https://markqvist.github.io
 import RNS
 import LXMF
-import RNS.vendor.umsgpack as umsgpack
+import RNS.vendor.umsgpack as msgpack
 
 
 ##############################################################################################################
@@ -664,7 +664,7 @@ class lxmf_connection_propagation():
             return
 
         try:
-            unpacked = umsgpack.unpackb(app_data)
+            unpacked = msgpack.unpackb(app_data)
             node_active = unpacked[0]
             emitted = unpacked[1]
             hop_count = RNS.Transport.hops_to(destination_hash)
@@ -863,7 +863,7 @@ class lxmf_announce_callback:
             return
 
         try:
-            app_data_dict = umsgpack.unpackb(app_data)
+            app_data_dict = msgpack.unpackb(app_data)
             if isinstance(app_data_dict, dict) and ANNOUNCE_DATA_CONTENT in app_data_dict:
                 app_data = app_data_dict[ANNOUNCE_DATA_CONTENT]
                 if ANNOUNCE_DATA_FIELDS in app_data_dict and MSG_FIELD_TYPE in app_data_dict[ANNOUNCE_DATA_FIELDS]:
@@ -1159,7 +1159,7 @@ def lxmf_message_received_callback(message):
                 app_data = RNS.Identity.recall_app_data(message.source_hash)
                 if app_data != None and len(app_data) > 0:
                     try:
-                        app_data_dict = umsgpack.unpackb(app_data)
+                        app_data_dict = msgpack.unpackb(app_data)
                         if isinstance(app_data_dict, dict) and ANNOUNCE_DATA_CONTENT in app_data_dict:
                             app_data = app_data_dict[ANNOUNCE_DATA_CONTENT]
                     except:
@@ -4232,7 +4232,7 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
         if len(fields) > 0:
             announce_data = {ANNOUNCE_DATA_CONTENT: CONFIG["lxmf"]["display_name"].encode("utf-8"), ANNOUNCE_DATA_TITLE: None, ANNOUNCE_DATA_FIELDS: fields}
             log("LXMF - Configured announce data: "+str(announce_data), LOG_DEBUG)
-            announce_data = umsgpack.packb(announce_data)
+            announce_data = msgpack.packb(announce_data)
     elif CONFIG["lxmf"]["destination_type_conv"] != "":
         display_name += chr(CONFIG["lxmf"].getint("destination_type_conv"))
 
