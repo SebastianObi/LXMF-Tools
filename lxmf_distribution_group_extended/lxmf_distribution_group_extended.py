@@ -4226,7 +4226,7 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
                 pass
         if CONFIG["telemetry"].getboolean("state_enabled"):
             try:
-               fields[MSG_FIELD_STATE] = CONFIG["telemetry"].getint("state_data")
+               fields[MSG_FIELD_STATE] = [CONFIG["telemetry"].getint("state_data"), int(time.time())]
             except:
                 pass
         if len(fields) > 0:
@@ -4391,16 +4391,12 @@ DEFAULT_CONFIG_OVERRIDE = '''# This is the user configuration file to override t
 # This also has the advantage that all changed settings can be kept when updating the program.
 
 
-#### Main program settings ####
 [main]
-
 # Default language.
 lng = en # en/de
 
 
-#### LXMF connection settings ####
 [lxmf]
-
 # The name will be visible to other peers
 # on the network, and included in announces.
 # It is also used in the group description/info.
@@ -4414,7 +4410,6 @@ propagation_node_auto = True
 try_propagation_on_fail = Yes
 
 
-#### Telemetry settings ####
 [telemetry]
 location_enabled = False
 location_lat = 0
@@ -4424,9 +4419,7 @@ state_enabled = False
 state_data = 0
 
 
-#### Cluster settings ####
 [cluster]
-
 # Enable/Disable this functionality.
 enabled = True
 
@@ -4443,9 +4436,7 @@ type = cluster
 display_name = County/Region/City
 
 
-#### Router settings ####
 [router]
-
 # Enable/Disable router functionality.
 enabled = True
 
@@ -4455,9 +4446,7 @@ enabled = True
 display_name = Country,Country/Region
 
 
-#### High availability settings ####
 [high_availability]
-
 # Enable/Disable this functionality.
 enabled = False
 
@@ -4468,9 +4457,7 @@ role = master
 peer = 
 
 
-#### Statistic/Counter settings ####
 [statistic]
-
 # Enable/Disable this functionality.
 enabled = True
 '''

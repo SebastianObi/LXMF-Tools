@@ -2134,7 +2134,7 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
                 pass
         if CONFIG["telemetry"].getboolean("state_enabled"):
             try:
-               fields[MSG_FIELD_STATE] = CONFIG["telemetry"].getint("state_data")
+               fields[MSG_FIELD_STATE] = [CONFIG["telemetry"].getint("state_data"), int(time.time())]
             except:
                 pass
         if len(fields) > 0:
@@ -2251,23 +2251,13 @@ DEFAULT_CONFIG_OVERRIDE = '''# This is the user configuration file to override t
 # This file can be used to clearly summarize all settings that deviate from the default.
 # This also has the advantage that all changed settings can be kept when updating the program.
 
-#### LXMF connection settings ####
+
 [lxmf]
-
-# The name will be visible to other peers
-# on the network, and included in announces.
-# It is also used in the group description/info.
 display_name = Distribution Group
-
-# Set propagation node automatically.
 propagation_node_auto = True
-
-# Try to deliver a message via the LXMF propagation network,
-# if a direct delivery to the recipient is not possible.
 try_propagation_on_fail = Yes
 
 
-#### Telemetry settings ####
 [telemetry]
 location_enabled = False
 location_lat = 0

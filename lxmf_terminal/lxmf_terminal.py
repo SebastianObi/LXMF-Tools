@@ -92,6 +92,54 @@ LXMF_CONNECTION = None
 SESSION = {}
 TERMINAL = None
 
+ANNOUNCE_DATA_CONTENT = 0x00
+ANNOUNCE_DATA_FIELDS  = 0x01
+ANNOUNCE_DATA_TITLE   = 0x02
+
+MSG_FIELD_EMBEDDED_LXMS    = 0x01
+MSG_FIELD_TELEMETRY        = 0x02
+MSG_FIELD_TELEMETRY_STREAM = 0x03
+MSG_FIELD_ICON             = 0x04
+MSG_FIELD_FILE_ATTACHMENTS = 0x05
+MSG_FIELD_IMAGE            = 0x06
+MSG_FIELD_AUDIO            = 0x07
+MSG_FIELD_THREAD           = 0x08
+MSG_FIELD_COMMANDS         = 0x09
+MSG_FIELD_RESULTS          = 0x0A
+
+MSG_FIELD_ANSWER             = 0xA0
+MSG_FIELD_ATTACHMENT         = 0xA1
+MSG_FIELD_COMMANDS_EXECUTE   = 0xA2
+MSG_FIELD_COMMANDS_RESULT    = 0xA3
+MSG_FIELD_CONTACT            = 0xA4
+MSG_FIELD_DATA               = 0xA5
+MSG_FIELD_DELETE             = 0xA6
+MSG_FIELD_EDIT               = 0xA7
+MSG_FIELD_GROUP              = 0xA8
+MSG_FIELD_HASH               = 0xA9
+MSG_FIELD_ICON_MENU          = 0xAA
+MSG_FIELD_ICON_SRC           = 0xAB
+MSG_FIELD_KEYBOARD           = 0xAC
+MSG_FIELD_KEYBOARD_INLINE    = 0xAD
+MSG_FIELD_LOCATION           = 0xAE
+MSG_FIELD_POLL               = 0xAF
+MSG_FIELD_POLL_ANSWER        = 0xB0
+MSG_FIELD_REACTION           = 0xB1
+MSG_FIELD_RECEIPT            = 0xB2
+MSG_FIELD_SCHEDULED          = 0xB3
+MSG_FIELD_SILENT             = 0xB4
+MSG_FIELD_SRC                = 0xB5
+MSG_FIELD_STATE              = 0xB6
+MSG_FIELD_STICKER            = 0xB7
+MSG_FIELD_TELEMETRY_DB       = 0xB8
+MSG_FIELD_TELEMETRY_PEER     = 0xB9
+MSG_FIELD_TELEMETRY_COMMANDS = 0xBA
+MSG_FIELD_TEMPLATE           = 0xBB
+MSG_FIELD_TOPIC              = 0xBC
+MSG_FIELD_TYPE               = 0xBD
+MSG_FIELD_TYPE_FIELDS        = 0xBE
+MSG_FIELD_VOICE              = 0xBF
+
 
 ##############################################################################################################
 # Terminal Class
@@ -1317,11 +1365,29 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
     if path is None:
         path = PATH
 
+    announce_data = CONFIG["lxmf"]["display_name"]
+    if CONFIG["main"].getboolean("fields_announce"):
+        fields = {}
+        if CONFIG["telemetry"].getboolean("location_enabled"):
+            try:
+               fields[MSG_FIELD_LOCATION] = [CONFIG["telemetry"].getfloat("location_lat"), CONFIG["telemetry"].getfloat("location_lon")]
+            except:
+                pass
+        if CONFIG["telemetry"].getboolean("state_enabled"):
+            try:
+               fields[MSG_FIELD_STATE] = [CONFIG["telemetry"].getint("state_data"), int(time.time())]
+            except:
+                pass
+        if len(fields) > 0:
+            announce_data = {ANNOUNCE_DATA_CONTENT: CONFIG["rns_server"]["display_name"].encode("utf-8"), ANNOUNCE_DATA_TITLE: None, ANNOUNCE_DATA_FIELDS: fields}
+            log("LXMF - Configured announce data: "+str(announce_data), LOG_DEBUG)
+            announce_data = msgpack.packb(announce_data)
+
     LXMF_CONNECTION = lxmf_connection(
         storage_path=path,
         destination_name=CONFIG["lxmf"]["destination_name"],
         destination_type=CONFIG["lxmf"]["destination_type"],
-        display_name=CONFIG["lxmf"]["display_name"],
+        announce_data=announce_data,
         announce_hidden=CONFIG["lxmf"].getboolean("announce_hidden"),
         send_delay=CONFIG["lxmf"]["send_delay"],
         desired_method=CONFIG["lxmf"]["desired_method"],
@@ -1416,6 +1482,10 @@ enabled = True
 
 # Name of the program. Only for display in the log or program startup.
 name = Terminal
+
+# Transport extended data in the announce.
+# This is needed for the integration of advanced client apps.
+fields_announce = False
 
 
 #### LXMF connection settings ####
@@ -1557,6 +1627,16 @@ replace_unnecessary_characters = True
 
 #any
 #2858b7a096899116cd529559cc679ffe
+
+
+#### Telemetry settings ####
+[telemetry]
+location_enabled = False
+location_lat = 0
+location_lon = 0
+
+state_enabled = False
+state_data = 0
 '''
 
 

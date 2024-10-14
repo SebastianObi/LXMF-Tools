@@ -1317,11 +1317,29 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
     if path is None:
         path = PATH
 
+    announce_data = CONFIG["lxmf"]["display_name"]
+    if CONFIG["main"].getboolean("fields_announce"):
+        fields = {}
+        if CONFIG["telemetry"].getboolean("location_enabled"):
+            try:
+               fields[MSG_FIELD_LOCATION] = [CONFIG["telemetry"].getfloat("location_lat"), CONFIG["telemetry"].getfloat("location_lon")]
+            except:
+                pass
+        if CONFIG["telemetry"].getboolean("state_enabled"):
+            try:
+               fields[MSG_FIELD_STATE] = [CONFIG["telemetry"].getint("state_data"), int(time.time())]
+            except:
+                pass
+        if len(fields) > 0:
+            announce_data = {ANNOUNCE_DATA_CONTENT: CONFIG["rns_server"]["display_name"].encode("utf-8"), ANNOUNCE_DATA_TITLE: None, ANNOUNCE_DATA_FIELDS: fields}
+            log("LXMF - Configured announce data: "+str(announce_data), LOG_DEBUG)
+            announce_data = msgpack.packb(announce_data)
+
     LXMF_CONNECTION = lxmf_connection(
         storage_path=path,
         destination_name=CONFIG["lxmf"]["destination_name"],
         destination_type=CONFIG["lxmf"]["destination_type"],
-        display_name=CONFIG["lxmf"]["display_name"],
+        announce_data=announce_data,
         announce_hidden=CONFIG["lxmf"].getboolean("announce_hidden"),
         send_delay=CONFIG["lxmf"]["send_delay"],
         desired_method=CONFIG["lxmf"]["desired_method"],
@@ -1425,6 +1443,10 @@ auto_save_data = True
 # Periodic actions - Save changes periodically.
 periodic_save_data = True
 periodic_save_data_interval = 30 #Minutes
+
+# Transport extended data in the announce.
+# This is needed for the integration of advanced client apps.
+fields_announce = False
 
 
 #### LXMF connection settings ####
@@ -1559,6 +1581,16 @@ fields_remove =
 
 any
 #2858b7a096899116cd529559cc679ffe
+
+
+#### Telemetry settings ####
+[telemetry]
+location_enabled = False
+location_lat = 0
+location_lon = 0
+
+state_enabled = False
+state_data = 0
 '''
 
 
