@@ -709,34 +709,39 @@ class lxmf_announce_callback:
 
         log("LXMF - Received an announce from " + RNS.prettyhexrep(destination_hash) + ": " + app_data, LOG_INFO)
 
+        if not CONFIG["lxmf"].getboolean("announce_auto_message"):
+            return
+
         global DATA
 
-        if CONFIG["lxmf"].getboolean("announce_auto_message") and DATA.has_section("user"):
-            source_hash = RNS.hexrep(destination_hash, False)
-            exist = False
+        if not DATA.has_section("user"):
+            DATA.add_section("user")
 
-            hop_count = RNS.Transport.hops_to(destination_hash)
-            hop_min = CONFIG.getint("lxmf", "announce_auto_message_hop_min")
-            hop_max = CONFIG.getint("lxmf", "announce_auto_message_hop_max")
-            if hop_min > 0 and hop_count < hop_min:
+        source_hash = RNS.hexrep(destination_hash, False)
+        exist = False
+
+        hop_count = RNS.Transport.hops_to(destination_hash)
+        hop_min = CONFIG.getint("lxmf", "announce_auto_message_hop_min")
+        hop_max = CONFIG.getint("lxmf", "announce_auto_message_hop_max")
+        if hop_min > 0 and hop_count < hop_min:
+            exist = True
+        if hop_max > 0 and hop_count < hop_max:
+            exist = True
+
+        for (key, val) in DATA.items("user"):
+            if key == source_hash:
                 exist = True
-            if hop_max > 0 and hop_count < hop_max:
-                exist = True
+                break
 
-            for (key, val) in DATA.items("user"):
-                if key == source_hash:
-                    exist = True
-                    break
-
-            if not exist:
-                DATA["user"][source_hash] = ""
-                if CONFIG["main"].getboolean("auto_save_data"):
-                    DATA.remove_option("main", "unsaved")
-                    if not data_save(PATH + "/data.cfg"):
-                        DATA["main"]["unsaved"] = "True"
-                else:
+        if not exist:
+            DATA["user"][source_hash] = ""
+            if CONFIG["main"].getboolean("auto_save_data"):
+                DATA.remove_option("main", "unsaved")
+                if not data_save(PATH + "/data.cfg"):
                     DATA["main"]["unsaved"] = "True"
-                LXMF_CONNECTION.send(source_hash, config_get(CONFIG, "lxmf", "announce_auto_message_content", "").replace("!n!", "\n"), "")
+            else:
+                DATA["main"]["unsaved"] = "True"
+            LXMF_CONNECTION.send(source_hash, config_get(CONFIG, "lxmf", "announce_auto_message_content", "").replace("!n!", "\n"), "")
 
 
 #### LXMF - Message ####
@@ -1215,6 +1220,13 @@ def log(text, level=3, file=None):
                     os.rename(file, file_prev)
             except:
                 return
+
+
+def log_exception(e, text="", level=1):
+    import traceback
+
+    log(text+" - An "+str(type(e))+" occurred: "+str(e), level)
+    log("".join(traceback.TracebackException.from_exception(e).format()), level)
 
 
 ##############################################################################################################

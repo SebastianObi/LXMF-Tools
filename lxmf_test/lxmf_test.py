@@ -769,6 +769,13 @@ def log(text, level=3, file=None):
                 return
 
 
+def log_exception(e, text="", level=1):
+    import traceback
+
+    log(text+" - An "+str(type(e))+" occurred: "+str(e), level)
+    log("".join(traceback.TracebackException.from_exception(e).format()), level)
+
+
 ##############################################################################################################
 # System
 

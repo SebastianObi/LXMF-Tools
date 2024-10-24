@@ -1340,6 +1340,13 @@ def log(text, level=3, file=None):
                 return
 
 
+def log_exception(e, text="", level=1):
+    import traceback
+
+    log(text+" - An "+str(type(e))+" occurred: "+str(e), level)
+    log("".join(traceback.TracebackException.from_exception(e).format()), level)
+
+
 ##############################################################################################################
 # System
 
@@ -1479,7 +1486,7 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
                 if len(type_fields) > 0:
                     fields[MSG_FIELD_TYPE_FIELDS] = type_fields
         if len(fields) > 0:
-            announce_data = {ANNOUNCE_DATA_CONTENT: CONFIG["rns_server"]["display_name"].encode("utf-8"), ANNOUNCE_DATA_TITLE: None, ANNOUNCE_DATA_FIELDS: fields}
+            announce_data = {ANNOUNCE_DATA_CONTENT: CONFIG["lxmf"]["display_name"].encode("utf-8"), ANNOUNCE_DATA_TITLE: None, ANNOUNCE_DATA_FIELDS: fields}
             log("LXMF - Configured announce data: "+str(announce_data), LOG_DEBUG)
             announce_data = msgpack.packb(announce_data)
 
@@ -1489,7 +1496,6 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
         destination_type=CONFIG["lxmf"]["destination_type"],
         announce_data=announce_data,
         announce_hidden=CONFIG["lxmf"].getboolean("announce_hidden"),
-        announce_data=announce_data,
         send_delay=CONFIG["lxmf"]["send_delay"],
         desired_method=CONFIG["lxmf"]["desired_method"],
         propagation_node=config_propagation_node,

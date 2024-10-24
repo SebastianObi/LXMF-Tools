@@ -72,6 +72,12 @@ This program sends an adjustable number of LXMF messages to a destination. Then 
 For more information, see the detailed [README.md](lxmf_test).
 
 
+## lxmf_welcome
+This program sends an LXMF welcome message to all new peers who have been announced on the network.
+
+For more information, see the detailed [README.md](lxmf_welcome).
+
+
 ## General Information for all tools/programs
 
 

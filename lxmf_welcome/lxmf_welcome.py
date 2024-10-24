@@ -55,10 +55,6 @@ import re
 import signal
 import threading
 
-#### External process ####
-import subprocess
-import socket
-
 #### Reticulum, LXMF ####
 # Install: pip3 install rns lxmf
 # Source: https://markqvist.github.io
@@ -72,15 +68,16 @@ import RNS.vendor.umsgpack as msgpack
 
 
 #### Global Variables - Configuration ####
-NAME = "LXMF CMD"
+NAME = "LXMF Welcome"
 DESCRIPTION = ""
-VERSION = "0.0.1 (2024-05-31)"
+VERSION = "0.0.1 (2024-10-17)"
 COPYRIGHT = "(c) 2024 Sebastian Obele  /  obele.eu"
 PATH = os.path.expanduser("~")+"/.config/"+os.path.splitext(os.path.basename(__file__))[0]
 PATH_RNS = None
 
 
 #### Global Variables - System (Not changeable) ####
+DATA = None
 CONFIG = None
 RNS_CONNECTION = None
 LXMF_CONNECTION = None
@@ -691,136 +688,57 @@ class lxmf_announce_callback:
             return
 
         try:
+            app_data_dict = msgpack.unpackb(app_data)
+            if isinstance(app_data_dict, dict) and ANNOUNCE_DATA_CONTENT in app_data_dict:
+                app_data = app_data_dict[ANNOUNCE_DATA_CONTENT]
+                if ANNOUNCE_DATA_FIELDS in app_data_dict and MSG_FIELD_TYPE in app_data_dict[ANNOUNCE_DATA_FIELDS]:
+                    denys = config_getarray(CONFIG, "lxmf", "deny_type")
+                    if len(denys) > 0:
+                        if "*" in denys:
+                            return
+                        for deny in denys:
+                            if app_data_dict[ANNOUNCE_DATA_FIELDS][MSG_FIELD_TYPE] == deny:
+                                return
+        except:
+            pass
+
+        try:
             app_data = app_data.decode("utf-8").strip()
         except:
             return
 
         log("LXMF - Received an announce from " + RNS.prettyhexrep(destination_hash) + ": " + app_data, LOG_INFO)
 
+        global DATA
 
-#### LXMF - Message ####
-def lxmf_message_received_callback(message):
-    if CONFIG["lxmf"].getboolean("signature_validated") and not message.signature_validated:
-        log("LXMF - Source " + RNS.prettyhexrep(message.source_hash) + " have no valid signature", LOG_DEBUG)
-        return
+        if not DATA.has_section("user"):
+            DATA.add_section("user")
 
-    if CONFIG.has_option("allowed", "any") or CONFIG.has_option("allowed", "all") or CONFIG.has_option("allowed", "anybody") or CONFIG.has_option("allowed", RNS.hexrep(message.source_hash, False)) or CONFIG.has_option("allowed", RNS.prettyhexrep(message.source_hash)):
+        source_hash = RNS.hexrep(destination_hash, False)
+        exist = False
 
-        title = message.title.decode('utf-8').strip()
-        denys = config_getarray(CONFIG, "message", "deny_title")
-        if len(denys) > 0:
-            if "*" in denys:
-                return
-            for deny in denys:
-                if deny in title:
-                    return
+        hop_count = RNS.Transport.hops_to(destination_hash)
+        hop_min = CONFIG.getint("lxmf", "hop_min")
+        hop_max = CONFIG.getint("lxmf", "hop_max")
+        if hop_min > 0 and hop_count < hop_min:
+            exist = True
+        if hop_max > 0 and hop_count < hop_max:
+            exist = True
 
-        content = message.content.decode('utf-8').strip()
-        denys = config_getarray(CONFIG, "message", "deny_content")
-        if len(denys) > 0:
-            if "*" in denys:
-                return
-            for deny in denys:
-                if deny in title:
-                    return
+        for (key, val) in DATA.items("user"):
+            if key == source_hash:
+                exist = True
+                break
 
-        if message.fields:
-            denys = config_getarray(CONFIG, "message", "deny_fields")
-            if len(denys) > 0:
-                if "*" in denys:
-                    return
-                for deny in denys:
-                    if deny in message.fields:
-                        return
-
-        length = config_getint(CONFIG, "message", "receive_length_min", 0)
-        if length> 0:
-            if len(content) < length:
-                return
-
-        length = config_getint(CONFIG, "message", "receive_length_max", 0)
-        if length > 0:
-            if len(content) > length:
-                return
-
-        content_prefix = config_get(CONFIG, "message", "receive_prefix")
-        content_suffix = config_get(CONFIG, "message", "receive_suffix")
-
-        search = config_get(CONFIG, "message", "receive_search")
-        if search != "":
-            content = content.replace(search, config_get(CONFIG, "message", "receive_replace"))
-
-        search = config_get(CONFIG, "message", "receive_regex_search")
-        if search != "":
-            content = re.sub(search, config_get(CONFIG, "message", "receive_regex_replace"), content)
-
-        content = content_prefix + content + content_suffix
-
-        content = cmd(content)
-
-        length = config_getint(CONFIG, "message", "send_length_min", 0)
-        if length> 0:
-            if len(content) < length:
-                return
-
-        length = config_getint(CONFIG, "message", "send_length_max", 0)
-        if length > 0:
-            if len(content) > length:
-                return
-
-        content_prefix = config_get(CONFIG, "message", "send_prefix")
-        content_suffix = config_get(CONFIG, "message", "send_suffix")
-
-        content_prefix = replace(content_prefix)
-        content_suffix = replace(content_suffix)
-
-        search = config_get(CONFIG, "message", "send_search")
-        if search != "":
-            content = content.replace(search, config_get(CONFIG, "message", "send_replace"))
-
-        search = config_get(CONFIG, "message", "send_regex_search")
-        if search != "":
-            content = re.sub(search, config_get(CONFIG, "message", "send_regex_replace"), content)
-
-        LXMF_CONNECTION.send(message.source_hash, content_prefix + content + content_suffix)
-    else:
-        log("LXMF - Source " + RNS.prettyhexrep(message.source_hash) + " not allowed", LOG_DEBUG)
-        return
-
-
-##############################################################################################################
-# Functions
-
-
-def replace(text):
-    text = text.replace("!user!", os.getlogin())
-    text = text.replace("!hostname!", socket.gethostname())
-    text = text.replace("!path!", os.getcwd())
-    text = text.replace("!n!", "\n")
-    return text
-
-
-def cmd(cmd):
-    content = ""
-
-    params = cmd.split(' ')
-
-    if params[0] == "cd":
-        try:
-            os.chdir(params[1])
-        except:
-            content = "ERROR: No such directory: '" + params[1] + "'"
-    else:
-        try:
-            #process = subprocess.Popen('/bin/bash', stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-            #out, err = process.communicate(cmd.encode('utf-8'))
-            #content = out.decode('utf-8')
-            result = subprocess.run(params, capture_output=True, text=True)
-            content = result.stdout + result.stderr
-        except:
-            content = "ERROR: Command '" + cmd + "' not found"
-
-    return content
+        if not exist:
+            DATA["user"][source_hash] = ""
+            if CONFIG["main"].getboolean("auto_save_data"):
+                DATA.remove_option("main", "unsaved")
+                if not data_save(PATH + "/data.cfg"):
+                    DATA["main"]["unsaved"] = "True"
+            else:
+                DATA["main"]["unsaved"] = "True"
+            LXMF_CONNECTION.send(source_hash, config_get(CONFIG, "lxmf", "content", "").replace("!n!", "\n"), "")
 
 
 ##############################################################################################################
@@ -1009,6 +927,90 @@ def config_default(file=None, file_override=None):
 
 
 ##############################################################################################################
+# Data
+
+
+#### Data - Read #####
+def data_read(file=None):
+    global DATA
+
+    if file is None:
+        return False
+    else:
+        DATA = configparser.ConfigParser(allow_no_value=True, inline_comment_prefixes="#")
+        DATA.sections()
+        if os.path.isfile(file):
+            try:
+                DATA.read(file)
+            except Exception as e:
+                return False
+        else:
+            if not data_default(file=file):
+                return False
+    return True
+
+
+#### Data - Save #####
+def data_save(file=None):
+    global DATA
+
+    if file is None:
+        return False
+    else:
+        if os.path.isfile(file):
+            try:
+                with open(file,"w") as file:
+                    DATA.write(file)
+            except Exception as e:
+                return False
+        else:
+            return False
+    return True
+
+
+#### Data - Save #####
+def data_save_periodic(initial=False):
+    data_timer = threading.Timer(CONFIG.getint("main", "periodic_save_data_interval")*60, data_save_periodic)
+    data_timer.daemon = True
+    data_timer.start()
+
+    if initial:
+        return
+
+    global DATA
+    if DATA.has_section("main"):
+        if DATA["main"].getboolean("unsaved"):
+            DATA.remove_option("main", "unsaved")
+            if not data_save(PATH + "/data.cfg"):
+                DATA["main"]["unsaved"] = "True"
+
+
+#### Data - Default #####
+def data_default(file=None):
+    global DATA
+
+    if file is None:
+        return False
+    elif DEFAULT_DATA != "":
+        if not os.path.isdir(os.path.dirname(file)):
+            try:
+                os.makedirs(os.path.dirname(file))
+            except Exception:
+                return False
+        try:
+            data_file = open(file, "w")
+            data_file.write(DEFAULT_DATA)
+            data_file.close()
+            if not data_read(file=file):
+                return False
+        except:
+            return False
+    else:
+        return False
+    return True
+
+
+##############################################################################################################
 # Value convert
 
 
@@ -1179,6 +1181,10 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
         print("Config - Error reading config file " + PATH + "/config.cfg")
         panic()
 
+    if not data_read(PATH + "/data.cfg"):
+        print("Data - Error reading data file " + PATH + "/data.cfg")
+        panic()
+
     if CONFIG["main"].getboolean("default_config"):
         print("Exit!")
         print("First start with the default config!")
@@ -1197,6 +1203,7 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
     log("        Name: " + CONFIG["main"]["name"], LOG_INFO)
     log("Program File: " + __file__, LOG_INFO)
     log(" Config File: " + PATH + "/config", LOG_INFO)
+    log("   Data File: " + PATH + "/data.cfg", LOG_INFO)
     log("     Version: " + VERSION, LOG_INFO)
     log("   Copyright: " + COPYRIGHT, LOG_INFO)
     log("...............................................................................", LOG_INFO)
@@ -1216,48 +1223,19 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
     if path is None:
         path = PATH
 
-    announce_data = CONFIG["lxmf"]["display_name"]
-    if CONFIG["main"].getboolean("fields_announce"):
-        fields = {}
-        if CONFIG["telemetry"].getboolean("location_enabled"):
-            try:
-               fields[MSG_FIELD_LOCATION] = [CONFIG["telemetry"].getfloat("location_lat"), CONFIG["telemetry"].getfloat("location_lon")]
-            except:
-                pass
-        if CONFIG["telemetry"].getboolean("state_enabled"):
-            try:
-               fields[MSG_FIELD_STATE] = [CONFIG["telemetry"].getint("state_data"), int(time.time())]
-            except:
-                pass
-        if len(fields) > 0:
-            announce_data = {ANNOUNCE_DATA_CONTENT: CONFIG["rns_server"]["display_name"].encode("utf-8"), ANNOUNCE_DATA_TITLE: None, ANNOUNCE_DATA_FIELDS: fields}
-            log("LXMF - Configured announce data: "+str(announce_data), LOG_DEBUG)
-            announce_data = msgpack.packb(announce_data)
-
     LXMF_CONNECTION = lxmf_connection(
         storage_path=path,
         destination_name=CONFIG["lxmf"]["destination_name"],
         destination_type=CONFIG["lxmf"]["destination_type"],
-        announce_data=announce_data,
-        announce_hidden=CONFIG["lxmf"].getboolean("announce_hidden"),
         send_delay=CONFIG["lxmf"]["send_delay"],
         desired_method=CONFIG["lxmf"]["desired_method"],
         propagation_node=config_propagation_node,
         propagation_node_auto=CONFIG["lxmf"].getboolean("propagation_node_auto"),
         propagation_node_active=config_propagation_node_active,
-        try_propagation_on_fail=CONFIG["lxmf"].getboolean("try_propagation_on_fail"),
-        announce_startup=CONFIG["lxmf"].getboolean("announce_startup"),
-        announce_startup_delay=CONFIG["lxmf"]["announce_startup_delay"],
-        announce_periodic=CONFIG["lxmf"].getboolean("announce_periodic"),
-        announce_periodic_interval=CONFIG["lxmf"]["announce_periodic_interval"],
-        sync_startup=CONFIG["lxmf"].getboolean("sync_startup"),
-        sync_startup_delay=CONFIG["lxmf"]["sync_startup_delay"],
-        sync_limit=CONFIG["lxmf"]["sync_limit"],
-        sync_periodic=CONFIG["lxmf"].getboolean("sync_periodic"),
-        sync_periodic_interval=CONFIG["lxmf"]["sync_periodic_interval"])
+        try_propagation_on_fail=CONFIG["lxmf"].getboolean("try_propagation_on_fail")
+        )
 
     LXMF_CONNECTION.register_announce_callback(lxmf_announce_callback)
-    LXMF_CONNECTION.register_message_received_callback(lxmf_message_received_callback)
     LXMF_CONNECTION.register_config_set_callback(config_set)
 
     log("LXMF - Connected", LOG_DEBUG)
@@ -1265,6 +1243,9 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
     log("...............................................................................", LOG_FORCE)
     log("LXMF - Address: " + RNS.prettyhexrep(LXMF_CONNECTION.destination_hash()), LOG_FORCE)
     log("...............................................................................", LOG_FORCE)
+
+    if CONFIG["main"].getboolean("periodic_save_data"):
+        data_save_periodic(True)
 
     while True:
         time.sleep(1)
@@ -1328,11 +1309,17 @@ DEFAULT_CONFIG = '''# This is the default config file.
 enabled = True
 
 # Name of the program. Only for display in the log or program startup.
-name = CMD
+name = LXMF Welcome
 
-# Transport extended data in the announce.
-# This is needed for the integration of advanced client apps.
-fields_announce = False
+# Auto save changes.
+# If there are changes in the data, they can be saved directly in the files.
+# Attention: This can lead to very high write cycles.
+# If you want to prevent frequent writing, please set this to 'False' and use the peridodic save function.
+auto_save_data = True
+
+# Periodic actions - Save changes periodically.
+periodic_save_data = True
+periodic_save_data_interval = 30 #Minutes
 
 
 #### LXMF connection settings ####
@@ -1342,10 +1329,6 @@ fields_announce = False
 # to be compatibel with other LXMF programs.
 destination_name = lxmf
 destination_type = delivery
-
-# The name will be visible to other peers
-# on the network, and included in announces.
-display_name = CMD
 
 # Default send method.
 desired_method = direct #direct/propagated
@@ -1361,106 +1344,36 @@ propagation_node_active =
 
 # Try to deliver a message via the LXMF propagation network,
 # if a direct delivery to the recipient is not possible.
-try_propagation_on_fail = No
+try_propagation_on_fail = Yes
 
-# The peer is announced at startup
-# to let other peers reach it immediately.
-announce_startup = No
-announce_startup_delay = 0 #Seconds
+# Hop count filter. Allow only from certain min/max hops.
+hop_min = 0
+hop_max = 0
 
-# The peer is announced periodically
-# to let other peers reach it.
-announce_periodic = No
-announce_periodic_interval = 360 #Minutes
+# Type filter. Deny certain types.
+deny_type = 0x04,0x06
 
-# The announce is hidden for client applications
-# but is still used for the routing tables.
-announce_hidden = No
+# Content of the message.
+content = Welcome to the Reticulum network!
 
 # Some waiting time after message send
 # for LXMF/Reticulum processing.
 send_delay = 0 #Seconds
-
-# Sync LXMF messages at startup.
-sync_startup = No
-sync_startup_delay = 0 #Seconds
-
-# Sync LXMF messages periodically.
-sync_periodic = No
-
-# The sync interval in minutes.
-sync_periodic_interval = 360 #Minutes
-
-# Automatic LXMF syncs will only
-# download x messages at a time. You can change
-# this number, or set the option to 0 to disable
-# the limit, and download everything every time.
-sync_limit = 8
-
-# Allow only messages with valid signature.
-signature_validated = Yes
+'''
 
 
-#### Message settings ####
-[message]
-
-# Deny message if the title/content/fields contains the following content.
-# Comma-separated list with text or field keys.
-# *=any
-deny_title = 
-deny_content = 
-deny_fields = 
-
-# Text is added.
-receive_prefix = 
-receive_suffix = 
-
-# Text is replaced.
-receive_search = 
-receive_replace = 
-
-# Text is replaced by regular expression
-receive_regex_search = 
-receive_regex_replace = 
-
-# Length limitation.
-receive_length_min = 0 #0=any length
-receive_length_max = 0 #0=any length
+#### Default data file ####
+DEFAULT_DATA = '''# This is the data file. It is automatically created and saved/overwritten.
+# It contains data managed by the software itself.
+# If manual adjustments are made here, the program must be shut down first!
 
 
-# Text is added.
-send_prefix = !user!@!hostname!:!path!#!n!
-send_suffix = 
-
-# Text is replaced.
-send_search = 
-send_replace = 
-
-# Text is replaced by regular expression
-send_regex_search = 
-send_regex_replace = 
-
-# Length limitation.
-send_length_min = 0 #0=any length
-send_length_max = 0 #0=any length
+#### Main program settings ####
+[main]
 
 
-#### Right settings ####
-# Allow only specific source addresses/hashs or any.
-[allowed]
-
-#any
-#2858b7a096899116cd529559cc679ffe
-
-
-#### Telemetry settings ####
-[telemetry]
-location_enabled = False
-location_lat = 0
-location_lon = 0
-
-state_enabled = False
-state_data = 0
+#### User ####
+[user]
 '''
 
 
