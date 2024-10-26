@@ -129,6 +129,7 @@ MSG_FIELD_ICON_SRC           = 0xAB
 MSG_FIELD_KEYBOARD           = 0xAC
 MSG_FIELD_KEYBOARD_INLINE    = 0xAD
 MSG_FIELD_LOCATION           = 0xAE
+MSG_FIELD_OWNER              = 0xC0
 MSG_FIELD_POLL               = 0xAF
 MSG_FIELD_POLL_ANSWER        = 0xB0
 MSG_FIELD_REACTION           = 0xB1
@@ -1454,6 +1455,11 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
                fields[MSG_FIELD_LOCATION] = [CONFIG["telemetry"].getfloat("location_lat"), CONFIG["telemetry"].getfloat("location_lon")]
             except:
                 pass
+        if CONFIG["telemetry"].getboolean("owner_enabled"):
+            try:
+               fields[MSG_FIELD_OWNER] = bytes.fromhex(CONFIG["telemetry"]["owner_data"])
+            except:
+                pass
         if CONFIG["telemetry"].getboolean("state_enabled"):
             try:
                fields[MSG_FIELD_STATE] = [CONFIG["telemetry"].getint("state_data"), int(time.time())]
@@ -1616,6 +1622,9 @@ location_enabled = False
 location_lat = 0
 location_lon = 0
 
+owner_enabled = False
+owner_data = 
+
 state_enabled = False
 state_data = 0
 '''
@@ -1766,6 +1775,9 @@ config_lxm = #Config as lxm string
 location_enabled = False
 location_lat = 0
 location_lon = 0
+
+owner_enabled = False
+owner_data = 
 
 state_enabled = False
 state_data = 0
