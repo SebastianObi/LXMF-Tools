@@ -565,8 +565,8 @@ class lxmf_connection:
                 signature_string = "Cannot verify, source is unknown"
             else:
                 signature_string = "Signature is invalid, reason undetermined"
-        title = message.title.decode('utf-8')
-        content = message.content.decode('utf-8')
+        title = message.title.decode("utf-8")
+        content = message.content.decode("utf-8")
         fields = message.fields
         log(message_tag + ":", LOG_DEBUG)
         log("-   Date/Time: " + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(message.timestamp)), LOG_DEBUG)

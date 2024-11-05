@@ -627,8 +627,8 @@ class lxmf_connection:
                 signature_string = "Cannot verify, source is unknown"
             else:
                 signature_string = "Signature is invalid, reason undetermined"
-        title = message.title.decode('utf-8')
-        content = message.content.decode('utf-8')
+        title = message.title.decode("utf-8")
+        content = message.content.decode("utf-8")
         fields = message.fields
         log(message_tag + ":", LOG_DEBUG)
         log("-   Date/Time: " + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(message.timestamp)), LOG_DEBUG)
@@ -869,7 +869,20 @@ class lxmf_announce_callback:
             return
 
         try:
-            app_data = app_data.decode("utf-8").strip()
+            if app_data[0] == 0x83 or (app_data[0] >= 0x90 and app_data[0] <= 0x9f) or app_data[0] == 0xdc:
+                app_data_dict = msgpack.unpackb(app_data)
+                app_data = b""
+                if isinstance(app_data_dict, dict) and ANNOUNCE_DATA_CONTENT in app_data_dict:
+                    app_data = app_data_dict[ANNOUNCE_DATA_CONTENT]
+                elif isinstance(app_data_dict, list) and len(app_data_dict) > 1 and app_data_dict[0] != None:
+                    app_data = app_data_dict[0]
+                else:
+                    app_data = b""
+        except:
+            pass
+
+        try:
+            app_data = app_data.decode("utf-8")
         except:
             return
 
@@ -894,7 +907,7 @@ def lxmf_message_received_callback(message):
             log("LXMF - Routing table not found for '"+destination_address+"'", LOG_DEBUG)
             return
 
-        title = message.title.decode('utf-8').strip()
+        title = message.title.decode("utf-8").strip()
         denys = config_getarray(CONFIG, "message", "lxmf_to_matrix_deny_title")
         if len(denys) > 0:
             if "*" in denys:
@@ -903,7 +916,7 @@ def lxmf_message_received_callback(message):
                 if deny in title:
                     return
 
-        content = message.content.decode('utf-8').strip()
+        content = message.content.decode("utf-8").strip()
         denys = config_getarray(CONFIG, "message", "lxmf_to_matrix_deny_content")
         if len(denys) > 0:
             if "*" in denys:
@@ -1058,7 +1071,7 @@ def matrix_message_received_callback(room: MatrixRoom, event: RoomMessage):
 
     content = content_prefix + content + content_suffix
 
-    fields[MSG_FIELD_SRC] = [b'', replace(config_get(CONFIG, "message", "matrix_to_lxmf"), source_address=event.sender, source_name=user_name, destination_address=room.room_id, destination_name=room.display_name, routing_table=routing_table)]
+    fields[MSG_FIELD_SRC] = [b"", replace(config_get(CONFIG, "message", "matrix_to_lxmf"), source_address=event.sender, source_name=user_name, destination_address=room.room_id, destination_name=room.display_name, routing_table=routing_table)]
 
     result = LXMF_CONNECTION.send(routing_destination, content, "", fields=fields)
 
@@ -1220,11 +1233,11 @@ def config_read(file=None, file_override=None):
         if os.path.isfile(file):
             try:
                 if file_override is None:
-                    CONFIG.read(file, encoding='utf-8')
+                    CONFIG.read(file, encoding="utf-8")
                 elif os.path.isfile(file_override):
-                    CONFIG.read([file, file_override], encoding='utf-8')
+                    CONFIG.read([file, file_override], encoding="utf-8")
                 else:
-                    CONFIG.read(file, encoding='utf-8')
+                    CONFIG.read(file, encoding="utf-8")
             except Exception as e:
                 return False
         else:

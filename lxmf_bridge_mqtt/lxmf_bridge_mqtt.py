@@ -621,8 +621,8 @@ class lxmf_connection:
                 signature_string = "Cannot verify, source is unknown"
             else:
                 signature_string = "Signature is invalid, reason undetermined"
-        title = message.title.decode('utf-8')
-        content = message.content.decode('utf-8')
+        title = message.title.decode("utf-8")
+        content = message.content.decode("utf-8")
         fields = message.fields
         log(message_tag + ":", LOG_DEBUG)
         log("-   Date/Time: " + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(message.timestamp)), LOG_DEBUG)
@@ -696,14 +696,20 @@ class lxmf_announce_callback:
             return
 
         try:
-            app_data_dict = msgpack.unpackb(app_data)
-            if isinstance(app_data_dict, dict) and ANNOUNCE_DATA_CONTENT in app_data_dict:
-                app_data = app_data_dict[ANNOUNCE_DATA_CONTENT]
+            if app_data[0] == 0x83 or (app_data[0] >= 0x90 and app_data[0] <= 0x9f) or app_data[0] == 0xdc:
+                app_data_dict = msgpack.unpackb(app_data)
+                app_data = b""
+                if isinstance(app_data_dict, dict) and ANNOUNCE_DATA_CONTENT in app_data_dict:
+                    app_data = app_data_dict[ANNOUNCE_DATA_CONTENT]
+                elif isinstance(app_data_dict, list) and len(app_data_dict) > 1 and app_data_dict[0] != None:
+                    app_data = app_data_dict[0]
+                else:
+                    app_data = b""
         except:
             pass
 
         try:
-            app_data = app_data.decode("utf-8").strip()
+            app_data = app_data.decode("utf-8")
         except:
             return
 
@@ -737,7 +743,7 @@ def lxmf_message_received_callback(message):
 
     if CONFIG.has_option("allowed", "any") or CONFIG.has_option("allowed", "all") or CONFIG.has_option("allowed", "anybody") or CONFIG.has_option("allowed", RNS.hexrep(message.source_hash, False)) or CONFIG.has_option("allowed", RNS.prettyhexrep(message.source_hash)):
 
-        title = message.title.decode('utf-8').strip()
+        title = message.title.decode("utf-8").strip()
         denys = config_getarray(CONFIG, "message", "lxmf_to_mqtt_deny_title")
         if len(denys) > 0:
             if "*" in denys:
@@ -746,7 +752,7 @@ def lxmf_message_received_callback(message):
                 if deny in title:
                     return
 
-        content = message.content.decode('utf-8').strip()
+        content = message.content.decode("utf-8").strip()
         denys = config_getarray(CONFIG, "message", "lxmf_to_mqtt_deny_content")
         if len(denys) > 0:
             if "*" in denys:
@@ -802,7 +808,7 @@ def lxmf_message_received_callback(message):
         message_out = json.dumps({
             "source": RNS.hexrep(message.source_hash, False),
             "destination": RNS.hexrep(message.destination_hash, False),
-            "title": message.title.decode('utf-8').strip(),
+            "title": message.title.decode("utf-8").strip(),
             "content": content,
             "fields": str(message.fields),
             "date_time": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(message.timestamp)),
@@ -825,7 +831,7 @@ def lxmf_message_received_callback(message):
 def mqtt_log_message(message, message_tag="MQTT - Message log"):
     log(message_tag + ":", LOG_DEBUG)
     log("-   Topic: " + str(message.topic), LOG_DEBUG)
-    log("- Payload: " + str(message.payload.decode('utf-8')), LOG_DEBUG)
+    log("- Payload: " + str(message.payload.decode("utf-8")), LOG_DEBUG)
     log("-     QOS: " + str(message.qos), LOG_DEBUG)
 
 
@@ -891,7 +897,7 @@ def mqtt_message_received_callback_power(client, userdata, message):
 
     mqtt_log_message(message)
 
-    if message.payload.decode('utf-8') == "on" or message.payload.decode('utf-8') == "1":
+    if message.payload.decode("utf-8") == "on" or message.payload.decode("utf-8") == "1":
         CONFIG["main"]["power"] = True
         MQTT_CONNECTION.publish(CONFIG["mqtt"]["topic_rm_power"], "on")
     else:
@@ -916,7 +922,7 @@ def mqtt_message_received_callback_send(client, userdata, message):
         log("MQTT - Routing disabled", LOG_DEBUG)
         return
 
-    message_data = json.loads(message.payload.decode('utf-8'))
+    message_data = json.loads(message.payload.decode("utf-8"))
 
     if "destination" not in message_data or "content" not in message_data:
         return
@@ -1085,11 +1091,11 @@ def config_read(file=None, file_override=None):
         if os.path.isfile(file):
             try:
                 if file_override is None:
-                    CONFIG.read(file, encoding='utf-8')
+                    CONFIG.read(file, encoding="utf-8")
                 elif os.path.isfile(file_override):
-                    CONFIG.read([file, file_override], encoding='utf-8')
+                    CONFIG.read([file, file_override], encoding="utf-8")
                 else:
-                    CONFIG.read(file, encoding='utf-8')
+                    CONFIG.read(file, encoding="utf-8")
             except Exception as e:
                 return False
         else:
