@@ -665,6 +665,8 @@ class lxmf_connection_propagation():
 
         try:
             unpacked = msgpack.unpackb(app_data)
+            if not LXMF.pn_announce_data_is_valid(unpacked):
+                raise ValueError("Received malformed propagation node announce")
             node_active = unpacked[0]
             emitted = unpacked[1]
             hop_count = RNS.Transport.hops_to(destination_hash)
