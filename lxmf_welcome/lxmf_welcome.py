@@ -82,10 +82,6 @@ CONFIG = None
 RNS_CONNECTION = None
 LXMF_CONNECTION = None
 
-ANNOUNCE_DATA_CONTENT = 0x00
-ANNOUNCE_DATA_FIELDS  = 0x01
-ANNOUNCE_DATA_TITLE   = 0x02
-
 MSG_FIELD_EMBEDDED_LXMS    = 0x01
 MSG_FIELD_TELEMETRY        = 0x02
 MSG_FIELD_TELEMETRY_STREAM = 0x03
@@ -691,25 +687,26 @@ class lxmf_announce_callback:
             return
 
         try:
-            if app_data[0] == 0x83 or (app_data[0] >= 0x90 and app_data[0] <= 0x9f) or app_data[0] == 0xdc:
-                app_data_dict = msgpack.unpackb(app_data)
-                app_data = b""
-                if isinstance(app_data_dict, dict) and ANNOUNCE_DATA_CONTENT in app_data_dict:
-                    app_data = app_data_dict[ANNOUNCE_DATA_CONTENT]
-                    if ANNOUNCE_DATA_FIELDS in app_data_dict and MSG_FIELD_TYPE in app_data_dict[ANNOUNCE_DATA_FIELDS]:
-                        denys = config_getarray(CONFIG, "lxmf", "deny_type")
-                        if len(denys) > 0:
-                            if "*" in denys:
-                                return
-                            for deny in denys:
-                                if app_data_dict[ANNOUNCE_DATA_FIELDS][MSG_FIELD_TYPE] == deny:
+            if (app_data[0] >= 0x90 and app_data[0] <= 0x9f) or app_data[0] == 0xdc:
+                app_data = msgpack.unpackb(app_data)
+                if isinstance(app_data, list):
+                    if len(app_data) > 2 and app_data[2] != None and isinstance(app_data[2], dict):
+                        if MSG_FIELD_TYPE in app_data[2]:
+                            denys = config_getarray(CONFIG, "lxmf", "deny_type")
+                            if len(denys) > 0:
+                                if "*" in denys:
                                     return
-                elif isinstance(app_data_dict, list) and len(app_data_dict) > 1 and app_data_dict[0] != None:
-                    app_data = app_data_dict[0]
+                                for deny in denys:
+                                    if app_data[2][MSG_FIELD_TYPE] == deny:
+                                        return
+                    if len(app_data) > 1 and app_data[0] != None:
+                        app_data = app_data[0]
+                    else:
+                        app_data = b""
                 else:
                     app_data = b""
         except:
-            pass
+            app_data = b""
 
         try:
             app_data = app_data.decode("utf-8")

@@ -91,10 +91,6 @@ RNS_MAIN_CONNECTION = None
 LXMF_CONNECTION = None
 RNS_CONNECTION = None
 
-ANNOUNCE_DATA_CONTENT = 0x00
-ANNOUNCE_DATA_FIELDS  = 0x01
-ANNOUNCE_DATA_TITLE   = 0x02
-
 CONV_P2P                = 0x01
 CONV_GROUP              = 0x02
 CONV_BROADCAST          = 0x03
@@ -866,25 +862,26 @@ class lxmf_announce_callback:
             return
 
         try:
-            if app_data[0] == 0x83 or (app_data[0] >= 0x90 and app_data[0] <= 0x9f) or app_data[0] == 0xdc:
-                app_data_dict = msgpack.unpackb(app_data)
-                app_data = b""
-                if isinstance(app_data_dict, dict) and ANNOUNCE_DATA_CONTENT in app_data_dict:
-                    app_data = app_data_dict[ANNOUNCE_DATA_CONTENT]
-                    if ANNOUNCE_DATA_FIELDS in app_data_dict and MSG_FIELD_TYPE in app_data_dict[ANNOUNCE_DATA_FIELDS]:
-                        denys = config_getarray(CONFIG, "lxmf", "announce_deny_type")
-                        if len(denys) > 0:
-                            if "*" in denys:
-                                return
-                            for deny in denys:
-                                if app_data_dict[ANNOUNCE_DATA_FIELDS][MSG_FIELD_TYPE] == deny:
+            if (app_data[0] >= 0x90 and app_data[0] <= 0x9f) or app_data[0] == 0xdc:
+                app_data = msgpack.unpackb(app_data)
+                if isinstance(app_data, list):
+                    if len(app_data) > 2 and app_data[2] != None and isinstance(app_data[2], dict):
+                        if MSG_FIELD_TYPE in app_data[2]:
+                            denys = config_getarray(CONFIG, "lxmf", "announce_deny_type")
+                            if len(denys) > 0:
+                                if "*" in denys:
                                     return
-                elif isinstance(app_data_dict, list) and len(app_data_dict) > 1 and app_data_dict[0] != None:
-                    app_data = app_data_dict[0]
+                                for deny in denys:
+                                    if app_data[2][MSG_FIELD_TYPE] == deny:
+                                        return
+                    if len(app_data) > 1 and app_data[0] != None:
+                        app_data = app_data[0]
+                    else:
+                        app_data = b""
                 else:
                     app_data = b""
         except:
-            pass
+            app_data = b""
 
         try:
             app_data = app_data.decode("utf-8")
@@ -1168,13 +1165,10 @@ def lxmf_message_received_callback(message):
                 app_data = RNS.Identity.recall_app_data(message.source_hash)
                 if app_data != None and len(app_data) > 0:
                     try:
-                        if app_data[0] == 0x83 or (app_data[0] >= 0x90 and app_data[0] <= 0x9f) or app_data[0] == 0xdc:
-                            app_data_dict = msgpack.unpackb(app_data)
-                            app_data = b""
-                            if isinstance(app_data_dict, dict) and ANNOUNCE_DATA_CONTENT in app_data_dict:
-                                app_data = app_data_dict[ANNOUNCE_DATA_CONTENT]
-                            elif isinstance(app_data_dict, list) and len(app_data_dict) > 1 and app_data_dict[0] != None:
-                                app_data = app_data_dict[0]
+                        if (app_data[0] >= 0x90 and app_data[0] <= 0x9f) or app_data[0] == 0xdc:
+                            app_data = msgpack.unpackb(app_data)
+                            if isinstance(app_data, list) and len(app_data) > 1 and app_data[0] != None:
+                                app_data = app_data[0]
                             else:
                                 app_data = b""
                     except:
@@ -4257,7 +4251,7 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
             except:
                 pass
         if len(fields) > 0:
-            announce_data = {ANNOUNCE_DATA_CONTENT: CONFIG["lxmf"]["display_name"].encode("utf-8"), ANNOUNCE_DATA_TITLE: None, ANNOUNCE_DATA_FIELDS: fields}
+            announce_data = [CONFIG["lxmf"]["display_name"].encode("utf-8"), None, fields]
             log("LXMF - Configured announce data: "+str(announce_data), LOG_DEBUG)
             announce_data = msgpack.packb(announce_data)
     elif CONFIG["lxmf"]["destination_type_conv"] != "":

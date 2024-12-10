@@ -89,10 +89,6 @@ RNS_CONNECTION = None
 LXMF_CONNECTION = None
 MQTT_CONNECTION = None
 
-ANNOUNCE_DATA_CONTENT = 0x00
-ANNOUNCE_DATA_FIELDS  = 0x01
-ANNOUNCE_DATA_TITLE   = 0x02
-
 MSG_FIELD_EMBEDDED_LXMS    = 0x01
 MSG_FIELD_TELEMETRY        = 0x02
 MSG_FIELD_TELEMETRY_STREAM = 0x03
@@ -698,17 +694,14 @@ class lxmf_announce_callback:
             return
 
         try:
-            if app_data[0] == 0x83 or (app_data[0] >= 0x90 and app_data[0] <= 0x9f) or app_data[0] == 0xdc:
-                app_data_dict = msgpack.unpackb(app_data)
-                app_data = b""
-                if isinstance(app_data_dict, dict) and ANNOUNCE_DATA_CONTENT in app_data_dict:
-                    app_data = app_data_dict[ANNOUNCE_DATA_CONTENT]
-                elif isinstance(app_data_dict, list) and len(app_data_dict) > 1 and app_data_dict[0] != None:
-                    app_data = app_data_dict[0]
+            if (app_data[0] >= 0x90 and app_data[0] <= 0x9f) or app_data[0] == 0xdc:
+                app_data = msgpack.unpackb(app_data)
+                if isinstance(app_data, list) and len(app_data) > 1 and app_data[0] != None:
+                    app_data = app_data[0]
                 else:
                     app_data = b""
         except:
-            pass
+            app_data = b""
 
         try:
             app_data = app_data.decode("utf-8")
@@ -1394,7 +1387,7 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
             except:
                 pass
         if len(fields) > 0:
-            announce_data = {ANNOUNCE_DATA_CONTENT: CONFIG["rns_server"]["display_name"].encode("utf-8"), ANNOUNCE_DATA_TITLE: None, ANNOUNCE_DATA_FIELDS: fields}
+            announce_data = [CONFIG["rns_server"]["display_name"].encode("utf-8"), None, fields]
             log("LXMF - Configured announce data: "+str(announce_data), LOG_DEBUG)
             announce_data = msgpack.packb(announce_data)
 
