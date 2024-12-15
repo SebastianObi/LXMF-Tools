@@ -1206,27 +1206,26 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
         path = PATH
 
     announce_data = CONFIG["lxmf"]["display_name"]
-    if CONFIG["main"].getboolean("fields_announce"):
-        fields = {}
-        if CONFIG["telemetry"].getboolean("location_enabled"):
-            try:
-               fields[MSG_FIELD_LOCATION] = [CONFIG["telemetry"].getfloat("location_lat"), CONFIG["telemetry"].getfloat("location_lon")]
-            except:
-                pass
-        if CONFIG["telemetry"].getboolean("owner_enabled"):
-            try:
-               fields[MSG_FIELD_OWNER] = bytes.fromhex(CONFIG["telemetry"]["owner_data"])
-            except:
-                pass
-        if CONFIG["telemetry"].getboolean("state_enabled"):
-            try:
-               fields[MSG_FIELD_STATE] = [CONFIG["telemetry"].getint("state_data"), int(time.time())]
-            except:
-                pass
-        if len(fields) > 0:
-            announce_data = [CONFIG["rns_server"]["display_name"].encode("utf-8"), None, fields]
-            log("LXMF - Configured announce data: "+str(announce_data), LOG_DEBUG)
-            announce_data = msgpack.packb(announce_data)
+    fields = {}
+    if CONFIG["telemetry"].getboolean("location_enabled"):
+        try:
+           fields[MSG_FIELD_LOCATION] = [CONFIG["telemetry"].getfloat("location_lat"), CONFIG["telemetry"].getfloat("location_lon")]
+        except:
+            pass
+    if CONFIG["telemetry"].getboolean("owner_enabled"):
+        try:
+           fields[MSG_FIELD_OWNER] = bytes.fromhex(CONFIG["telemetry"]["owner_data"])
+        except:
+            pass
+    if CONFIG["telemetry"].getboolean("state_enabled"):
+        try:
+           fields[MSG_FIELD_STATE] = [CONFIG["telemetry"].getint("state_data"), int(time.time())]
+        except:
+            pass
+    if len(fields) > 0:
+        announce_data = [CONFIG["lxmf"]["display_name"].encode("utf-8"), None, fields]
+        log("LXMF - Configured announce data: "+str(announce_data), LOG_DEBUG)
+        announce_data = msgpack.packb(announce_data)
 
     LXMF_CONNECTION = lxmf_connection(
         storage_path=path,
@@ -1333,10 +1332,6 @@ enabled = True
 
 # Name of the program. Only for display in the log or program startup.
 name = Echo Test
-
-# Transport extended data in the announce.
-# This is needed for the integration of advanced client apps.
-fields_announce = False
 
 
 #### LXMF connection settings ####

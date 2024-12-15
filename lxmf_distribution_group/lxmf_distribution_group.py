@@ -2147,32 +2147,31 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
 
     display_name = CONFIG["lxmf"]["display_name"]
     announce_data = None
-    if CONFIG["main"].getboolean("fields_announce"):
-        fields = {}
-        if CONFIG["lxmf"]["destination_type_conv"] != "":
-            try:
-               fields[MSG_FIELD_TYPE] = CONFIG["lxmf"].getint("destination_type_conv")
-            except:
-                pass
-        if CONFIG["telemetry"].getboolean("location_enabled"):
-            try:
-               fields[MSG_FIELD_LOCATION] = [CONFIG["telemetry"].getfloat("location_lat"), CONFIG["telemetry"].getfloat("location_lon")]
-            except:
-                pass
-        if CONFIG["telemetry"].getboolean("owner_enabled"):
-            try:
-               fields[MSG_FIELD_OWNER] = bytes.fromhex(CONFIG["telemetry"]["owner_data"])
-            except:
-                pass
-        if CONFIG["telemetry"].getboolean("state_enabled"):
-            try:
-               fields[MSG_FIELD_STATE] = [CONFIG["telemetry"].getint("state_data"), int(time.time())]
-            except:
-                pass
-        if len(fields) > 0:
-            announce_data = [CONFIG["lxmf"]["display_name"].encode("utf-8"), None, fields]
-            log("LXMF - Configured announce data: "+str(announce_data), LOG_DEBUG)
-            announce_data = msgpack.packb(announce_data)
+    fields = {}
+    if CONFIG["lxmf"]["destination_type_conv"] != "":
+        try:
+           fields[MSG_FIELD_TYPE] = CONFIG["lxmf"].getint("destination_type_conv")
+        except:
+            pass
+    if CONFIG["telemetry"].getboolean("location_enabled"):
+        try:
+           fields[MSG_FIELD_LOCATION] = [CONFIG["telemetry"].getfloat("location_lat"), CONFIG["telemetry"].getfloat("location_lon")]
+        except:
+            pass
+    if CONFIG["telemetry"].getboolean("owner_enabled"):
+        try:
+           fields[MSG_FIELD_OWNER] = bytes.fromhex(CONFIG["telemetry"]["owner_data"])
+        except:
+            pass
+    if CONFIG["telemetry"].getboolean("state_enabled"):
+        try:
+           fields[MSG_FIELD_STATE] = [CONFIG["telemetry"].getint("state_data"), int(time.time())]
+        except:
+            pass
+    if len(fields) > 0:
+        announce_data = [CONFIG["lxmf"]["display_name"].encode("utf-8"), None, fields]
+        log("LXMF - Configured announce data: "+str(announce_data), LOG_DEBUG)
+        announce_data = msgpack.packb(announce_data)
     elif CONFIG["lxmf"]["destination_type_conv"] != "":
         display_name += chr(CONFIG["lxmf"].getint("destination_type_conv"))
 
@@ -2335,7 +2334,6 @@ auto_name_change = True
 
 # Transport extended data in the announce and fields variable.
 # This is needed for the integration of advanced client apps.
-fields_announce = False
 fields_message = False
 
 

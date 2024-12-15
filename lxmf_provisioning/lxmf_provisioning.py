@@ -1467,53 +1467,52 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
         path = PATH
 
     announce_data = CONFIG["lxmf"]["display_name"]
-    if CONFIG["main"].getboolean("fields_announce"):
-        fields = {}
-        if CONFIG["telemetry"].getboolean("location_enabled"):
-            try:
-               fields[MSG_FIELD_LOCATION] = [CONFIG["telemetry"].getfloat("location_lat"), CONFIG["telemetry"].getfloat("location_lon")]
-            except:
-                pass
-        if CONFIG["telemetry"].getboolean("owner_enabled"):
-            try:
-               fields[MSG_FIELD_OWNER] = bytes.fromhex(CONFIG["telemetry"]["owner_data"])
-            except:
-                pass
-        if CONFIG["telemetry"].getboolean("state_enabled"):
-            try:
-               fields[MSG_FIELD_STATE] = [CONFIG["telemetry"].getint("state_data"), int(time.time())]
-            except:
-                pass
-        if CONFIG["features"].getboolean("announce_data"):
-            section = "data"
-            if CONFIG.has_section(section):
-                type_fields = {}
-                for (key, val) in CONFIG.items(section):
-                    if key == "config_lxm":
-                        try:
-                            if val != "":
-                                val = base64.urlsafe_b64decode(val.replace("lxm://", "").replace("/", "")+"==")
-                                val = msgpack.unpackb(val)
-                                if val and "data" in val:
-                                    type_fields["config"] = val["data"]["data"]
-                        except:
-                            pass
+    fields = {}
+    if CONFIG["telemetry"].getboolean("location_enabled"):
+        try:
+           fields[MSG_FIELD_LOCATION] = [CONFIG["telemetry"].getfloat("location_lat"), CONFIG["telemetry"].getfloat("location_lon")]
+        except:
+            pass
+    if CONFIG["telemetry"].getboolean("owner_enabled"):
+        try:
+           fields[MSG_FIELD_OWNER] = bytes.fromhex(CONFIG["telemetry"]["owner_data"])
+        except:
+            pass
+    if CONFIG["telemetry"].getboolean("state_enabled"):
+        try:
+           fields[MSG_FIELD_STATE] = [CONFIG["telemetry"].getint("state_data"), int(time.time())]
+        except:
+            pass
+    if CONFIG["features"].getboolean("announce_data"):
+        section = "data"
+        if CONFIG.has_section(section):
+            type_fields = {}
+            for (key, val) in CONFIG.items(section):
+                if key == "config_lxm":
+                    try:
+                        if val != "":
+                            val = base64.urlsafe_b64decode(val.replace("lxm://", "").replace("/", "")+"==")
+                            val = msgpack.unpackb(val)
+                            if val and "data" in val:
+                                type_fields["config"] = val["data"]["data"]
+                    except:
+                        pass
+                else:
+                    if "=" in val or ";" in val:
+                        type_fields[key] = {}
+                        keys = val.split(";")
+                        for val in keys:
+                            val = val.split("=")
+                            if len(val) == 2:
+                                type_fields[key][val[0]] = val_to_val(val[1])
                     else:
-                        if "=" in val or ";" in val:
-                            type_fields[key] = {}
-                            keys = val.split(";")
-                            for val in keys:
-                                val = val.split("=")
-                                if len(val) == 2:
-                                    type_fields[key][val[0]] = val_to_val(val[1])
-                        else:
-                            type_fields[key] = val
-                if len(type_fields) > 0:
-                    fields[MSG_FIELD_TYPE_FIELDS] = type_fields
-        if len(fields) > 0:
-            announce_data = [CONFIG["lxmf"]["display_name"].encode("utf-8"), None, fields]
-            log("LXMF - Configured announce data: "+str(announce_data), LOG_DEBUG)
-            announce_data = msgpack.packb(announce_data)
+                        type_fields[key] = val
+            if len(type_fields) > 0:
+                fields[MSG_FIELD_TYPE_FIELDS] = type_fields
+    if len(fields) > 0:
+        announce_data = [CONFIG["lxmf"]["display_name"].encode("utf-8"), None, fields]
+        log("LXMF - Configured announce data: "+str(announce_data), LOG_DEBUG)
+        announce_data = msgpack.packb(announce_data)
 
     LXMF_CONNECTION = lxmf_connection(
         storage_path=path,
@@ -1661,10 +1660,6 @@ enabled = True
 
 # Name of the program. Only for display in the log or program startup.
 name = LXMF Provisioning Server
-
-# Transport extended data in the announce.
-# This is needed for the integration of advanced client apps.
-fields_announce = True
 
 
 #### LXMF connection settings ####
