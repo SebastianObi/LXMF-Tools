@@ -165,7 +165,7 @@ class lxmf_connection:
     config_set_callback = None
 
 
-    def __init__(self, storage_path=None, identity_file="identity", identity=None, destination_name="lxmf", destination_type="delivery", display_name="", announce_data=None, announce_hidden=False, send_delay=0, desired_method="direct", propagation_node=None, propagation_node_auto=False, propagation_node_active=None, try_propagation_on_fail=False, announce_startup=False, announce_startup_delay=0, announce_periodic=False, announce_periodic_interval=360, sync_startup=False, sync_startup_delay=0, sync_limit=8, sync_periodic=False, sync_periodic_interval=360):
+    def __init__(self, storage_path=None, identity_file="identity", identity=None, destination_name="lxmf", destination_type="delivery", display_name="", announce_data=None, announce_hidden=False, send_delay=0, method="auto", propagation_node=None, propagation_node_auto=False, propagation_node_active=None, announce_startup=False, announce_startup_delay=0, announce_periodic=False, announce_periodic_interval=360, sync_startup=False, sync_startup_delay=0, sync_limit=8, sync_periodic=False, sync_periodic_interval=360):
         self.storage_path = storage_path
 
         self.identity_file = identity_file
@@ -181,15 +181,11 @@ class lxmf_connection:
         self.announce_hidden = announce_hidden
 
         self.send_delay = int(send_delay)
+        self.method = method
 
-        if desired_method == "propagated" or desired_method == "PROPAGATED":
-            self.desired_method_direct = False
-        else:
-            self.desired_method_direct = True
         self.propagation_node = propagation_node
         self.propagation_node_auto = propagation_node_auto
         self.propagation_node_active = propagation_node_active
-        self.try_propagation_on_fail = try_propagation_on_fail
 
         self.announce_startup = announce_startup
         self.announce_startup_delay = int(announce_startup_delay)
@@ -350,7 +346,7 @@ class lxmf_connection:
         return ""
 
 
-    def send(self, destination, content="", title="", fields=None, timestamp=None, app_data="", destination_name=None, destination_type=None):
+    def send(self, destination, content="", title="", fields=None, timestamp=None, app_data="", destination_name=None, destination_type=None, method=None):
         if type(destination) is not bytes:
             if len(destination) == ((RNS.Reticulum.TRUNCATED_HASHLENGTH//8)*2)+2:
                 destination = destination[1:-1]
@@ -369,20 +365,49 @@ class lxmf_connection:
             destination_name = self.destination_name
         if destination_type == None:
             destination_type = self.destination_type
+        if method == None:
+            method = self.method
 
         destination_identity = RNS.Identity.recall(destination)
         destination = RNS.Destination(destination_identity, RNS.Destination.OUT, RNS.Destination.SINGLE, destination_name, destination_type)
-        return self.send_message(destination, self.destination, content, title, fields, timestamp, app_data)
+        return self.send_message(destination, self.destination, content, title, fields, timestamp, app_data, method)
 
 
-    def send_message(self, destination, source, content="", title="", fields=None, timestamp=None, app_data=""):
+    def send_message(self, destination, source, content="", title="", fields=None, timestamp=None, app_data="", method=None):
         if destination == self.destination:
             return None
 
-        if self.desired_method_direct:
-            desired_method = LXMF.LXMessage.DIRECT
+        if method.lower() == "auto":
+            opportunistic = True
+            propagation = False
+            propagation_on_fail = True
+        elif method.lower() == "opportunistic":
+            opportunistic = True
+            propagation = False
+            propagation_on_fail = False
+        elif method.lower() == "direct":
+            opportunistic = False
+            propagation = False
+            propagation_on_fail = False
+        elif method.lower() == "propagated":
+            opportunistic = False
+            propagation = True
+            propagation_on_fail = False
+        elif method.lower() == "command":
+            opportunistic = True
+            propagation = False
+            propagation_on_fail = False
         else:
+            opportunistic = True
+            propagation = False
+            propagation_on_fail = True
+
+        if propagation:
             desired_method = LXMF.LXMessage.PROPAGATED
+        elif opportunistic and not self.message_router.delivery_link_available(destination.hash) and RNS.Identity.current_ratchet_id(destination.hash) != None:
+            desired_method = LXMF.LXMessage.OPPORTUNISTIC
+        else:
+            desired_method = LXMF.LXMessage.DIRECT
 
         message = LXMF.LXMessage(destination, source, content, title=title, desired_method=desired_method)
 
@@ -394,14 +419,13 @@ class lxmf_connection:
 
         message.app_data = app_data
 
-        self.message_method(message)
         self.log_message(message, "LXMF - Message send")
 
         message.register_delivery_callback(self.message_notification)
         message.register_failed_callback(self.message_notification)
 
         if self.message_router.get_outbound_propagation_node() != None:
-            message.try_propagation_on_fail = self.try_propagation_on_fail
+            message.try_propagation_on_fail = propagation_on_fail
 
         try:
             self.message_router.handle_outbound(message)
@@ -414,19 +438,23 @@ class lxmf_connection:
 
 
     def message_notification(self, message):
-        self.message_method(message)
-
         if self.message_notification_callback is not None:
             self.message_notification_callback(message)
 
         if message.state == LXMF.LXMessage.FAILED and hasattr(message, "try_propagation_on_fail") and message.try_propagation_on_fail:
-            self.log_message(message, "LXMF - Delivery receipt (failed) Retrying as propagated message")
-            message.try_propagation_on_fail = None
-            message.delivery_attempts = 0
-            del message.next_delivery_attempt
-            message.packed = None
-            message.desired_method = LXMF.LXMessage.PROPAGATED
-            self.message_router.handle_outbound(message)
+            if hasattr(message, "stamp_generation_failed") and message.stamp_generation_failed == True:
+                self.log_message(message, "LXMF - Delivery receipt (failed)")
+                if self.message_notification_failed_callback is not None:
+                    self.message_notification_failed_callback(message)
+            else:
+                self.log_message(message, "LXMF - Delivery receipt (failed) Retrying as propagated message")
+                message.try_propagation_on_fail = None
+                message.delivery_attempts = 0
+                if hasattr(message, "next_delivery_attempt"):
+                    del message.next_delivery_attempt
+                message.packed = None
+                message.desired_method = LXMF.LXMessage.PROPAGATED
+                self.message_router.handle_outbound(message)
         elif message.state == LXMF.LXMessage.FAILED:
             self.log_message(message, "LXMF - Delivery receipt (failed)")
             if self.message_notification_failed_callback is not None:
@@ -435,13 +463,6 @@ class lxmf_connection:
             self.log_message(message, "LXMF - Delivery receipt (success)")
             if self.message_notification_success_callback is not None:
                 self.message_notification_success_callback(message)
-
-
-    def message_method(self, message):
-        if message.desired_method == LXMF.LXMessage.DIRECT:
-            message.desired_method_str = "direct"
-        elif message.desired_method == LXMF.LXMessage.PROPAGATED:
-            message.desired_method_str = "propagated"
 
 
     def announce(self, app_data=None, attached_interface=None, initial=False):
@@ -602,7 +623,6 @@ class lxmf_connection:
 
         message.desired_method = LXMF.LXMessage.DIRECT
 
-        self.message_method(message)
         self.log_message(message, "LXMF - Message received")
 
         if self.message_received_callback is not None:
@@ -615,7 +635,6 @@ class lxmf_connection:
     def process_lxmf_message_propagated(self, message):
         message.desired_method = LXMF.LXMessage.PROPAGATED
 
-        self.message_method(message)
         self.log_message(message, "LXMF - Message received")
 
         if self.message_received_callback is not None:
@@ -648,10 +667,7 @@ class lxmf_connection:
         log("- Destination: " + RNS.prettyhexrep(message.destination_hash), LOG_DEBUG)
         log("-   Signature: " + signature_string, LOG_DEBUG)
         log("-    Attempts: " + str(message.delivery_attempts), LOG_DEBUG)
-        if hasattr(message, "desired_method_str"):
-            log("-      Method: " + message.desired_method_str + " (" + str(message.desired_method) + ")", LOG_DEBUG)
-        else:
-            log("-      Method: " + str(message.desired_method), LOG_DEBUG)
+        log("-      Method: " + str(message.desired_method), LOG_DEBUG)
         if hasattr(message, "app_data"):
             log("-    App Data: " + message.app_data, LOG_DEBUG)
 
@@ -1120,7 +1136,7 @@ def lxmf_message_received_callback(message):
                 fields = fields(fields)
 
                 if CONFIG["statistic"].getboolean("enabled") and CONFIG["statistic"].getboolean("cluster"):
-                    statistic("add", "cluster_in_" + message.desired_method_str)
+                    statistic("add", "cluster_in_" + str(message.desired_method))
 
                 if fields["m_t"] == "message":
                     for section in sections:
@@ -1303,7 +1319,7 @@ def lxmf_message_received_callback(message):
 
         if CONFIG["statistic"].getboolean("enabled"):
             if CONFIG["statistic"].getboolean("interface"):
-                statistic("add", "interface_received_" + message.desired_method_str)
+                statistic("add", "interface_received_" + str(message.desired_method))
             if CONFIG["statistic"].getboolean("user"):
                 statistic("value_set", source_hash, "activity", time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time())))
                 statistic("value_set", source_hash, "activity_receive", time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time())))
@@ -1430,7 +1446,7 @@ def lxmf_message_received_callback(message):
 
         if CONFIG["statistic"].getboolean("enabled"):
             if CONFIG["statistic"].getboolean("cluster"):
-                statistic("add", "cluster_received_" + message.desired_method_str)
+                statistic("add", "cluster_received_" + str(message.desired_method))
             if CONFIG["statistic"].getboolean("user"):
                 statistic("add", source_hash)
                 statistic("value_set", source_hash, "activity", time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time())))
@@ -1539,7 +1555,7 @@ def lxmf_message_received_callback(message):
 
             if CONFIG["statistic"].getboolean("enabled"):
                 if CONFIG["statistic"].getboolean("local"):
-                    statistic("add", "local_received_" + message.desired_method_str)
+                    statistic("add", "local_received_" + str(message.desired_method))
                 if CONFIG["statistic"].getboolean("user"):
                     statistic("add", source_hash)
                     statistic("value_set", source_hash, "activity", time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time())))
@@ -1573,16 +1589,16 @@ def lxmf_message_received_callback(message):
 def lxmf_message_notification_success_callback(message):
     if CONFIG["statistic"].getboolean("enabled"):
         if message.app_data.startswith("cluster") and CONFIG["statistic"].getboolean("cluster"):
-            statistic("add", message.app_data + "_" + message.desired_method_str + "_success")
+            statistic("add", message.app_data + "_" + str(message.desired_method) + "_success")
         elif message.app_data.startswith("router") and CONFIG["statistic"].getboolean("router"):
-            statistic("add", message.app_data + "_" + message.desired_method_str + "_success")
+            statistic("add", message.app_data + "_" + str(message.desired_method) + "_success")
         elif message.app_data.startswith("local") and CONFIG["statistic"].getboolean("local"):
-            statistic("add", message.app_data + "_" + message.desired_method_str + "_success")
+            statistic("add", message.app_data + "_" + str(message.desired_method) + "_success")
         elif message.app_data.startswith("interface") and CONFIG["statistic"].getboolean("interface"):
-            statistic("add", message.app_data + "_" + message.desired_method_str + "_success")
+            statistic("add", message.app_data + "_" + str(message.desired_method) + "_success")
 
         if CONFIG["statistic"].getboolean("user"):
-            if message.desired_method_str == "direct":
+            if message.desired_method == LXMF.LXMessage.DIRECT:
                 destination_hash = RNS.hexrep(message.destination_hash, False)
                 statistic("value_set", destination_hash, "activity", time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time())))
                 statistic("value_set", destination_hash, "activity_send", time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time())))
@@ -1593,13 +1609,13 @@ def lxmf_message_notification_success_callback(message):
 def lxmf_message_notification_failed_callback(message):
     if CONFIG["statistic"].getboolean("enabled"):
         if message.app_data.startswith("cluster") and CONFIG["statistic"].getboolean("cluster"):
-            statistic("add", message.app_data + "_" + message.desired_method_str + "_failed")
+            statistic("add", message.app_data + "_" + str(message.desired_method) + "_failed")
         elif message.app_data.startswith("router") and CONFIG["statistic"].getboolean("router"):
-            statistic("add", message.app_data + "_" + message.desired_method_str + "_failed")
+            statistic("add", message.app_data + "_" + str(message.desired_method) + "_failed")
         elif message.app_data.startswith("local") and CONFIG["statistic"].getboolean("local"):
-            statistic("add", message.app_data + "_" + message.desired_method_str + "_failed")
+            statistic("add", message.app_data + "_" + str(message.desired_method) + "_failed")
         elif message.app_data.startswith("interface") and CONFIG["statistic"].getboolean("interface"):
-            statistic("add", message.app_data + "_" + message.desired_method_str + "_failed")
+            statistic("add", message.app_data + "_" + str(message.desired_method) + "_failed")
     return
 
 
@@ -4277,11 +4293,10 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False)
         announce_data=announce_data,
         announce_hidden=CONFIG["lxmf"].getboolean("announce_hidden"),
         send_delay=CONFIG["lxmf"]["send_delay"],
-        desired_method=CONFIG["lxmf"]["desired_method"],
+        method=CONFIG["lxmf"]["method"],
         propagation_node=config_propagation_node,
         propagation_node_auto=CONFIG["lxmf"].getboolean("propagation_node_auto"),
         propagation_node_active=config_propagation_node_active,
-        try_propagation_on_fail=CONFIG["lxmf"].getboolean("try_propagation_on_fail"),
         announce_startup=CONFIG["lxmf"].getboolean("announce_startup"),
         announce_startup_delay=CONFIG["lxmf"]["announce_startup_delay"],
         announce_periodic=CONFIG["lxmf"].getboolean("announce_periodic"),
@@ -4436,10 +4451,6 @@ display_name = Distribution Group
 # Set propagation node automatically.
 propagation_node_auto = True
 
-# Try to deliver a message via the LXMF propagation network,
-# if a direct delivery to the recipient is not possible.
-try_propagation_on_fail = Yes
-
 
 [telemetry]
 location_enabled = False
@@ -4556,7 +4567,7 @@ destination_type_conv = #4=Group, 6=Channel (Only for use with Communicator-Soft
 display_name = Distribution Group
 
 # Default send method.
-desired_method = direct #direct/propagated
+method = auto #auto/opportunistic/direct/propagated/command
 
 # Propagation node address/hash.
 propagation_node = 
@@ -4566,10 +4577,6 @@ propagation_node_auto = True
 
 # Current propagation node (Automatically set by the software).
 propagation_node_active = 
-
-# Try to deliver a message via the LXMF propagation network,
-# if a direct delivery to the recipient is not possible.
-try_propagation_on_fail = Yes
 
 # The peer is announced at startup
 # to let other peers reach it immediately.
