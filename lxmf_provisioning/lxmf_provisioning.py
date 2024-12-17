@@ -170,7 +170,7 @@ class lxmf_connection:
     config_set_callback = None
 
 
-    def __init__(self, storage_path=None, identity_file="identity", identity=None, destination_name="lxmf", destination_type="delivery", display_name="", announce_data=None, announce_hidden=False, send_delay=0, method="auto", propagation_node=None, propagation_node_auto=False, propagation_node_active=None, announce_startup=False, announce_startup_delay=0, announce_periodic=False, announce_periodic_interval=360, sync_startup=False, sync_startup_delay=0, sync_limit=8, sync_periodic=False, sync_periodic_interval=360):
+    def __init__(self, storage_path=None, identity_file="identity", identity=None, destination_name="lxmf", destination_type="delivery", announce_display_name="", announce_fields=None, announce_hidden=False, send_delay=0, method="auto", propagation_node=None, propagation_node_auto=False, propagation_node_active=None, stamps_enabled=False, stamps_required=False, stamps_cost=8, announce_startup=False, announce_startup_delay=0, announce_periodic=False, announce_periodic_interval=360, sync_startup=False, sync_startup_delay=0, sync_limit=8, sync_periodic=False, sync_periodic_interval=360):
         self.storage_path = storage_path
 
         self.identity_file = identity_file
@@ -181,9 +181,24 @@ class lxmf_connection:
         self.destination_type = destination_type
         self.aspect_filter = self.destination_name + "." + self.destination_type
 
-        self.display_name = display_name
-        self.announce_data = announce_data
+        self.announce_display_name = announce_display_name
+        self.announce_fields = announce_fields if announce_fields and len(announce_fields) > 0 else None
         self.announce_hidden = announce_hidden
+
+        if stamps_enabled:
+            stamps_cost = int(stamps_cost)
+            if stamps_cost < 1 or stamps_cost > 255:
+                stamps_cost = None
+        else:
+            stamps_cost = None
+
+        if self.announce_fields:
+            self.announce_data = msgpack.packb([self.announce_display_name.encode("utf-8"), stamps_cost, self.announce_fields])
+        elif stamps_cost:
+            self.announce_data = msgpack.packb([self.announce_display_name.encode("utf-8"), stamps_cost])
+        else:
+            self.announce_data = self.announce_display_name.encode("utf-8")
+        log("LXMF - Configured announce data: " + str(self.announce_data), LOG_DEBUG)
 
         self.send_delay = int(send_delay)
         self.method = method
@@ -246,15 +261,20 @@ class lxmf_connection:
         self.message_router = LXMF.LXMRouter(identity=self.identity, storagepath=self.storage_path)
 
         if self.destination_name == "lxmf" and self.destination_type == "delivery":
-            self.destination = self.message_router.register_delivery_identity(self.identity, display_name=self.display_name)
+            self.destination = self.message_router.register_delivery_identity(self.identity, display_name=self.announce_display_name, stamp_cost=stamps_cost)
             self.message_router.register_delivery_callback(self.process_lxmf_message_propagated)
         else:
             self.destination = RNS.Destination(self.identity, RNS.Destination.IN, RNS.Destination.SINGLE, self.destination_name, self.destination_type)
 
-        if self.display_name == "":
-            self.display_name = RNS.prettyhexrep(self.destination_hash())
+        if self.announce_display_name == "":
+            self.announce_display_name = RNS.prettyhexrep(self.destination_hash())
 
-        self.destination.set_default_app_data(self.display_name.encode("utf-8"))
+        if stamps_enabled and stamps_required:
+            self.message_router.enforce_stamps()
+        else:
+            self.message_router.ignore_stamps()
+
+        self.destination.set_default_app_data(self.announce_display_name.encode("utf-8"))
 
         self.destination.set_proof_strategy(RNS.Destination.PROVE_ALL)
 
@@ -504,16 +524,9 @@ class lxmf_connection:
             else:
                 self.destination.announce(app_data, attached_interface=attached_interface)
                 log("LMF - Announced: " + RNS.prettyhexrep(self.destination_hash()), LOG_DEBUG)
-        elif self.announce_data:
-            if isinstance(self.announce_data, str):
-                self.destination.announce(self.announce_data.encode("utf-8"), attached_interface=attached_interface)
-                log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()) +": " + self.announce_data, LOG_DEBUG)
-            else:
-                self.destination.announce(self.announce_data, attached_interface=attached_interface)
-                log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()), LOG_DEBUG)
         else:
-            self.destination.announce()
-            log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()) + ": " + self.display_name, LOG_DEBUG)
+            self.destination.announce(self.announce_data, attached_interface=attached_interface)
+            log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()), LOG_DEBUG)
 
 
     def sync(self, initial=False):
@@ -1482,21 +1495,20 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False,
     if path is None:
         path = PATH
 
-    announce_data = CONFIG["lxmf"]["display_name"]
-    fields = {}
+    announce_fields = {}
     if CONFIG["telemetry"].getboolean("location_enabled"):
         try:
-           fields[MSG_FIELD_LOCATION] = [CONFIG["telemetry"].getfloat("location_lat"), CONFIG["telemetry"].getfloat("location_lon")]
+           announce_fields[MSG_FIELD_LOCATION] = [CONFIG["telemetry"].getfloat("location_lat"), CONFIG["telemetry"].getfloat("location_lon")]
         except:
             pass
     if CONFIG["telemetry"].getboolean("owner_enabled"):
         try:
-           fields[MSG_FIELD_OWNER] = bytes.fromhex(CONFIG["telemetry"]["owner_data"])
+           announce_fields[MSG_FIELD_OWNER] = bytes.fromhex(CONFIG["telemetry"]["owner_data"])
         except:
             pass
     if CONFIG["telemetry"].getboolean("state_enabled"):
         try:
-           fields[MSG_FIELD_STATE] = [CONFIG["telemetry"].getint("state_data"), int(time.time())]
+           announce_fields[MSG_FIELD_STATE] = [CONFIG["telemetry"].getint("state_data"), int(time.time())]
         except:
             pass
     if CONFIG["features"].getboolean("announce_data"):
@@ -1524,23 +1536,23 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False,
                     else:
                         type_fields[key] = val
             if len(type_fields) > 0:
-                fields[MSG_FIELD_TYPE_FIELDS] = type_fields
-    if len(fields) > 0:
-        announce_data = [CONFIG["lxmf"]["display_name"].encode("utf-8"), None, fields]
-        log("LXMF - Configured announce data: "+str(announce_data), LOG_DEBUG)
-        announce_data = msgpack.packb(announce_data)
+                announce_fields[MSG_FIELD_TYPE_FIELDS] = type_fields
 
     LXMF_CONNECTION = lxmf_connection(
         storage_path=path,
         destination_name=CONFIG["lxmf"]["destination_name"],
         destination_type=CONFIG["lxmf"]["destination_type"],
-        announce_data=announce_data,
+        announce_display_name=CONFIG["lxmf"]["display_name"],
+        announce_fields=announce_fields,
         announce_hidden=CONFIG["lxmf"].getboolean("announce_hidden"),
         send_delay=CONFIG["lxmf"]["send_delay"],
         method=CONFIG["lxmf"]["method"],
         propagation_node=config_propagation_node,
         propagation_node_auto=CONFIG["lxmf"].getboolean("propagation_node_auto"),
         propagation_node_active=config_propagation_node_active,
+        stamps_enabled=CONFIG["lxmf"].getboolean("stamps_enabled"),
+        stamps_required=CONFIG["lxmf"].getboolean("stamps_required"),
+        stamps_cost=CONFIG["lxmf"]["stamps_cost"],
         announce_startup=CONFIG["lxmf"].getboolean("announce_startup"),
         announce_startup_delay=CONFIG["lxmf"]["announce_startup_delay"],
         announce_periodic=CONFIG["lxmf"].getboolean("announce_periodic"),
@@ -1703,6 +1715,11 @@ propagation_node_auto = True
 
 # Current propagation node (Automatically set by the software).
 propagation_node_active = 
+
+# Stamps settings.
+stamps_enabled = False
+stamps_required = False
+stamps_cost = 8
 
 # The peer is announced at startup
 # to let other peers reach it immediately.
