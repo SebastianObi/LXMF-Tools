@@ -813,7 +813,7 @@ def exit():
 
 
 #### Setup #####
-def setup(path=None, path_rns=None, path_log=None, loglevel=None, dest="", interval=1, size=128, count=0, inst=1):
+def setup(path=None, path_rns=None, path_log=None, loglevel=None, require_shared_instance=False, dest="", interval=1, size=128, count=0, inst=1):
     global DATA
     global PATH
     global PATH_RNS
@@ -838,7 +838,7 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, dest="", inter
     else:
         rns_loglevel = None
 
-    RNS_CONNECTION = RNS.Reticulum(configdir=PATH_RNS, loglevel=rns_loglevel)
+    RNS_CONNECTION = RNS.Reticulum(configdir=PATH_RNS, loglevel=rns_loglevel, require_shared_instance=require_shared_instance)
 
     log("...............................................................................", LOG_INFO)
     log("        Name: " + NAME + " - " + DESCRIPTION, LOG_INFO)
@@ -905,6 +905,7 @@ def main():
         parser.add_argument("-pr", "--path_rns", action="store", type=str, default=None, help="Path to alternative Reticulum config directory")
         parser.add_argument("-pl", "--path_log", action="store", type=str, default=None, help="Path to alternative log directory")
         parser.add_argument("-l", "--loglevel", action="store", type=int, default=LOG_LEVEL)
+        parser.add_argument("-rs", "--require_shared_instance", action="store_true", default=False, help="Require a shared reticulum instance")
 
         parser.add_argument("-d", "--dest", action="store", required=True, type=str, default=None, help="Single destination hash or ,-separated list with destination hashs or . for random destination")
         parser.add_argument("-t", "--time", action="store", type=float, default=1, help="Time between messages in seconds")
@@ -914,7 +915,7 @@ def main():
 
         params = parser.parse_args()
 
-        setup(path=params.path, path_rns=params.path_rns, path_log=params.path_log, loglevel=params.loglevel, dest=params.dest, interval=params.time, size=params.size, count=params.count, inst=params.inst)
+        setup(path=params.path, path_rns=params.path_rns, path_log=params.path_log, loglevel=params.loglevel, require_shared_instance=params.require_shared_instance, dest=params.dest, interval=params.time, size=params.size, count=params.count, inst=params.inst)
 
     except KeyboardInterrupt:
         print("Terminated by CTRL-C")
