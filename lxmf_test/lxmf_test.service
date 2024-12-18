@@ -2,7 +2,7 @@
 Description=lxmf_test
 After=multi-user.target
 [Service]
-ExecStartPre=/bin/sleep 10
+ExecStartPre=/bin/sleep 5
 Type=simple
 Restart=always
 RestartSec=3
