@@ -80,14 +80,14 @@ PATH_RNS = None
 #### Global Variables - System (Not changeable) ####
 DATA = None
 RNS_CONNECTION = None
-LXMF_CONNECTION = None
+LXMF_PEER = None
 
 
 ##############################################################################################################
 # LXMF Class
 
 
-class lxmf_connection:
+class LXMFPeer:
     message_received_callback = None
     message_notification_callback = None
     message_notification_success_callback = None
@@ -212,7 +212,7 @@ class lxmf_connection:
         self.destination.set_link_established_callback(self.client_connected)
 
         if self.propagation_node_auto:
-            self.propagation_callback = lxmf_connection_propagation(self, "lxmf.propagation")
+            self.propagation_callback = LXMFPeerPropagation(self, "lxmf.propagation")
             RNS.Transport.register_announce_handler(self.propagation_callback)
             if self.propagation_node_active:
                 self.propagation_node_set(self.propagation_node_active)
@@ -615,7 +615,7 @@ class lxmf_connection:
             log("-    App Data: " + message.app_data, LOG_DEBUG)
 
 
-class lxmf_connection_propagation():
+class LXMFPeerPropagation():
     def __init__(self, owner, aspect_filter=None):
         self.owner = owner
         self.aspect_filter = aspect_filter
@@ -833,7 +833,7 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, require_shared
     global LOG_LEVEL
     global LOG_FILE
     global RNS_CONNECTION
-    global LXMF_CONNECTION
+    global LXMF_PEER
 
     if path is not None:
         if path.endswith("/"):
@@ -865,15 +865,15 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, require_shared
     if path is None:
         path = PATH
 
-    LXMF_CONNECTION = lxmf_connection(storage_path=path)
+    LXMF_PEER = LXMFPeer(storage_path=path)
 
-    LXMF_CONNECTION.register_message_notification_success_callback(lxmf_success)
-    LXMF_CONNECTION.register_message_notification_failed_callback(lxmf_failed)
+    LXMF_PEER.register_message_notification_success_callback(lxmf_success)
+    LXMF_PEER.register_message_notification_failed_callback(lxmf_failed)
 
     log("LXMF - Connected", LOG_DEBUG)
 
     log("...............................................................................", LOG_FORCE)
-    log("LXMF - Address: " + RNS.prettyhexrep(LXMF_CONNECTION.destination_hash()), LOG_FORCE)
+    log("LXMF - Address: " + RNS.prettyhexrep(LXMF_PEER.destination_hash()), LOG_FORCE)
     log("...............................................................................", LOG_FORCE)
 
     DATA = {}
@@ -899,9 +899,9 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, require_shared
                 content = "#"+ str(DATA[key]["count"]) + " " + content
                 content = content[:size]
                 if key == ".":
-                    LXMF_CONNECTION.send(secrets.token_hex(nbytes=10), content)
+                    LXMF_PEER.send(secrets.token_hex(nbytes=10), content)
                 else:
-                    LXMF_CONNECTION.send(key, content)
+                    LXMF_PEER.send(key, content)
                 print("Destination: " + str (key) + "  |  #: " + str(DATA[key]["count"]) + "  |  Messages delivered: " + str(DATA[key]["count_success"]) + "/" + str(DATA[key]["count"]) + " (" + str(round(100/DATA[key]["count"]*DATA[key]["count_success"], 2)) + "%)  |  Time (min / max / avg): " + str(DATA[key]["time_min"]) + " / " + str(DATA[key]["time_max"]) + " / " + str(DATA[key]["time_avg"]) + "  |  Info: Sending/Queued")
             time.sleep(interval)
         else:

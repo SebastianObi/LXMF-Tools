@@ -87,7 +87,7 @@ PATH_RNS = None
 DATA = None
 CONFIG = None
 RNS_CONNECTION = None
-LXMF_CONNECTION = None
+LXMF_PEER = None
 
 CONV_P2P                = 0x01
 CONV_GROUP              = 0x02
@@ -155,7 +155,7 @@ MSG_FIELD_VOICE              = 0xBF
 # LXMF Class
 
 
-class lxmf_connection:
+class LXMFPeer:
     message_received_callback = None
     message_notification_callback = None
     message_notification_success_callback = None
@@ -280,7 +280,7 @@ class lxmf_connection:
         self.destination.set_link_established_callback(self.client_connected)
 
         if self.propagation_node_auto:
-            self.propagation_callback = lxmf_connection_propagation(self, "lxmf.propagation")
+            self.propagation_callback = LXMFPeerPropagation(self, "lxmf.propagation")
             RNS.Transport.register_announce_handler(self.propagation_callback)
             if self.propagation_node_active:
                 self.propagation_node_set(self.propagation_node_active)
@@ -683,7 +683,7 @@ class lxmf_connection:
             log("-    App Data: " + message.app_data, LOG_DEBUG)
 
 
-class lxmf_connection_propagation():
+class LXMFPeerPropagation():
     def __init__(self, owner, aspect_filter=None):
         self.owner = owner
         self.aspect_filter = aspect_filter
@@ -807,14 +807,14 @@ class lxmf_announce_callback:
                         if "receive_join" in config_get(CONFIG, "rights", section).split(","):
                             for (key, val) in DATA.items(section):
                                 if key != source_hash:
-                                    LXMF_CONNECTION.send(key, "", "", fields)
+                                    LXMF_PEER.send(key, "", "", fields)
                     if CONFIG["main"].getboolean("auto_save_data"):
                         DATA.remove_option("main", "unsaved")
                         if not data_save(PATH + "/data.cfg"):
                             DATA["main"]["unsaved"] = "True"
                     else:
                         DATA["main"]["unsaved"] = "True"
-                    LXMF_CONNECTION.send(source_hash, DATA["main"]["welcome"].replace("!n!", "\n"), "", fields_generate(members=True, data=True, cmd=source_right, config=source_right, result_key="join", result_value=True))
+                    LXMF_PEER.send(source_hash, DATA["main"]["welcome"].replace("!n!", "\n"), "", fields_generate(members=True, data=True, cmd=source_right, config=source_right, result_key="join", result_value=True))
                     return
                 elif source_right == "":
                     log("LXMF - Source " + RNS.prettyhexrep(message.source_hash) + " not exist (auto add disabled)", LOG_DEBUG)
@@ -933,14 +933,14 @@ def lxmf_message_received_callback(message):
                 if "receive_join" in config_get(CONFIG, "rights", section).split(","):
                     for (key, val) in DATA.items(section):
                         if key != source_hash:
-                            LXMF_CONNECTION.send(key, "", title, fields)
+                            LXMF_PEER.send(key, "", title, fields)
             if CONFIG["main"].getboolean("auto_save_data"):
                 DATA.remove_option("main", "unsaved")
                 if not data_save(PATH + "/data.cfg"):
                     DATA["main"]["unsaved"] = "True"
             else:
                 DATA["main"]["unsaved"] = "True"
-            LXMF_CONNECTION.send(source_hash, DATA["main"]["welcome"].replace("!n!", "\n"), title, fields_generate(members=True, data=True, cmd=source_right, config=source_right, result_key="join", result_value=True))
+            LXMF_PEER.send(source_hash, DATA["main"]["welcome"].replace("!n!", "\n"), title, fields_generate(members=True, data=True, cmd=source_right, config=source_right, result_key="join", result_value=True))
         return
     elif source_right == "":
         log("LXMF - Source " + RNS.prettyhexrep(message.source_hash) + " not exist (auto add disabled)", LOG_DEBUG)
@@ -975,7 +975,7 @@ def lxmf_message_received_callback(message):
                 cmd, value = cmd.split(" ", 1)
                 user_section = DATA["main"]["allow_user_type"]
                 if DATA.has_section(user_section) and user_section != "main":
-                    value = LXMF_CONNECTION.destination_correct(value)
+                    value = LXMF_PEER.destination_correct(value)
                     if value != "":
                         executed = False
                         section = "wait"
@@ -987,15 +987,15 @@ def lxmf_message_received_callback(message):
                                     DATA[user_section][key] = val
                                     DATA.remove_option(section, key)
                         if executed:
-                            LXMF_CONNECTION.send(value, "", "", fields_generate(members=True, data=True, cmd=user_section, config=user_section, result_key="allow", result_value=True))
+                            LXMF_PEER.send(value, "", "", fields_generate(members=True, data=True, cmd=user_section, config=user_section, result_key="allow", result_value=True))
 
                             fields = fields_generate(src_hash=bytes.fromhex(value), src_name=user_name, members=True, result_key="allow", result_value=True)
                             for section in sections:
                                 if "receive_allow" in config_get(CONFIG, "rights", section).split(","):
                                     for (key, val) in DATA.items(section):
-                                        LXMF_CONNECTION.send(key, "", "", fields)
+                                        LXMF_PEER.send(key, "", "", fields)
 
-                            LXMF_CONNECTION.send(source_hash, "", "", fields_generate(src_hash=bytes.fromhex(value), src_name=user_name, members=True, result_key="allow", result_value=True))
+                            LXMF_PEER.send(source_hash, "", "", fields_generate(src_hash=bytes.fromhex(value), src_name=user_name, members=True, result_key="allow", result_value=True))
 
                             if CONFIG["main"].getboolean("auto_save_data"):
                                 DATA.remove_option("main", "unsaved")
@@ -1004,26 +1004,26 @@ def lxmf_message_received_callback(message):
                             else:
                                 DATA["main"]["unsaved"] = "True"
                         else:
-                            LXMF_CONNECTION.send(source_hash, "", "", fields_generate(result_key="allow", result_value=False))
+                            LXMF_PEER.send(source_hash, "", "", fields_generate(result_key="allow", result_value=False))
                     else:
-                        LXMF_CONNECTION.send(source_hash, "", "", fields_generate(result_key="allow", result_value=False))
+                        LXMF_PEER.send(source_hash, "", "", fields_generate(result_key="allow", result_value=False))
                 else:
-                    LXMF_CONNECTION.send(source_hash, "", "", fields_generate(result_key="allow", result_value=False))
+                    LXMF_PEER.send(source_hash, "", "", fields_generate(result_key="allow", result_value=False))
             except:
-               LXMF_CONNECTION.send(source_hash, "", "", fields_generate(result_key="allow", result_value=False))
+               LXMF_PEER.send(source_hash, "", "", fields_generate(result_key="allow", result_value=False))
 
 
         # announce
         elif cmd == "announce" and "announce" in source_rights:
-            LXMF_CONNECTION.send(source_hash, content, "", fields_generate(result_key="announce", result_value=True))
-            LXMF_CONNECTION.announce_now()
+            LXMF_PEER.send(source_hash, content, "", fields_generate(result_key="announce", result_value=True))
+            LXMF_PEER.announce_now()
 
 
         # block
         elif cmd.startswith("block ") and "block" in source_rights:
             try:
                 cmd, value = cmd.split(" ", 1)
-                value = LXMF_CONNECTION.destination_correct(value)
+                value = LXMF_PEER.destination_correct(value)
                 if value != "":
                     executed = False
                     for section in sections:
@@ -1037,16 +1037,16 @@ def lxmf_message_received_callback(message):
                                 DATA["block_"+section][key] = val
                                 DATA.remove_option(section, key)
                     if executed:
-                        LXMF_CONNECTION.send(value, "", "", {MSG_FIELD_DATA: None, MSG_FIELD_COMMANDS_RESULT: [{"block": True}]})
+                        LXMF_PEER.send(value, "", "", {MSG_FIELD_DATA: None, MSG_FIELD_COMMANDS_RESULT: [{"block": True}]})
 
                         fields = fields_generate(src_hash=bytes.fromhex(value), src_name=user_name, members=True, result_key="block", result_value=True)
                         for section in sections:
                             if "receive_block" in config_get(CONFIG, "rights", section).split(","):
                                 for (key, val) in DATA.items(section):
                                     if key != source_hash and key != value:
-                                        LXMF_CONNECTION.send(key, "", "", fields)
+                                        LXMF_PEER.send(key, "", "", fields)
 
-                        LXMF_CONNECTION.send(source_hash, "", "", fields_generate(src_hash=bytes.fromhex(value), src_name=user_name, members=True, result_key="block", result_value=True))
+                        LXMF_PEER.send(source_hash, "", "", fields_generate(src_hash=bytes.fromhex(value), src_name=user_name, members=True, result_key="block", result_value=True))
 
                         if CONFIG["main"].getboolean("auto_save_data"):
                             DATA.remove_option("main", "unsaved")
@@ -1055,11 +1055,11 @@ def lxmf_message_received_callback(message):
                         else:
                             DATA["main"]["unsaved"] = "True"
                     else:
-                        LXMF_CONNECTION.send(source_hash, "", "", fields_generate(result_key="block", result_value=False))
+                        LXMF_PEER.send(source_hash, "", "", fields_generate(result_key="block", result_value=False))
                 else:
-                    LXMF_CONNECTION.send(source_hash, "", "", fields_generate(result_key="block", result_value=False))
+                    LXMF_PEER.send(source_hash, "", "", fields_generate(result_key="block", result_value=False))
             except:
-               LXMF_CONNECTION.send(source_hash, "", "", fields_generate(result_key="block", result_value=False))
+               LXMF_PEER.send(source_hash, "", "", fields_generate(result_key="block", result_value=False))
 
 
         # deny
@@ -1068,7 +1068,7 @@ def lxmf_message_received_callback(message):
                 cmd, value = cmd.split(" ", 1)
                 user_section = DATA["main"]["deny_user_type"]
                 if DATA.has_section(user_section) and user_section != "main":
-                    value = LXMF_CONNECTION.destination_correct(value)
+                    value = LXMF_PEER.destination_correct(value)
                     if value != "":
                         executed = False
                         for section in sections:
@@ -1079,15 +1079,15 @@ def lxmf_message_received_callback(message):
                                     DATA[user_section][key] = val
                                     DATA.remove_option(section, key)
                         if executed:
-                            LXMF_CONNECTION.send(value, "", "", fields_generate(result_key="deny", result_value=True))
+                            LXMF_PEER.send(value, "", "", fields_generate(result_key="deny", result_value=True))
 
                             fields = fields_generate(src_hash=bytes.fromhex(value), src_name=user_name, members=True, result_key="deny", result_value=True)
                             for section in sections:
                                 if "receive_deny" in config_get(CONFIG, "rights", section).split(","):
                                     for (key, val) in DATA.items(section):
-                                        LXMF_CONNECTION.send(key, "", "", fields)
+                                        LXMF_PEER.send(key, "", "", fields)
 
-                            LXMF_CONNECTION.send(source_hash, "", "", fields_generate(src_hash=bytes.fromhex(value), src_name=user_name, members=True, result_key="deny", result_value=True))
+                            LXMF_PEER.send(source_hash, "", "", fields_generate(src_hash=bytes.fromhex(value), src_name=user_name, members=True, result_key="deny", result_value=True))
 
                             if CONFIG["main"].getboolean("auto_save_data"):
                                 DATA.remove_option("main", "unsaved")
@@ -1096,13 +1096,13 @@ def lxmf_message_received_callback(message):
                             else:
                                 DATA["main"]["unsaved"] = "True"
                         else:
-                            LXMF_CONNECTION.send(source_hash, "", "", fields_generate(result_key="deny", result_value=False))
+                            LXMF_PEER.send(source_hash, "", "", fields_generate(result_key="deny", result_value=False))
                     else:
-                        LXMF_CONNECTION.send(source_hash, "", "", fields_generate(result_key="deny", result_value=False))
+                        LXMF_PEER.send(source_hash, "", "", fields_generate(result_key="deny", result_value=False))
                 else:
-                    LXMF_CONNECTION.send(source_hash, "", "", fields_generate(result_key="deny", result_value=False))
+                    LXMF_PEER.send(source_hash, "", "", fields_generate(result_key="deny", result_value=False))
             except:
-               LXMF_CONNECTION.send(source_hash, "", "", fields_generate(result_key="deny", result_value=False))
+               LXMF_PEER.send(source_hash, "", "", fields_generate(result_key="deny", result_value=False))
 
 
         # invite
@@ -1112,7 +1112,7 @@ def lxmf_message_received_callback(message):
                     cmd, value = cmd.split(" ", 1)
                     key = DATA["main"]["invite_user_type"]
                     if DATA.has_section(key) and key != "main":
-                        value = LXMF_CONNECTION.destination_correct(value)
+                        value = LXMF_PEER.destination_correct(value)
                         if value != "":
                             user_name = ""
                             if CONFIG["main"].getboolean("auto_name_add"):
@@ -1121,16 +1121,16 @@ def lxmf_message_received_callback(message):
                                     user_name = app_data.decode("utf-8")
                             DATA[key][value] = user_name
 
-                            LXMF_CONNECTION.send(value, DATA["main"]["welcome"].replace("!n!", "\n"), "", fields_generate(members=True, data=True, cmd=key, config=key, result_key="invite", result_value=True))
+                            LXMF_PEER.send(value, DATA["main"]["welcome"].replace("!n!", "\n"), "", fields_generate(members=True, data=True, cmd=key, config=key, result_key="invite", result_value=True))
 
                             fields = fields_generate(src_hash=bytes.fromhex(value), src_name=user_name, members=True, result_key="invite", result_value=True)
                             for section in sections:
                                 if "receive_invite" in config_get(CONFIG, "rights", section).split(","):
                                     for (key, val) in DATA.items(section):
                                         if key != source_hash and key != value:
-                                            LXMF_CONNECTION.send(key, "", "", fields)
+                                            LXMF_PEER.send(key, "", "", fields)
 
-                            LXMF_CONNECTION.send(source_hash, "", "", fields_generate(src_hash=bytes.fromhex(value), src_name=user_name, members=True, result_key="invite", result_value=True))
+                            LXMF_PEER.send(source_hash, "", "", fields_generate(src_hash=bytes.fromhex(value), src_name=user_name, members=True, result_key="invite", result_value=True))
 
                             if CONFIG["main"].getboolean("auto_save_data"):
                                 DATA.remove_option("main", "unsaved")
@@ -1139,28 +1139,28 @@ def lxmf_message_received_callback(message):
                             else:
                                 DATA["main"]["unsaved"] = "True"
                         else:
-                            LXMF_CONNECTION.send(source_hash, "", "", fields_generate(result_key="invite", result_value=False))
+                            LXMF_PEER.send(source_hash, "", "", fields_generate(result_key="invite", result_value=False))
                     else:
-                        LXMF_CONNECTION.send(source_hash, "", "", fields_generate(result_key="invite", result_value=False))
+                        LXMF_PEER.send(source_hash, "", "", fields_generate(result_key="invite", result_value=False))
                 except:
-                    LXMF_CONNECTION.send(source_hash, "", "", fields_generate(result_key="invite", result_value=False))
+                    LXMF_PEER.send(source_hash, "", "", fields_generate(result_key="invite", result_value=False))
             else:
-                LXMF_CONNECTION.send(source_hash, "", "", fields_generate(result_key="invite", result_value=False))
+                LXMF_PEER.send(source_hash, "", "", fields_generate(result_key="invite", result_value=False))
 
 
         # join
         elif cmd == "join" and "join" in source_rights:
             try:
-                LXMF_CONNECTION.send(source_hash, DATA["main"]["welcome"].replace("!n!", "\n"), "", fields_generate(members=True, data=True, cmd=source_right, config=source_right, result_key="join", result_value=True))
+                LXMF_PEER.send(source_hash, DATA["main"]["welcome"].replace("!n!", "\n"), "", fields_generate(members=True, data=True, cmd=source_right, config=source_right, result_key="join", result_value=True))
             except:
-                LXMF_CONNECTION.send(source_hash, "", "", fields_generate(result_key="join", result_value=False))
+                LXMF_PEER.send(source_hash, "", "", fields_generate(result_key="join", result_value=False))
 
 
         # kick
         elif cmd.startswith("kick ") and "kick" in source_rights:
             try:
                 cmd, value = cmd.split(" ", 1)
-                value = LXMF_CONNECTION.destination_correct(value)
+                value = LXMF_PEER.destination_correct(value)
                 if value != "":
                     executed = False
                     for section in sections:
@@ -1171,16 +1171,16 @@ def lxmf_message_received_callback(message):
                                 executed = True
                                 DATA.remove_option(section, key)
                     if executed:
-                        LXMF_CONNECTION.send(value, "", "", {MSG_FIELD_DATA: None, MSG_FIELD_COMMANDS_RESULT: [{"kick": True}]})
+                        LXMF_PEER.send(value, "", "", {MSG_FIELD_DATA: None, MSG_FIELD_COMMANDS_RESULT: [{"kick": True}]})
 
                         fields = fields_generate(src_hash=bytes.fromhex(value), src_name=user_name, members=True, result_key="kick", result_value=True)
                         for section in sections:
                             if "receive_kick" in config_get(CONFIG, "rights", section).split(","):
                                 for (key, val) in DATA.items(section):
                                     if key != source_hash and key != value:
-                                        LXMF_CONNECTION.send(key, "", "", fields)
+                                        LXMF_PEER.send(key, "", "", fields)
 
-                        LXMF_CONNECTION.send(source_hash, "", "", fields_generate(src_hash=bytes.fromhex(value), src_name=user_name, members=True, result_key="kick", result_value=True))
+                        LXMF_PEER.send(source_hash, "", "", fields_generate(src_hash=bytes.fromhex(value), src_name=user_name, members=True, result_key="kick", result_value=True))
 
                         if CONFIG["main"].getboolean("auto_save_data"):
                             DATA.remove_option("main", "unsaved")
@@ -1189,11 +1189,11 @@ def lxmf_message_received_callback(message):
                         else:
                             DATA["main"]["unsaved"] = "True"
                     else:
-                        LXMF_CONNECTION.send(source_hash, "", "", fields_generate(result_key="kick", result_value=False))
+                        LXMF_PEER.send(source_hash, "", "", fields_generate(result_key="kick", result_value=False))
                 else:
-                    LXMF_CONNECTION.send(source_hash, "", "", fields_generate(result_key="kick", result_value=False))
+                    LXMF_PEER.send(source_hash, "", "", fields_generate(result_key="kick", result_value=False))
             except:
-               LXMF_CONNECTION.send(source_hash, "", "", fields_generate(result_key="kick", result_value=False))
+               LXMF_PEER.send(source_hash, "", "", fields_generate(result_key="kick", result_value=False))
 
 
         # leave
@@ -1208,9 +1208,9 @@ def lxmf_message_received_callback(message):
                 for section in sections:
                     if "receive_leave" in config_get(CONFIG, "rights", section).split(","):
                         for (key, val) in DATA.items(section):
-                            LXMF_CONNECTION.send(key, "", "", fields)
+                            LXMF_PEER.send(key, "", "", fields)
 
-                LXMF_CONNECTION.send(source_hash, "", "", {MSG_FIELD_DATA: None, MSG_FIELD_COMMANDS_RESULT: [{"leave": True}]})
+                LXMF_PEER.send(source_hash, "", "", {MSG_FIELD_DATA: None, MSG_FIELD_COMMANDS_RESULT: [{"leave": True}]})
 
                 if CONFIG["main"].getboolean("auto_save_data"):
                     DATA.remove_option("main", "unsaved")
@@ -1219,7 +1219,7 @@ def lxmf_message_received_callback(message):
                 else:
                     DATA["main"]["unsaved"] = "True"
             except:
-                LXMF_CONNECTION.send(source_hash, "", "", {MSG_FIELD_DATA: None, MSG_FIELD_COMMANDS_RESULT: [{"leave": False}]})
+                LXMF_PEER.send(source_hash, "", "", {MSG_FIELD_DATA: None, MSG_FIELD_COMMANDS_RESULT: [{"leave": False}]})
 
 
         # right_admin
@@ -1228,7 +1228,7 @@ def lxmf_message_received_callback(message):
                 cmd, value = cmd.split(" ", 1)
                 key = "admin"
                 if DATA.has_section(key) and key != "main":
-                    value = LXMF_CONNECTION.destination_correct(value)
+                    value = LXMF_PEER.destination_correct(value)
                     if value != "":
                         for section in DATA.sections():
                             if section != "main":
@@ -1237,16 +1237,16 @@ def lxmf_message_received_callback(message):
                                         DATA.remove_option(section, key_old)
                                         DATA[key][value] = val_old
 
-                                        LXMF_CONNECTION.send(value, "", "", fields_generate(members=True, data=True, cmd=key, config=key, result_key="right_admin", result_value=True))
+                                        LXMF_PEER.send(value, "", "", fields_generate(members=True, data=True, cmd=key, config=key, result_key="right_admin", result_value=True))
 
                                         fields = fields_generate(src_hash=bytes.fromhex(value), src_name=val_old, members=True, result_key="right_admin", result_value=True)
                                         for section in sections:
                                             if "receive_right" in config_get(CONFIG, "rights", section).split(","):
                                                 for (key, val) in DATA.items(section):
                                                     if key != source_hash and key != value:
-                                                        LXMF_CONNECTION.send(key, "", "", fields)
+                                                        LXMF_PEER.send(key, "", "", fields)
 
-                                        LXMF_CONNECTION.send(source_hash, "", "", fields_generate(src_hash=bytes.fromhex(value), src_name=val_old, members=True, result_key="right_admin", result_value=True))
+                                        LXMF_PEER.send(source_hash, "", "", fields_generate(src_hash=bytes.fromhex(value), src_name=val_old, members=True, result_key="right_admin", result_value=True))
 
                                         if CONFIG["main"].getboolean("auto_save_data"):
                                             DATA.remove_option("main", "unsaved")
@@ -1255,11 +1255,11 @@ def lxmf_message_received_callback(message):
                                         else:
                                             DATA["main"]["unsaved"] = "True"
                     else:
-                        LXMF_CONNECTION.send(source_hash, "", "", fields_generate(result_key="right_admin", result_value=False))
+                        LXMF_PEER.send(source_hash, "", "", fields_generate(result_key="right_admin", result_value=False))
                 else:
-                    LXMF_CONNECTION.send(source_hash, "", "", fields_generate(result_key="right_admin", result_value=False))
+                    LXMF_PEER.send(source_hash, "", "", fields_generate(result_key="right_admin", result_value=False))
             except:
-                LXMF_CONNECTION.send(source_hash, "", "", fields_generate(result_key="right_admin", result_value=False))
+                LXMF_PEER.send(source_hash, "", "", fields_generate(result_key="right_admin", result_value=False))
 
 
         # right_guest
@@ -1268,7 +1268,7 @@ def lxmf_message_received_callback(message):
                 cmd, value = cmd.split(" ", 1)
                 key = "guest"
                 if DATA.has_section(key) and key != "main":
-                    value = LXMF_CONNECTION.destination_correct(value)
+                    value = LXMF_PEER.destination_correct(value)
                     if value != "":
                         for section in DATA.sections():
                             if section != "main":
@@ -1277,16 +1277,16 @@ def lxmf_message_received_callback(message):
                                         DATA.remove_option(section, key_old)
                                         DATA[key][value] = val_old
 
-                                        LXMF_CONNECTION.send(value, "", "", fields_generate(members=True, data=True, cmd=key, config=key, result_key="right_guest", result_value=True))
+                                        LXMF_PEER.send(value, "", "", fields_generate(members=True, data=True, cmd=key, config=key, result_key="right_guest", result_value=True))
 
                                         fields = fields_generate(src_hash=bytes.fromhex(value), src_name=val_old, members=True, result_key="right_guest", result_value=True)
                                         for section in sections:
                                             if "receive_right" in config_get(CONFIG, "rights", section).split(","):
                                                 for (key, val) in DATA.items(section):
                                                     if key != source_hash and key != value:
-                                                        LXMF_CONNECTION.send(key, "", "", fields)
+                                                        LXMF_PEER.send(key, "", "", fields)
 
-                                        LXMF_CONNECTION.send(source_hash, "", "", fields_generate(src_hash=bytes.fromhex(value), src_name=val_old, members=True, result_key="right_guest", result_value=True))
+                                        LXMF_PEER.send(source_hash, "", "", fields_generate(src_hash=bytes.fromhex(value), src_name=val_old, members=True, result_key="right_guest", result_value=True))
 
                                         if CONFIG["main"].getboolean("auto_save_data"):
                                             DATA.remove_option("main", "unsaved")
@@ -1295,11 +1295,11 @@ def lxmf_message_received_callback(message):
                                         else:
                                             DATA["main"]["unsaved"] = "True"
                     else:
-                        LXMF_CONNECTION.send(source_hash, "", "", fields_generate(result_key="right_guest", result_value=False))
+                        LXMF_PEER.send(source_hash, "", "", fields_generate(result_key="right_guest", result_value=False))
                 else:
-                    LXMF_CONNECTION.send(source_hash, "", "", fields_generate(result_key="right_guest", result_value=False))
+                    LXMF_PEER.send(source_hash, "", "", fields_generate(result_key="right_guest", result_value=False))
             except:
-                LXMF_CONNECTION.send(source_hash, "", "", fields_generate(result_key="right_guest", result_value=False))
+                LXMF_PEER.send(source_hash, "", "", fields_generate(result_key="right_guest", result_value=False))
 
 
         # right_mod
@@ -1308,7 +1308,7 @@ def lxmf_message_received_callback(message):
                 cmd, value = cmd.split(" ", 1)
                 key = "mod"
                 if DATA.has_section(key) and key != "main":
-                    value = LXMF_CONNECTION.destination_correct(value)
+                    value = LXMF_PEER.destination_correct(value)
                     if value != "":
                         for section in DATA.sections():
                             if section != "main":
@@ -1317,16 +1317,16 @@ def lxmf_message_received_callback(message):
                                         DATA.remove_option(section, key_old)
                                         DATA[key][value] = val_old
 
-                                        LXMF_CONNECTION.send(value, "", "", fields_generate(members=True, data=True, cmd=key, config=key, result_key="right_mod", result_value=True))
+                                        LXMF_PEER.send(value, "", "", fields_generate(members=True, data=True, cmd=key, config=key, result_key="right_mod", result_value=True))
 
                                         fields = fields_generate(src_hash=bytes.fromhex(value), src_name=val_old, members=True, result_key="right_mod", result_value=True)
                                         for section in sections:
                                             if "receive_right" in config_get(CONFIG, "rights", section).split(","):
                                                 for (key, val) in DATA.items(section):
                                                     if key != source_hash and key != value:
-                                                        LXMF_CONNECTION.send(key, "", "", fields)
+                                                        LXMF_PEER.send(key, "", "", fields)
 
-                                        LXMF_CONNECTION.send(source_hash, "", "", fields_generate(src_hash=bytes.fromhex(value), src_name=val_old, members=True, result_key="right_mod", result_value=True))
+                                        LXMF_PEER.send(source_hash, "", "", fields_generate(src_hash=bytes.fromhex(value), src_name=val_old, members=True, result_key="right_mod", result_value=True))
 
                                         if CONFIG["main"].getboolean("auto_save_data"):
                                             DATA.remove_option("main", "unsaved")
@@ -1335,11 +1335,11 @@ def lxmf_message_received_callback(message):
                                         else:
                                             DATA["main"]["unsaved"] = "True"
                     else:
-                        LXMF_CONNECTION.send(source_hash, "", "", fields_generate(result_key="right_mod", result_value=False))
+                        LXMF_PEER.send(source_hash, "", "", fields_generate(result_key="right_mod", result_value=False))
                 else:
-                    LXMF_CONNECTION.send(source_hash, "", "", fields_generate(result_key="right_mod", result_value=False))
+                    LXMF_PEER.send(source_hash, "", "", fields_generate(result_key="right_mod", result_value=False))
             except:
-                LXMF_CONNECTION.send(source_hash, "", "", fields_generate(result_key="right_mod", result_value=False))
+                LXMF_PEER.send(source_hash, "", "", fields_generate(result_key="right_mod", result_value=False))
 
 
         # right_user
@@ -1348,7 +1348,7 @@ def lxmf_message_received_callback(message):
                 cmd, value = cmd.split(" ", 1)
                 key = "user"
                 if DATA.has_section(key) and key != "main":
-                    value = LXMF_CONNECTION.destination_correct(value)
+                    value = LXMF_PEER.destination_correct(value)
                     if value != "":
                         for section in DATA.sections():
                             if section != "main":
@@ -1357,16 +1357,16 @@ def lxmf_message_received_callback(message):
                                         DATA.remove_option(section, key_old)
                                         DATA[key][value] = val_old
 
-                                        LXMF_CONNECTION.send(value, "", "", fields_generate(members=True, data=True, cmd=key, config=key, result_key="right_user", result_value=True))
+                                        LXMF_PEER.send(value, "", "", fields_generate(members=True, data=True, cmd=key, config=key, result_key="right_user", result_value=True))
 
                                         fields = fields_generate(src_hash=bytes.fromhex(value), src_name=val_old, members=True, result_key="right_user", result_value=True)
                                         for section in sections:
                                             if "receive_right" in config_get(CONFIG, "rights", section).split(","):
                                                 for (key, val) in DATA.items(section):
                                                     if key != source_hash and key != value:
-                                                        LXMF_CONNECTION.send(key, "", "", fields)
+                                                        LXMF_PEER.send(key, "", "", fields)
 
-                                        LXMF_CONNECTION.send(source_hash, "", "", fields_generate(src_hash=bytes.fromhex(value), src_name=val_old, members=True, result_key="right_user", result_value=True))
+                                        LXMF_PEER.send(source_hash, "", "", fields_generate(src_hash=bytes.fromhex(value), src_name=val_old, members=True, result_key="right_user", result_value=True))
 
                                         if CONFIG["main"].getboolean("auto_save_data"):
                                             DATA.remove_option("main", "unsaved")
@@ -1375,24 +1375,24 @@ def lxmf_message_received_callback(message):
                                         else:
                                             DATA["main"]["unsaved"] = "True"
                     else:
-                        LXMF_CONNECTION.send(source_hash, "", "", fields_generate(result_key="right_user", result_value=False))
+                        LXMF_PEER.send(source_hash, "", "", fields_generate(result_key="right_user", result_value=False))
                 else:
-                    LXMF_CONNECTION.send(source_hash, "", "", fields_generate(result_key="right_user", result_value=False))
+                    LXMF_PEER.send(source_hash, "", "", fields_generate(result_key="right_user", result_value=False))
             except:
-                LXMF_CONNECTION.send(source_hash, "", "", fields_generate(result_key="right_user", result_value=False))
+                LXMF_PEER.send(source_hash, "", "", fields_generate(result_key="right_user", result_value=False))
 
 
         # sync
         elif cmd == "sync" and "sync" in source_rights:
-            LXMF_CONNECTION.send(source_hash, content, "", fields_generate(result_key="sync", result_value=True))
-            LXMF_CONNECTION.sync_now()
+            LXMF_PEER.send(source_hash, content, "", fields_generate(result_key="sync", result_value=True))
+            LXMF_PEER.sync_now()
 
 
         # unblock
         elif cmd.startswith("unblock ") and "unblock" in source_rights:
             try:
                 cmd, value = cmd.split(" ", 1)
-                value = LXMF_CONNECTION.destination_correct(value)
+                value = LXMF_PEER.destination_correct(value)
                 if value != "":
                     executed = False
                     for section in DATA.sections():
@@ -1407,16 +1407,16 @@ def lxmf_message_received_callback(message):
                                     DATA[user_section][key] = val
                                     DATA.remove_option(section, key)
                     if executed:
-                        LXMF_CONNECTION.send(value, "", "", fields_generate(members=True, data=True, cmd=user_section, config=user_section, result_key="unblock", result_value=True))
+                        LXMF_PEER.send(value, "", "", fields_generate(members=True, data=True, cmd=user_section, config=user_section, result_key="unblock", result_value=True))
 
                         fields = fields_generate(src_hash=bytes.fromhex(value), src_name=user_name, members=True, result_key="unblock", result_value=True)
                         for section in sections:
                             if "receive_unblock" in config_get(CONFIG, "rights", section).split(","):
                                 for (key, val) in DATA.items(section):
                                     if key != source_hash and key != value:
-                                        LXMF_CONNECTION.send(key, "", "", fields)
+                                        LXMF_PEER.send(key, "", "", fields)
 
-                        LXMF_CONNECTION.send(source_hash, "", "", fields_generate(src_hash=bytes.fromhex(value), src_name=user_name, members=True, result_key="unblock", result_value=True))
+                        LXMF_PEER.send(source_hash, "", "", fields_generate(src_hash=bytes.fromhex(value), src_name=user_name, members=True, result_key="unblock", result_value=True))
 
                         if CONFIG["main"].getboolean("auto_save_data"):
                             DATA.remove_option("main", "unsaved")
@@ -1425,19 +1425,19 @@ def lxmf_message_received_callback(message):
                         else:
                             DATA["main"]["unsaved"] = "True"
                     else:
-                        LXMF_CONNECTION.send(source_hash, "", "", fields_generate(result_key="unblock", result_value=False))
+                        LXMF_PEER.send(source_hash, "", "", fields_generate(result_key="unblock", result_value=False))
                 else:
-                    LXMF_CONNECTION.send(source_hash, "", "", fields_generate(result_key="unblock", result_value=False))
+                    LXMF_PEER.send(source_hash, "", "", fields_generate(result_key="unblock", result_value=False))
             except:
-               LXMF_CONNECTION.send(source_hash, "", "", fields_generate(result_key="unblock", result_value=False))
+               LXMF_PEER.send(source_hash, "", "", fields_generate(result_key="unblock", result_value=False))
 
 
         # update
         elif cmd == "update" and "update" in source_rights:
             try:
-                LXMF_CONNECTION.send(source_hash, "", "", fields_generate(members=True, data=True, cmd=source_right, config=source_right, result_key="update", result_value=True))
+                LXMF_PEER.send(source_hash, "", "", fields_generate(members=True, data=True, cmd=source_right, config=source_right, result_key="update", result_value=True))
             except:
-                LXMF_CONNECTION.send(source_hash, "", "", fields_generate(result_key="update", result_value=False))
+                LXMF_PEER.send(source_hash, "", "", fields_generate(result_key="update", result_value=False))
 
 
         # update_all
@@ -1445,9 +1445,9 @@ def lxmf_message_received_callback(message):
             try:
                 for section in sections:
                     for (key, val) in DATA.items(section):
-                        LXMF_CONNECTION.send(key, "", "", fields_generate(members=True, data=True, cmd=section, config=section, result_key="update", result_value=True))
+                        LXMF_PEER.send(key, "", "", fields_generate(members=True, data=True, cmd=section, config=section, result_key="update", result_value=True))
             except:
-                LXMF_CONNECTION.send(source_hash, "", "", fields_generate(result_key="update", result_value=False))
+                LXMF_PEER.send(source_hash, "", "", fields_generate(result_key="update", result_value=False))
 
 
         # unsaved
@@ -1489,7 +1489,7 @@ def lxmf_message_received_callback(message):
                 if "receive" in config_get(CONFIG, "rights", section).split(","):
                     for (key, val) in DATA.items(section):
                         if key != source_hash:
-                            LXMF_CONNECTION.send(key, content, title, fields, timestamp)
+                            LXMF_PEER.send(key, content, title, fields, timestamp)
             return
         else:
             log("LXMF - Source " + RNS.prettyhexrep(message.source_hash) + " 'send' not allowed", LOG_DEBUG)
@@ -1536,7 +1536,7 @@ def fields_generate(fields=None, src_hash=None, src_name=None, members=False, da
                 fields[MSG_FIELD_DATA]["m"][key] = {}
                 for (section_key, section_val) in DATA.items(key):
                     try:
-                        h = bytes.fromhex(LXMF_CONNECTION.destination_correct(section_key))
+                        h = bytes.fromhex(LXMF_PEER.destination_correct(section_key))
                         fields[MSG_FIELD_DATA]["m"][key][h] = section_val
                     except:
                        pass
@@ -2084,7 +2084,7 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False,
     global LOG_LEVEL
     global LOG_FILE
     global RNS_CONNECTION
-    global LXMF_CONNECTION
+    global LXMF_PEER
 
     if path is not None:
         if path.endswith("/"):
@@ -2161,16 +2161,6 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False,
 
     log("LXMF - Connecting ...", LOG_DEBUG)
 
-    if CONFIG.has_option("lxmf", "propagation_node"):
-        config_propagation_node = CONFIG["lxmf"]["propagation_node"]
-    else:
-        config_propagation_node = None
-
-    if CONFIG.has_option("lxmf", "propagation_node_active"):
-        config_propagation_node_active = CONFIG["lxmf"]["propagation_node_active"]
-    else:
-        config_propagation_node_active = None
-
     if path is None:
         path = PATH
 
@@ -2196,7 +2186,7 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False,
         except:
             pass
 
-    LXMF_CONNECTION = lxmf_connection(
+    LXMF_PEER = LXMFPeer(
         storage_path=path,
         identity_file="identity",
         identity=None,
@@ -2207,9 +2197,9 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False,
         announce_hidden=CONFIG["lxmf"].getboolean("announce_hidden"),
         send_delay=CONFIG["lxmf"]["send_delay"],
         method=CONFIG["lxmf"]["method"],
-        propagation_node=config_propagation_node,
+        propagation_node=CONFIG["lxmf"]["propagation_node"] if CONFIG.has_option("lxmf", "propagation_node") else None,
         propagation_node_auto=CONFIG["lxmf"].getboolean("propagation_node_auto"),
-        propagation_node_active=config_propagation_node_active,
+        propagation_node_active=CONFIG["lxmf"]["propagation_node_active"] if CONFIG.has_option("lxmf", "propagation_node_active") else None,
         stamps_enabled=CONFIG["lxmf"].getboolean("stamps_enabled"),
         stamps_required=CONFIG["lxmf"].getboolean("stamps_required"),
         stamps_cost=CONFIG["lxmf"]["stamps_cost"],
@@ -2223,14 +2213,14 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False,
         sync_periodic=CONFIG["lxmf"].getboolean("sync_periodic"),
         sync_periodic_interval=CONFIG["lxmf"]["sync_periodic_interval"])
 
-    LXMF_CONNECTION.register_announce_callback(lxmf_announce_callback)
-    LXMF_CONNECTION.register_message_received_callback(lxmf_message_received_callback)
-    LXMF_CONNECTION.register_config_set_callback(config_set)
+    LXMF_PEER.register_announce_callback(lxmf_announce_callback)
+    LXMF_PEER.register_message_received_callback(lxmf_message_received_callback)
+    LXMF_PEER.register_config_set_callback(config_set)
 
     log("LXMF - Connected", LOG_DEBUG)
 
     log("...............................................................................", LOG_FORCE)
-    log("LXMF - Address: " + RNS.prettyhexrep(LXMF_CONNECTION.destination_hash()), LOG_FORCE)
+    log("LXMF - Address: " + RNS.prettyhexrep(LXMF_PEER.destination_hash()), LOG_FORCE)
     log("...............................................................................", LOG_FORCE)
 
     if CONFIG["main"].getboolean("periodic_save_data"):

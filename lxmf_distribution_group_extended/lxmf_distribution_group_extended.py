@@ -88,7 +88,7 @@ DATA = None
 CONFIG = None
 STATISTIC = None
 RNS_MAIN_CONNECTION = None
-LXMF_CONNECTION = None
+LXMF_PEER = None
 RNS_CONNECTION = None
 
 CONV_P2P                = 0x01
@@ -157,7 +157,7 @@ MSG_FIELD_VOICE              = 0xBF
 # LXMF Class
 
 
-class lxmf_connection:
+class LXMFPeer:
     message_received_callback = None
     message_notification_callback = None
     message_notification_success_callback = None
@@ -282,7 +282,7 @@ class lxmf_connection:
         self.destination.set_link_established_callback(self.client_connected)
 
         if self.propagation_node_auto:
-            self.propagation_callback = lxmf_connection_propagation(self, "lxmf.propagation")
+            self.propagation_callback = LXMFPeerPropagation(self, "lxmf.propagation")
             RNS.Transport.register_announce_handler(self.propagation_callback)
             if self.propagation_node_active:
                 self.propagation_node_set(self.propagation_node_active)
@@ -685,7 +685,7 @@ class lxmf_connection:
             log("-    App Data: " + message.app_data, LOG_DEBUG)
 
 
-class lxmf_connection_propagation():
+class LXMFPeerPropagation():
     def __init__(self, owner, aspect_filter=None):
         self.owner = owner
         self.aspect_filter = aspect_filter
@@ -975,7 +975,7 @@ class lxmf_announce_callback:
                         if "receive_join" in config_get(CONFIG, "rights", section).split(","):
                             for (key, val) in DATA.items(section):
                                 if key != source_hash:
-                                    LXMF_CONNECTION.send(key, content_group, "", fields, None, "interface_send")
+                                    LXMF_PEER.send(key, content_group, "", fields, None, "interface_send")
                     if CONFIG["main"].getboolean("auto_save_data"):
                         DATA.remove_option("main", "unsaved")
                         if not data_save(PATH + "/data.cfg"):
@@ -983,7 +983,7 @@ class lxmf_announce_callback:
                     else:
                         DATA["main"]["unsaved"] = "True"
                     content = replace(content, source_hash, source_name, source_right, lng_key)
-                    LXMF_CONNECTION.send(source_hash, content, "", fields_generate(members=True, data=True, cmd=source_right, config=source_right, result_key="join", lng_key=lng_key), None, "interface_send")
+                    LXMF_PEER.send(source_hash, content, "", fields_generate(members=True, data=True, cmd=source_right, config=source_right, result_key="join", lng_key=lng_key), None, "interface_send")
                     return
                 elif source_right == "":
                     log("LXMF - Source " + RNS.prettyhexrep(message.source_hash) + " not exist (auto add disabled)", LOG_DEBUG)
@@ -1015,7 +1015,7 @@ class lxmf_announce_callback:
                                         if "receive_auto_"+content_type in config_get(CONFIG, "rights", section).split(","):
                                             for (key, val) in DATA.items(section):
                                                 if key != source_hash:
-                                                    LXMF_CONNECTION.send(key, content_group, "", fields, None, "interface_send")
+                                                    LXMF_PEER.send(key, content_group, "", fields, None, "interface_send")
 
                                 if CONFIG["main"].getboolean("auto_save_data"):
                                     DATA.remove_option("main", "unsaved")
@@ -1091,7 +1091,7 @@ def lxmf_message_received_callback(message):
                     content_user = config_get(CONFIG, "interface_messages", "reply_block", "", lng_key)
                     content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                     if content_user != "":
-                        LXMF_CONNECTION.send(source_hash, content_user, "", fields_generate(lng_key=lng_key), None, "interface_send")
+                        LXMF_PEER.send(source_hash, content_user, "", fields_generate(lng_key=lng_key), None, "interface_send")
                 return
 
     source_rights = []
@@ -1156,7 +1156,7 @@ def lxmf_message_received_callback(message):
                         if "receive_cluster" in config_get(CONFIG, "rights", section).split(","):
                             for (key, val) in DATA.items(section):
                                 if key != source_hash:
-                                    LXMF_CONNECTION.send(key, content, title, fields, timestamp, "cluster_send")
+                                    LXMF_PEER.send(key, content, title, fields, timestamp, "cluster_send")
                 elif fields["m_t"] == "pin":
                     delimiter = CONFIG["interface"]["delimiter_output"]
 
@@ -1183,7 +1183,7 @@ def lxmf_message_received_callback(message):
                             if "receive_cluster_pin_add" in config_get(CONFIG, "rights", section).split(","):
                                 for (key, val) in DATA.items(section):
                                     if key != source_hash:
-                                        LXMF_CONNECTION.send(key, content_group, "", fields, None, "cluster_send")
+                                        LXMF_PEER.send(key, content_group, "", fields, None, "cluster_send")
 
                     if CONFIG["main"].getboolean("auto_save_data"):
                         DATA.remove_option("main", "unsaved")
@@ -1223,7 +1223,7 @@ def lxmf_message_received_callback(message):
                 if "receive_join" in config_get(CONFIG, "rights", section).split(","):
                     for (key, val) in DATA.items(section):
                         if key != source_hash:
-                            LXMF_CONNECTION.send(key, content_group, title, fields, None, "interface_send")
+                            LXMF_PEER.send(key, content_group, title, fields, None, "interface_send")
             if CONFIG["main"].getboolean("auto_save_data"):
                 DATA.remove_option("main", "unsaved")
                 if not data_save(PATH + "/data.cfg"):
@@ -1231,7 +1231,7 @@ def lxmf_message_received_callback(message):
             else:
                 DATA["main"]["unsaved"] = "True"
             content = replace(content, source_hash, source_name, source_right, lng_key)
-            LXMF_CONNECTION.send(source_hash, content, title, fields_generate(members=True, data=True, cmd=source_right, config=source_right, result_key="join", lng_key=lng_key), None, "interface_send")
+            LXMF_PEER.send(source_hash, content, title, fields_generate(members=True, data=True, cmd=source_right, config=source_right, result_key="join", lng_key=lng_key), None, "interface_send")
         return
     elif source_right == "":
         log("LXMF - Source " + RNS.prettyhexrep(message.source_hash) + " not exist (auto add disabled)", LOG_DEBUG)
@@ -1251,7 +1251,7 @@ def lxmf_message_received_callback(message):
             content_user = config_get(CONFIG, "interface_messages", "reply_signature", "", lng_key)
             content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
             if content_user != "":
-                LXMF_CONNECTION.send(source_hash, content_user, "", fields_generate(lng_key=lng_key), None, "interface_send")
+                LXMF_PEER.send(source_hash, content_user, "", fields_generate(lng_key=lng_key), None, "interface_send")
         return
 
 
@@ -1262,7 +1262,7 @@ def lxmf_message_received_callback(message):
                 content_user = config_get(CONFIG, "interface_messages", "reply_length_min", "", lng_key)
                 content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                 if content_user != "":
-                    LXMF_CONNECTION.send(source_hash, content_user, "", fields_generate(lng_key=lng_key), None, "interface_send")
+                    LXMF_PEER.send(source_hash, content_user, "", fields_generate(lng_key=lng_key), None, "interface_send")
             return
 
 
@@ -1273,7 +1273,7 @@ def lxmf_message_received_callback(message):
                 content_user = config_get(CONFIG, "interface_messages", "reply_length_max", "", lng_key)
                 content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                 if content_user != "":
-                    LXMF_CONNECTION.send(source_hash, content_user, "", fields_generate(lng_key=lng_key), None, "interface_send")
+                    LXMF_PEER.send(source_hash, content_user, "", fields_generate(lng_key=lng_key), None, "interface_send")
             return
 
 
@@ -1313,7 +1313,7 @@ def lxmf_message_received_callback(message):
                 content_user = config_get(CONFIG, "interface_messages", "reply_interface_enabled", "", lng_key)
                 content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                 if content_user != "":
-                    LXMF_CONNECTION.send(source_hash, content_user, "", fields_generate(lng_key=lng_key), None, "interface_send")
+                    LXMF_PEER.send(source_hash, content_user, "", fields_generate(lng_key=lng_key), None, "interface_send")
             return
 
         if "interface" not in source_rights:
@@ -1322,7 +1322,7 @@ def lxmf_message_received_callback(message):
                 content_user = config_get(CONFIG, "interface_messages", "reply_interface_right", "", lng_key)
                 content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                 if content_user != "":
-                    LXMF_CONNECTION.send(source_hash, content_user, "", fields_generate(lng_key=lng_key), None, "interface_send")
+                    LXMF_PEER.send(source_hash, content_user, "", fields_generate(lng_key=lng_key), None, "interface_send")
             return
 
         content = interface(command, source_hash, source_name, source_right, source_rights, lng_key, message)
@@ -1337,7 +1337,7 @@ def lxmf_message_received_callback(message):
                 statistic("value_set", source_hash, "activity", time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time())))
                 statistic("value_set", source_hash, "activity_receive", time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time())))
 
-        LXMF_CONNECTION.send(source_hash, content, "", fields_generate(lng_key=lng_key), None, "interface_send")
+        LXMF_PEER.send(source_hash, content, "", fields_generate(lng_key=lng_key), None, "interface_send")
         return
 
 
@@ -1349,7 +1349,7 @@ def lxmf_message_received_callback(message):
                content_user = config_get(CONFIG, "interface_messages", "reply_cluster_enabled", "", lng_key)
                content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                if content_user != "":
-                   LXMF_CONNECTION.send(source_hash, content_user, "", fields_generate(lng_key=lng_key), None, "interface_send")
+                   LXMF_PEER.send(source_hash, content_user, "", fields_generate(lng_key=lng_key), None, "interface_send")
            return
 
         if "send_cluster" not in source_rights:
@@ -1358,14 +1358,14 @@ def lxmf_message_received_callback(message):
                 content_user = config_get(CONFIG, "interface_messages", "reply_cluster_right", "", lng_key)
                 content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                 if content_user != "":
-                    LXMF_CONNECTION.send(source_hash, content_user, "", fields_generate(lng_key=lng_key), None, "interface_send")
+                    LXMF_PEER.send(source_hash, content_user, "", fields_generate(lng_key=lng_key), None, "interface_send")
             return
 
         try:
             content = content[len(CONFIG["cluster"]["delimiter_input"]):]
             destination, content = content.split(" ", 1)
         except:
-            LXMF_CONNECTION.send(source_hash, config_get(CONFIG, "interface_menu", "cluster_format_error", "", lng_key) , "", fields_generate(lng_key=lng_key), None, "interface_send")
+            LXMF_PEER.send(source_hash, config_get(CONFIG, "interface_menu", "cluster_format_error", "", lng_key) , "", fields_generate(lng_key=lng_key), None, "interface_send")
             return
 
         destinations = []
@@ -1374,7 +1374,7 @@ def lxmf_message_received_callback(message):
                 destinations.append(key)
 
         if len(destinations) == 0:
-            LXMF_CONNECTION.send(source_hash, config_get(CONFIG, "interface_menu", "cluster_found_error", "", lng_key) , "", fields_generate(lng_key=lng_key), None, "interface_send")
+            LXMF_PEER.send(source_hash, config_get(CONFIG, "interface_menu", "cluster_found_error", "", lng_key) , "", fields_generate(lng_key=lng_key), None, "interface_send")
             return
 
         length = config_getint(CONFIG, "message", "cluster_send_length_min", 0, lng_key)
@@ -1384,7 +1384,7 @@ def lxmf_message_received_callback(message):
                     content_user = config_get(CONFIG, "interface_messages", "reply_length_min", "", lng_key)
                     content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                     if content_user != "":
-                        LXMF_CONNECTION.send(source_hash, content_user, "", fields_generate(lng_key=lng_key), None, "interface_send")
+                        LXMF_PEER.send(source_hash, content_user, "", fields_generate(lng_key=lng_key), None, "interface_send")
                 return
 
         length = config_getint(CONFIG, "message", "cluster_send_length_max", 0, lng_key)
@@ -1394,7 +1394,7 @@ def lxmf_message_received_callback(message):
                     content_user = config_get(CONFIG, "interface_messages", "reply_length_max", "", lng_key)
                     content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                     if content_user != "":
-                        LXMF_CONNECTION.send(source_hash, content_user, "", fields_generate(lng_key=lng_key), None, "interface_send")
+                        LXMF_PEER.send(source_hash, content_user, "", fields_generate(lng_key=lng_key), None, "interface_send")
                 return
 
         title_prefix = config_get(CONFIG, "message", "cluster_send_title_prefix", "", lng_key)
@@ -1466,7 +1466,7 @@ def lxmf_message_received_callback(message):
                 statistic("value_set", source_hash, "activity_receive", time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time())))
 
         for val in destinations:
-            LXMF_CONNECTION.send(key, content, title, fields, timestamp, "cluster_out")
+            LXMF_PEER.send(key, content, title, fields, timestamp, "cluster_out")
 
         cluster_loop = False
         if destination in config_get(CONFIG, "cluster", "display_name", "", lng_key).split("/"):
@@ -1492,7 +1492,7 @@ def lxmf_message_received_callback(message):
             if "receive_cluster_send" in config_get(CONFIG, "rights", section).split(",") or (cluster_loop and "receive_cluster_loop" in config_get(CONFIG, "rights", section).split(",")):
                 for (key, val) in DATA.items(section):
                     if key != source_hash:
-                        LXMF_CONNECTION.send(key, content, title, fields, timestamp, "local_send")
+                        LXMF_PEER.send(key, content, title, fields, timestamp, "local_send")
 
         return
 
@@ -1508,7 +1508,7 @@ def lxmf_message_received_callback(message):
                         content_user = config_get(CONFIG, "interface_messages", "reply_length_min", "", lng_key)
                         content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                         if content_user != "":
-                            LXMF_CONNECTION.send(source_hash, content_user, "", fields_generate(lng_key=lng_key), None, "interface_send")
+                            LXMF_PEER.send(source_hash, content_user, "", fields_generate(lng_key=lng_key), None, "interface_send")
                     return
 
             length = config_getint(CONFIG, "message", "send_length_max", 0, lng_key)
@@ -1518,7 +1518,7 @@ def lxmf_message_received_callback(message):
                         content_user = config_get(CONFIG, "interface_messages", "reply_length_max", "", lng_key)
                         content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                         if content_user != "":
-                            LXMF_CONNECTION.send(source_hash, content_user, "", fields_generate(lng_key=lng_key), None, "interface_send")
+                            LXMF_PEER.send(source_hash, content_user, "", fields_generate(lng_key=lng_key), None, "interface_send")
                     return
 
             title_prefix = config_get(CONFIG, "message", "send_title_prefix", "", lng_key)
@@ -1578,7 +1578,7 @@ def lxmf_message_received_callback(message):
                 if "receive_local" in config_get(CONFIG, "rights", section).split(","):
                     for (key, val) in DATA.items(section):
                         if key != source_hash:
-                            LXMF_CONNECTION.send(key, content, title, fields, timestamp, "local_send")
+                            LXMF_PEER.send(key, content, title, fields, timestamp, "local_send")
             return
         else:
             log("LXMF - Source " + RNS.prettyhexrep(message.source_hash) + " 'send' not allowed", LOG_DEBUG)
@@ -1586,13 +1586,13 @@ def lxmf_message_received_callback(message):
                 content_user = config_get(CONFIG, "interface_messages", "reply_local_right", "", lng_key)
                 content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                 if content_user != "":
-                    LXMF_CONNECTION.send(source_hash, content_user, "", fields_generate(lng_key=lng_key), None, "interface_send")
+                    LXMF_PEER.send(source_hash, content_user, "", fields_generate(lng_key=lng_key), None, "interface_send")
     else:
         if "reply_local_enabled" in source_rights:
             content_user = config_get(CONFIG, "interface_messages", "reply_local_enabled", "", lng_key)
             content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
             if content_user != "":
-                LXMF_CONNECTION.send(source_hash, content_user, "", fields_generate(lng_key=lng_key), None, "interface_send")
+                LXMF_PEER.send(source_hash, content_user, "", fields_generate(lng_key=lng_key), None, "interface_send")
 
 
     return
@@ -1668,7 +1668,7 @@ class rns_announce_callback:
                                 for section in sections:
                                     if "receive_cluster_join" in config_get(CONFIG, "rights", section).split(","):
                                         for (key, val) in DATA.items(section):
-                                                LXMF_CONNECTION.send(key, content_group, "", fields_generate(lng_key=lng_key), None, "interface_send")
+                                                LXMF_PEER.send(key, content_group, "", fields_generate(lng_key=lng_key), None, "interface_send")
                         DATA["cluster"][receive["h"]] = receive["c_n"]
                         executed = True
 
@@ -1720,7 +1720,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
     elif (cmd == "update") and "update" in source_rights:
         try:
             content = config_get(CONFIG, "interface_menu", "update_ok", "", lng_key)
-            LXMF_CONNECTION.send(source_hash, content, "", fields_generate(members=True, data=True, cmd=source_right, config=source_right, result_key="update", lng_key=lng_key), None, "interface_send")
+            LXMF_PEER.send(source_hash, content, "", fields_generate(members=True, data=True, cmd=source_right, config=source_right, result_key="update", lng_key=lng_key), None, "interface_send")
             content = ""
         except:
             content = config_get(CONFIG, "interface_menu", "update_error", "", lng_key)
@@ -1732,7 +1732,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
             content = config_get(CONFIG, "interface_menu", "update_all_ok", "", lng_key)
             for section in sections:
                 for (key, val) in DATA.items(section):
-                    LXMF_CONNECTION.send(key, content, "", fields_generate(members=True, data=True, cmd=section, config=section, result_key="update", lng_key=lng_key), None, "interface_send")
+                    LXMF_PEER.send(key, content, "", fields_generate(members=True, data=True, cmd=section, config=section, result_key="update", lng_key=lng_key), None, "interface_send")
             content = ""
         except:
             content = config_get(CONFIG, "interface_menu", "update_all_error", "", lng_key)
@@ -1743,7 +1743,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
         try:
             content = config_get(CONFIG, "interface_messages", "auto_add_"+source_right, "", lng_key)
             content = replace(content, source_hash, source_name, source_right, lng_key)
-            LXMF_CONNECTION.send(source_hash, content, "", fields_generate(members=True, data=True, cmd=source_right, config=source_right, result_key="join", lng_key=lng_key), None, "interface_send")
+            LXMF_PEER.send(source_hash, content, "", fields_generate(members=True, data=True, cmd=source_right, config=source_right, result_key="join", lng_key=lng_key), None, "interface_send")
             content = ""
         except:
             content = config_get(CONFIG, "interface_menu", "join_error", "", lng_key)
@@ -1766,11 +1766,11 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
             for section in sections:
                 if "receive_leave" in config_get(CONFIG, "rights", section).split(","):
                     for (key, val) in DATA.items(section):
-                        LXMF_CONNECTION.send(key, content_group, "", fields, None, "interface_send")
+                        LXMF_PEER.send(key, content_group, "", fields, None, "interface_send")
 
             content = config_get(CONFIG, "interface_menu", "leave_ok", "", lng_key)
             content = replace(content, source_hash, source_name, source_right, lng_key)
-            LXMF_CONNECTION.send(source_hash, content, "", {MSG_FIELD_DATA: None, MSG_FIELD_COMMANDS_RESULT: [{"leave": True}]}, None, "interface_send")
+            LXMF_PEER.send(source_hash, content, "", {MSG_FIELD_DATA: None, MSG_FIELD_COMMANDS_RESULT: [{"leave": True}]}, None, "interface_send")
             content = ""
 
             if CONFIG["main"].getboolean("auto_save_data"):
@@ -1812,7 +1812,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                     if "receive_"+content_type in config_get(CONFIG, "rights", section).split(","):
                         for (key, val) in DATA.items(section):
                             if key != source_hash:
-                                LXMF_CONNECTION.send(key, content_group, "", fields, None, "interface_send")
+                                LXMF_PEER.send(key, content_group, "", fields, None, "interface_send")
 
             content = config_get(CONFIG, "interface_menu", "name_ok", "", lng_key) + " " + value
 
@@ -1874,7 +1874,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                     if "receive_pin_add" in config_get(CONFIG, "rights", section).split(","):
                         for (key, val) in DATA.items(section):
                             if key != source_hash:
-                                LXMF_CONNECTION.send(key, content_group, "", fields_generate(src_hash=message.source_hash, src_name=source_name, lng_key=lng_key), None, "interface_send")
+                                LXMF_PEER.send(key, content_group, "", fields_generate(src_hash=message.source_hash, src_name=source_name, lng_key=lng_key), None, "interface_send")
 
             content = config_get(CONFIG, "interface_menu", "pin_add_ok", "", lng_key)
 
@@ -1905,7 +1905,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                         if "receive_pin_add" in config_get(CONFIG, "rights", section).split(","):
                             for (key, val) in DATA.items(section):
                                 if key != source_hash:
-                                    LXMF_CONNECTION.send(key, content_group, "", fields_generate(src_hash=message.source_hash, src_name=source_name, lng_key=lng_key), None, "interface_send")
+                                    LXMF_PEER.send(key, content_group, "", fields_generate(src_hash=message.source_hash, src_name=source_name, lng_key=lng_key), None, "interface_send")
 
                 content = config_get(CONFIG, "interface_menu", "pin_remove_ok", "", lng_key)
 
@@ -2420,7 +2420,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                     if "receive_description" in config_get(CONFIG, "rights", section).split(","):
                         for (key, val) in DATA.items(section):
                             if key != source_hash:
-                                LXMF_CONNECTION.send(key, content_group, "", fields_generate(src_hash=message.source_hash, src_name=source_name, result_key="description", lng_key=lng_key), None, "interface_send")
+                                LXMF_PEER.send(key, content_group, "", fields_generate(src_hash=message.source_hash, src_name=source_name, result_key="description", lng_key=lng_key), None, "interface_send")
 
             content = config_get(CONFIG, "interface_menu", "description", "", lng_key) + " " + value
             DATA["main"]["unsaved"] = "True"
@@ -2445,9 +2445,9 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
     elif cmd == "announce" and "announce" in source_rights:
         content = config_get(CONFIG, "interface_menu", "announce", "", lng_key)
         content = replace(content, source_hash, source_name, source_right, lng_key)
-        LXMF_CONNECTION.send(source_hash, content, "", fields_generate(result_key="announce", lng_key=lng_key), None, "interface_send")
+        LXMF_PEER.send(source_hash, content, "", fields_generate(result_key="announce", lng_key=lng_key), None, "interface_send")
         content = ""
-        LXMF_CONNECTION.announce_now()
+        LXMF_PEER.announce_now()
         if CONFIG["cluster"].getboolean("enabled"):
             RNS_CONNECTION.announce_now()
 
@@ -2456,9 +2456,9 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
     elif cmd == "sync" and "sync" in source_rights:
         content = config_get(CONFIG, "interface_menu", "sync", "", lng_key)
         content = replace(content, source_hash, source_name, source_right, lng_key)
-        LXMF_CONNECTION.send(source_hash, content, "", fields_generate(result_key="sync", lng_key=lng_key), None, "interface_send")
+        LXMF_PEER.send(source_hash, content, "", fields_generate(result_key="sync", lng_key=lng_key), None, "interface_send")
         content = ""
-        LXMF_CONNECTION.sync_now()
+        LXMF_PEER.sync_now()
 
 
     # "/show run" command.
@@ -2497,7 +2497,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
         try:
             cmd, key, value, name = cmd.split(" ", 3)
             if DATA.has_section(key) and key != "main":
-                value = LXMF_CONNECTION.destination_correct(value)
+                value = LXMF_PEER.destination_correct(value)
                 if value != "":
                     for section in DATA.sections():
                         if section != "main":
@@ -2520,7 +2520,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
         try:
             cmd, key, value = cmd.split(" ", 2)
             if DATA.has_section(key) and key != "main":
-                value = LXMF_CONNECTION.destination_correct(value)
+                value = LXMF_PEER.destination_correct(value)
                 if value != "":
                     if DATA.has_option(key, value):
                         DATA.remove_option(key, value)
@@ -2539,7 +2539,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
         except:
             try:
                 cmd, value = cmd.split(" ", 1)
-                value = LXMF_CONNECTION.destination_correct(value)
+                value = LXMF_PEER.destination_correct(value)
                 if value != "":
                     for section in DATA.sections():
                         if section != "main":
@@ -2561,7 +2561,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
         try:
             cmd, key, value = cmd.split(" ", 2)
             if DATA.has_section(key) and key != "main":
-                value = LXMF_CONNECTION.destination_correct(value)
+                value = LXMF_PEER.destination_correct(value)
                 if value != "":
                     for section in DATA.sections():
                         if section != "main":
@@ -2585,7 +2585,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
     elif cmd.startswith("rename ") and "rename" in source_rights:
         try:
             cmd, key, value = cmd.split(" ", 2)
-            key = LXMF_CONNECTION.destination_correct(key)
+            key = LXMF_PEER.destination_correct(key)
             if key != "":
                 executed = False
                 for section in sections:
@@ -2615,7 +2615,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                 cmd, value = cmd.split(" ", 1)
                 key = DATA["main"]["invite_user_type"]
                 if DATA.has_section(key) and key != "main":
-                    value = LXMF_CONNECTION.destination_correct(value)
+                    value = LXMF_PEER.destination_correct(value)
                     if value != "":
                         user_name = ""
                         if CONFIG["main"].getboolean("auto_name_add"):
@@ -2627,7 +2627,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                         content_user = config_get(CONFIG, "interface_messages", "invite_"+key, "", lng_key)
                         content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                         content_user = content_user.replace(delimiter+"user_name"+delimiter, user_name)
-                        LXMF_CONNECTION.send(value, content_user, "", fields_generate(members=True, data=True, cmd=key, config=key, result_key="invite", lng_key=lng_key), None, "interface_send")
+                        LXMF_PEER.send(value, content_user, "", fields_generate(members=True, data=True, cmd=key, config=key, result_key="invite", lng_key=lng_key), None, "interface_send")
 
                         content_group = config_get(CONFIG, "interface_messages", "member_invite", "", lng_key)
                         content_group = replace(content_group, source_hash, source_name, source_right, lng_key)
@@ -2638,12 +2638,12 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                             if "receive_invite" in config_get(CONFIG, "rights", section).split(","):
                                 for (key, val) in DATA.items(section):
                                     if key != source_hash and key != value:
-                                        LXMF_CONNECTION.send(key, content_group, "", fields, None, "interface_send")
+                                        LXMF_PEER.send(key, content_group, "", fields, None, "interface_send")
 
                         content = config_get(CONFIG, "interface_menu", "invite_ok", "", lng_key)
                         content = content.replace(delimiter+"user_address"+delimiter, value)
                         content = content.replace(delimiter+"user_name"+delimiter, user_name)
-                        LXMF_CONNECTION.send(source_hash, content, "", fields_generate(src_hash=bytes.fromhex(value), src_name=user_name, members=True, result_key="invite", lng_key=lng_key), None, "interface_send")
+                        LXMF_PEER.send(source_hash, content, "", fields_generate(src_hash=bytes.fromhex(value), src_name=user_name, members=True, result_key="invite", lng_key=lng_key), None, "interface_send")
                         content = ""
 
                         if CONFIG["main"].getboolean("auto_save_data"):
@@ -2666,7 +2666,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
     elif cmd.startswith("kick ") and "kick" in source_rights:
         try:
             cmd, value = cmd.split(" ", 1)
-            value = LXMF_CONNECTION.destination_correct(value)
+            value = LXMF_PEER.destination_correct(value)
             if value != "":
                 executed = False
                 for section in sections:
@@ -2682,7 +2682,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
 
                     content_user = config_get(CONFIG, "interface_messages", "kick_"+user_section, "", lng_key)
                     content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
-                    LXMF_CONNECTION.send(value, content_user, "", {MSG_FIELD_DATA: None, MSG_FIELD_COMMANDS_RESULT: [{"kick": True}]}, None, "interface_send")
+                    LXMF_PEER.send(value, content_user, "", {MSG_FIELD_DATA: None, MSG_FIELD_COMMANDS_RESULT: [{"kick": True}]}, None, "interface_send")
 
                     content_group = config_get(CONFIG, "interface_messages", "member_kick", "", lng_key)
                     content_group = replace(content_group, source_hash, source_name, source_right, lng_key)
@@ -2693,12 +2693,12 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                         if "receive_kick" in config_get(CONFIG, "rights", section).split(","):
                             for (key, val) in DATA.items(section):
                                 if key != source_hash and key != value:
-                                    LXMF_CONNECTION.send(key, content_group, "", fields, None, "interface_send")
+                                    LXMF_PEER.send(key, content_group, "", fields, None, "interface_send")
 
                     content = config_get(CONFIG, "interface_menu", "kick_ok", "", lng_key)
                     content = content.replace(delimiter+"user_address"+delimiter, value)
                     content = content.replace(delimiter+"user_name"+delimiter, user_name)
-                    LXMF_CONNECTION.send(source_hash, content, "", fields_generate(src_hash=bytes.fromhex(value), src_name=user_name, members=True, result_key="kick", lng_key=lng_key), None, "interface_send")
+                    LXMF_PEER.send(source_hash, content, "", fields_generate(src_hash=bytes.fromhex(value), src_name=user_name, members=True, result_key="kick", lng_key=lng_key), None, "interface_send")
                     content = ""
 
                     if CONFIG["main"].getboolean("auto_save_data"):
@@ -2719,7 +2719,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
     elif (cmd.startswith("block ") or cmd.startswith("ban ")) and "block" in source_rights:
         try:
             cmd, value = cmd.split(" ", 1)
-            value = LXMF_CONNECTION.destination_correct(value)
+            value = LXMF_PEER.destination_correct(value)
             if value != "":
                 executed = False
                 for section in sections:
@@ -2735,7 +2735,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                 if executed:
                     content_user = config_get(CONFIG, "interface_messages", "block_"+user_section, "", lng_key)
                     content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
-                    LXMF_CONNECTION.send(value, content_user, "", {MSG_FIELD_DATA: None, MSG_FIELD_COMMANDS_RESULT: [{"block": True}]}, None, "interface_send")
+                    LXMF_PEER.send(value, content_user, "", {MSG_FIELD_DATA: None, MSG_FIELD_COMMANDS_RESULT: [{"block": True}]}, None, "interface_send")
 
                     content_group = config_get(CONFIG, "interface_messages", "member_block", "", lng_key)
                     content_group = replace(content_group, source_hash, source_name, source_right, lng_key)
@@ -2746,12 +2746,12 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                         if "receive_block" in config_get(CONFIG, "rights", section).split(","):
                             for (key, val) in DATA.items(section):
                                 if key != source_hash and key != value:
-                                    LXMF_CONNECTION.send(key, content_group, "", fields, None, "interface_send")
+                                    LXMF_PEER.send(key, content_group, "", fields, None, "interface_send")
 
                     content = config_get(CONFIG, "interface_menu", "block_ok", "", lng_key)
                     content = content.replace(delimiter+"user_address"+delimiter, value)
                     content = content.replace(delimiter+"user_name"+delimiter, user_name)
-                    LXMF_CONNECTION.send(source_hash, content, "", fields_generate(src_hash=bytes.fromhex(value), src_name=user_name, members=True, result_key="block", lng_key=lng_key), None, "interface_send")
+                    LXMF_PEER.send(source_hash, content, "", fields_generate(src_hash=bytes.fromhex(value), src_name=user_name, members=True, result_key="block", lng_key=lng_key), None, "interface_send")
                     content = ""
 
                     if CONFIG["main"].getboolean("auto_save_data"):
@@ -2772,7 +2772,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
     elif (cmd.startswith("unblock ") or cmd.startswith("unban ")) and "unblock" in source_rights:
         try:
             cmd, value = cmd.split(" ", 1)
-            value = LXMF_CONNECTION.destination_correct(value)
+            value = LXMF_PEER.destination_correct(value)
             if value != "":
                 executed = False
                 for section in DATA.sections():
@@ -2789,7 +2789,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                 if executed:
                     content_user = config_get(CONFIG, "interface_messages", "unblock_"+user_section, "", lng_key)
                     content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
-                    LXMF_CONNECTION.send(value, content_user, "", fields_generate(members=True, data=True, cmd=user_section, config=user_section, result_key="unblock", lng_key=lng_key), None, "interface_send")
+                    LXMF_PEER.send(value, content_user, "", fields_generate(members=True, data=True, cmd=user_section, config=user_section, result_key="unblock", lng_key=lng_key), None, "interface_send")
 
                     content_group = config_get(CONFIG, "interface_messages", "member_unblock", "", lng_key)
                     content_group = replace(content_group, source_hash, source_name, source_right, lng_key)
@@ -2800,12 +2800,12 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                         if "receive_unblock" in config_get(CONFIG, "rights", section).split(","):
                             for (key, val) in DATA.items(section):
                                 if key != source_hash and key != value:
-                                    LXMF_CONNECTION.send(key, content_group, "", fields, None, "interface_send")
+                                    LXMF_PEER.send(key, content_group, "", fields, None, "interface_send")
 
                     content = config_get(CONFIG, "interface_menu", "unblock_ok", "", lng_key)
                     content = content.replace(delimiter+"user_address"+delimiter, value)
                     content = content.replace(delimiter+"user_name"+delimiter, user_name)
-                    LXMF_CONNECTION.send(source_hash, content, "", fields_generate(src_hash=bytes.fromhex(value), src_name=user_name, members=True, result_key="unblock", lng_key=lng_key), None, "interface_send")
+                    LXMF_PEER.send(source_hash, content, "", fields_generate(src_hash=bytes.fromhex(value), src_name=user_name, members=True, result_key="unblock", lng_key=lng_key), None, "interface_send")
                     content = ""
 
                     if CONFIG["main"].getboolean("auto_save_data"):
@@ -2828,7 +2828,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
             cmd, value = cmd.split(" ", 1)
             user_section = DATA["main"]["allow_user_type"]
             if DATA.has_section(user_section) and user_section != "main":
-                value = LXMF_CONNECTION.destination_correct(value)
+                value = LXMF_PEER.destination_correct(value)
                 if value != "":
                     executed = False
                     section = "wait"
@@ -2843,7 +2843,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                         content_user = config_get(CONFIG, "interface_messages", "allow_"+user_section, "", lng_key)
                         content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                         if content_user != "":
-                            LXMF_CONNECTION.send(value, content_user, "", fields_generate(members=True, data=True, cmd=user_section, config=user_section, lng_key=lng_key), None, "interface_send")
+                            LXMF_PEER.send(value, content_user, "", fields_generate(members=True, data=True, cmd=user_section, config=user_section, lng_key=lng_key), None, "interface_send")
 
                         content_group = config_get(CONFIG, "interface_messages", "member_allow", "", lng_key)
                         content_group = replace(content_group, source_hash, source_name, source_right, lng_key)
@@ -2854,7 +2854,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                             for section in sections:
                                 if "receive_allow" in config_get(CONFIG, "rights", section).split(","):
                                     for (key, val) in DATA.items(section):
-                                        LXMF_CONNECTION.send(key, content_group, "", fields, None, "interface_send")
+                                        LXMF_PEER.send(key, content_group, "", fields, None, "interface_send")
 
                         content = config_get(CONFIG, "interface_menu", "allow_ok", "", lng_key)
                         content = content.replace(delimiter+"user_address"+delimiter, value)
@@ -2882,7 +2882,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
             cmd, value = cmd.split(" ", 1)
             user_section = DATA["main"]["deny_user_type"]
             if DATA.has_section(user_section) and user_section != "main":
-                value = LXMF_CONNECTION.destination_correct(value)
+                value = LXMF_PEER.destination_correct(value)
                 if value != "":
                     executed = False
                     for section in sections:
@@ -2896,7 +2896,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                         content_user = config_get(CONFIG, "interface_messages", "deny_"+user_section, "", lng_key)
                         content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                         if content_user != "":
-                            LXMF_CONNECTION.send(value, content_user, "", fields_generate(lng_key=lng_key), None, "interface_send")
+                            LXMF_PEER.send(value, content_user, "", fields_generate(lng_key=lng_key), None, "interface_send")
 
                         content_group = config_get(CONFIG, "interface_messages", "member_deny", "", lng_key)
                         content_group = replace(content_group, source_hash, source_name, source_right, lng_key)
@@ -2907,7 +2907,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                             for section in sections:
                                 if "receive_deny" in config_get(CONFIG, "rights", section).split(","):
                                     for (key, val) in DATA.items(section):
-                                        LXMF_CONNECTION.send(key, content_group, "", fields, None, "interface_send")
+                                        LXMF_PEER.send(key, content_group, "", fields, None, "interface_send")
 
                         content = config_get(CONFIG, "interface_menu", "deny_ok", "", lng_key)
                         content = content.replace(delimiter+"user_address"+delimiter, value)
@@ -2935,7 +2935,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
             cmd, value = cmd.split(" ", 1)
             key = "admin"
             if DATA.has_section(key) and key != "main":
-                value = LXMF_CONNECTION.destination_correct(value)
+                value = LXMF_PEER.destination_correct(value)
                 if value != "":
                     for section in DATA.sections():
                         if section != "main":
@@ -2947,7 +2947,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                                     content_user = config_get(CONFIG, "interface_messages", "right", "", lng_key)
                                     content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                                     content_user = content_user.replace(delimiter+"user_name"+delimiter, val_old)
-                                    LXMF_CONNECTION.send(value, content_user, "", fields_generate(members=True, data=True, cmd=key, config=key, result_key="right_admin", lng_key=lng_key), None, "interface_send")
+                                    LXMF_PEER.send(value, content_user, "", fields_generate(members=True, data=True, cmd=key, config=key, result_key="right_admin", lng_key=lng_key), None, "interface_send")
                                     content_group = config_get(CONFIG, "interface_messages", "member_right", "", lng_key)
                                     content_group = replace(content_group, source_hash, source_name, source_right, lng_key)
                                     content_group = content_group.replace(delimiter+"user_address"+delimiter, value)
@@ -2957,11 +2957,11 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                                         if "receive_right" in config_get(CONFIG, "rights", section).split(","):
                                             for (key, val) in DATA.items(section):
                                                 if key != source_hash and key != value:
-                                                    LXMF_CONNECTION.send(key, content_group, "", fields, None, "interface_send")
+                                                    LXMF_PEER.send(key, content_group, "", fields, None, "interface_send")
                                     content = config_get(CONFIG, "interface_menu", "right_ok", "", lng_key)
                                     content = content.replace(delimiter+"user_address"+delimiter, value)
                                     content = content.replace(delimiter+"user_name"+delimiter, val_old)
-                                    LXMF_CONNECTION.send(source_hash, content, "", fields_generate(src_hash=bytes.fromhex(value), src_name=val_old, members=True, result_key="right_admin", lng_key=lng_key), None, "interface_send")
+                                    LXMF_PEER.send(source_hash, content, "", fields_generate(src_hash=bytes.fromhex(value), src_name=val_old, members=True, result_key="right_admin", lng_key=lng_key), None, "interface_send")
                                     content = ""
                                     if CONFIG["main"].getboolean("auto_save_data"):
                                         DATA.remove_option("main", "unsaved")
@@ -2983,7 +2983,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
             cmd, value = cmd.split(" ", 1)
             key = "mod"
             if DATA.has_section(key) and key != "main":
-                value = LXMF_CONNECTION.destination_correct(value)
+                value = LXMF_PEER.destination_correct(value)
                 if value != "":
                     for section in DATA.sections():
                         if section != "main":
@@ -2995,7 +2995,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                                     content_user = config_get(CONFIG, "interface_messages", "right", "", lng_key)
                                     content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                                     content_user = content_user.replace(delimiter+"user_name"+delimiter, val_old)
-                                    LXMF_CONNECTION.send(value, content_user, "", fields_generate(members=True, data=True, cmd=key, config=key, result_key="right_mod", lng_key=lng_key), None, "interface_send")
+                                    LXMF_PEER.send(value, content_user, "", fields_generate(members=True, data=True, cmd=key, config=key, result_key="right_mod", lng_key=lng_key), None, "interface_send")
 
                                     content_group = config_get(CONFIG, "interface_messages", "member_right", "", lng_key)
                                     content_group = replace(content_group, source_hash, source_name, source_right, lng_key)
@@ -3006,12 +3006,12 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                                         if "receive_right" in config_get(CONFIG, "rights", section).split(","):
                                             for (key, val) in DATA.items(section):
                                                 if key != source_hash and key != value:
-                                                    LXMF_CONNECTION.send(key, content_group, "", fields, None, "interface_send")
+                                                    LXMF_PEER.send(key, content_group, "", fields, None, "interface_send")
 
                                     content = config_get(CONFIG, "interface_menu", "right_ok", "", lng_key)
                                     content = content.replace(delimiter+"user_address"+delimiter, value)
                                     content = content.replace(delimiter+"user_name"+delimiter, val_old)
-                                    LXMF_CONNECTION.send(source_hash, content, "", fields_generate(src_hash=bytes.fromhex(value), src_name=val_old, members=True, result_key="right_mod", lng_key=lng_key), None, "interface_send")
+                                    LXMF_PEER.send(source_hash, content, "", fields_generate(src_hash=bytes.fromhex(value), src_name=val_old, members=True, result_key="right_mod", lng_key=lng_key), None, "interface_send")
                                     content = ""
 
                                     if CONFIG["main"].getboolean("auto_save_data"):
@@ -3034,7 +3034,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
             cmd, value = cmd.split(" ", 1)
             key = "user"
             if DATA.has_section(key) and key != "main":
-                value = LXMF_CONNECTION.destination_correct(value)
+                value = LXMF_PEER.destination_correct(value)
                 if value != "":
                     for section in DATA.sections():
                         if section != "main":
@@ -3046,7 +3046,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                                     content_user = config_get(CONFIG, "interface_messages", "right", "", lng_key)
                                     content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                                     content_user = content_user.replace(delimiter+"user_name"+delimiter, val_old)
-                                    LXMF_CONNECTION.send(value, content_user, "", fields_generate(members=True, data=True, cmd=key, config=key, result_key="right_user", lng_key=lng_key), None, "interface_send")
+                                    LXMF_PEER.send(value, content_user, "", fields_generate(members=True, data=True, cmd=key, config=key, result_key="right_user", lng_key=lng_key), None, "interface_send")
 
                                     content_group = config_get(CONFIG, "interface_messages", "member_right", "", lng_key)
                                     content_group = replace(content_group, source_hash, source_name, source_right, lng_key)
@@ -3057,12 +3057,12 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                                         if "receive_right" in config_get(CONFIG, "rights", section).split(","):
                                             for (key, val) in DATA.items(section):
                                                 if key != source_hash and key != value:
-                                                    LXMF_CONNECTION.send(key, content_group, "", fields, None, "interface_send")
+                                                    LXMF_PEER.send(key, content_group, "", fields, None, "interface_send")
 
                                     content = config_get(CONFIG, "interface_menu", "right_ok", "", lng_key)
                                     content = content.replace(delimiter+"user_address"+delimiter, value)
                                     content = content.replace(delimiter+"user_name"+delimiter, val_old)
-                                    LXMF_CONNECTION.send(source_hash, content, "", fields_generate(src_hash=bytes.fromhex(value), src_name=val_old, members=True, result_key="right_user", lng_key=lng_key), None, "interface_send")
+                                    LXMF_PEER.send(source_hash, content, "", fields_generate(src_hash=bytes.fromhex(value), src_name=val_old, members=True, result_key="right_user", lng_key=lng_key), None, "interface_send")
                                     content = ""
 
                                     if CONFIG["main"].getboolean("auto_save_data"):
@@ -3085,7 +3085,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
             cmd, value = cmd.split(" ", 1)
             key = "guest"
             if DATA.has_section(key) and key != "main":
-                value = LXMF_CONNECTION.destination_correct(value)
+                value = LXMF_PEER.destination_correct(value)
                 if value != "":
                     for section in DATA.sections():
                         if section != "main":
@@ -3097,7 +3097,7 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                                     content_user = config_get(CONFIG, "interface_messages", "right", "", lng_key)
                                     content_user = replace(content_user, source_hash, source_name, source_right, lng_key)
                                     content_user = content_user.replace(delimiter+"user_name"+delimiter, val_old)
-                                    LXMF_CONNECTION.send(value, content_user, "", fields_generate(members=True, data=True, cmd=key, config=key, result_key="right_guest", lng_key=lng_key), None, "interface_send")
+                                    LXMF_PEER.send(value, content_user, "", fields_generate(members=True, data=True, cmd=key, config=key, result_key="right_guest", lng_key=lng_key), None, "interface_send")
 
                                     content_group = config_get(CONFIG, "interface_messages", "member_right", "", lng_key)
                                     content_group = replace(content_group, source_hash, source_name, source_right, lng_key)
@@ -3108,12 +3108,12 @@ def interface(cmd, source_hash, source_name, source_right, source_rights, lng_ke
                                         if "receive_right" in config_get(CONFIG, "rights", section).split(","):
                                             for (key, val) in DATA.items(section):
                                                 if key != source_hash and key != value:
-                                                    LXMF_CONNECTION.send(key, content_group, "", fields, None, "interface_send")
+                                                    LXMF_PEER.send(key, content_group, "", fields, None, "interface_send")
 
                                     content = config_get(CONFIG, "interface_menu", "right_ok", "", lng_key)
                                     content = content.replace(delimiter+"user_address"+delimiter, value)
                                     content = content.replace(delimiter+"user_name"+delimiter, val_old)
-                                    LXMF_CONNECTION.send(source_hash, content, "", fields_generate(src_hash=bytes.fromhex(value), src_name=val_old, members=True, result_key="right_guest", lng_key=lng_key), None, "interface_send")
+                                    LXMF_PEER.send(source_hash, content, "", fields_generate(src_hash=bytes.fromhex(value), src_name=val_old, members=True, result_key="right_guest", lng_key=lng_key), None, "interface_send")
                                     content = ""
 
                                     if CONFIG["main"].getboolean("auto_save_data"):
@@ -3311,7 +3311,7 @@ def fields_generate(fields=None, src_hash=None, src_name=None, members=False, da
                 fields[MSG_FIELD_DATA]["m"][key] = {}
                 for (section_key, section_val) in DATA.items(key):
                     try:
-                        h = bytes.fromhex(LXMF_CONNECTION.destination_correct(section_key))
+                        h = bytes.fromhex(LXMF_PEER.destination_correct(section_key))
                         fields[MSG_FIELD_DATA]["m"][key][h] = section_val
                     except:
                        pass
@@ -3371,7 +3371,7 @@ def replace(text, source_hash, source_name, source_right, lng_key):
     text = text.replace(delimiter+"name"+delimiter, config_get(CONFIG, "main", "name", "", lng_key))
     text = text.replace(delimiter+"display_name"+delimiter, config_get(CONFIG, "lxmf", "display_name", "", lng_key))
     text = text.replace(delimiter+"description"+delimiter, config_get(DATA, "main", "description", "", lng_key))
-    text = text.replace(delimiter+"destination_address"+delimiter, LXMF_CONNECTION.destination_hash_str())
+    text = text.replace(delimiter+"destination_address"+delimiter, LXMF_PEER.destination_hash_str())
     text = text.replace(delimiter+"propagation_node"+delimiter, config_get(CONFIG, "lxmf", "propagation_node", "", lng_key))
     text = text.replace(delimiter+"cluster_name"+delimiter, config_get(CONFIG, "cluster", "display_name", "", lng_key).rsplit('/', 1)[-1])
 
@@ -4171,7 +4171,7 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False,
     global LOG_LEVEL
     global LOG_FILE
     global RNS_MAIN_CONNECTION
-    global LXMF_CONNECTION
+    global LXMF_PEER
     global RNS_CONNECTION
 
     if path is not None:
@@ -4253,16 +4253,6 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False,
 
     log("LXMF - Connecting ...", LOG_DEBUG)
 
-    if CONFIG.has_option("lxmf", "propagation_node"):
-        config_propagation_node = CONFIG["lxmf"]["propagation_node"]
-    else:
-        config_propagation_node = None
-
-    if CONFIG.has_option("lxmf", "propagation_node_active"):
-        config_propagation_node_active = CONFIG["lxmf"]["propagation_node_active"]
-    else:
-        config_propagation_node_active = None
-
     if path is None:
         path = PATH
 
@@ -4288,7 +4278,7 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False,
         except:
             pass
 
-    LXMF_CONNECTION = lxmf_connection(
+    LXMF_PEER = LXMFPeer(
         storage_path=path,
         identity_file="identity",
         identity=None,
@@ -4299,9 +4289,9 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False,
         announce_hidden=CONFIG["lxmf"].getboolean("announce_hidden"),
         send_delay=CONFIG["lxmf"]["send_delay"],
         method=CONFIG["lxmf"]["method"],
-        propagation_node=config_propagation_node,
+        propagation_node=CONFIG["lxmf"]["propagation_node"] if CONFIG.has_option("lxmf", "propagation_node") else None,
         propagation_node_auto=CONFIG["lxmf"].getboolean("propagation_node_auto"),
-        propagation_node_active=config_propagation_node_active,
+        propagation_node_active=CONFIG["lxmf"]["propagation_node_active"] if CONFIG.has_option("lxmf", "propagation_node_active") else None,
         stamps_enabled=CONFIG["lxmf"].getboolean("stamps_enabled"),
         stamps_required=CONFIG["lxmf"].getboolean("stamps_required"),
         stamps_cost=CONFIG["lxmf"]["stamps_cost"],
@@ -4315,24 +4305,24 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False,
         sync_periodic=CONFIG["lxmf"].getboolean("sync_periodic"),
         sync_periodic_interval=CONFIG["lxmf"]["sync_periodic_interval"])
 
-    LXMF_CONNECTION.register_announce_callback(lxmf_announce_callback)
-    LXMF_CONNECTION.register_message_received_callback(lxmf_message_received_callback)
-    LXMF_CONNECTION.register_config_set_callback(config_set)
+    LXMF_PEER.register_announce_callback(lxmf_announce_callback)
+    LXMF_PEER.register_message_received_callback(lxmf_message_received_callback)
+    LXMF_PEER.register_config_set_callback(config_set)
 
     if CONFIG["statistic"].getboolean("enabled"):
-        LXMF_CONNECTION.register_message_notification_success_callback(lxmf_message_notification_success_callback)
-        LXMF_CONNECTION.register_message_notification_failed_callback(lxmf_message_notification_failed_callback)
+        LXMF_PEER.register_message_notification_success_callback(lxmf_message_notification_success_callback)
+        LXMF_PEER.register_message_notification_failed_callback(lxmf_message_notification_failed_callback)
 
     log("LXMF - Connected", LOG_DEBUG)
 
     log("...............................................................................", LOG_FORCE)
-    log("LXMF - Address: " + RNS.prettyhexrep(LXMF_CONNECTION.destination_hash()), LOG_FORCE)
+    log("LXMF - Address: " + RNS.prettyhexrep(LXMF_PEER.destination_hash()), LOG_FORCE)
     log("...............................................................................", LOG_FORCE)
 
     if CONFIG["cluster"].getboolean("enabled") or CONFIG["router"].getboolean("enabled") or CONFIG["high_availability"].getboolean("enabled"):
         announce_data = defaultdict(dict)
 
-        announce_data["h"] = LXMF_CONNECTION.destination_hash_str()
+        announce_data["h"] = LXMF_PEER.destination_hash_str()
 
         if CONFIG["high_availability"].getboolean("enabled"):
             announce_data["ha"] = "1"
@@ -4356,7 +4346,7 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False,
         RNS_CONNECTION = rns_connection(
             storage_path=path,
             identity_file="identity",
-            identity=LXMF_CONNECTION.identity,
+            identity=LXMF_PEER.identity,
             destination_name=CONFIG["cluster"]["name"],
             destination_type=CONFIG["cluster"]["type"],
             announce_startup=CONFIG["rns"].getboolean("announce_startup"),

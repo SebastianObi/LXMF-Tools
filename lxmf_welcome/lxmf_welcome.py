@@ -80,7 +80,7 @@ PATH_RNS = None
 DATA = None
 CONFIG = None
 RNS_CONNECTION = None
-LXMF_CONNECTION = None
+LXMF_PEER = None
 
 MSG_FIELD_EMBEDDED_LXMS    = 0x01
 MSG_FIELD_TELEMETRY        = 0x02
@@ -143,7 +143,7 @@ MSG_FIELD_VOICE              = 0xBF
 # LXMF Class
 
 
-class lxmf_connection:
+class LXMFPeer:
     message_received_callback = None
     message_notification_callback = None
     message_notification_success_callback = None
@@ -268,7 +268,7 @@ class lxmf_connection:
         self.destination.set_link_established_callback(self.client_connected)
 
         if self.propagation_node_auto:
-            self.propagation_callback = lxmf_connection_propagation(self, "lxmf.propagation")
+            self.propagation_callback = LXMFPeerPropagation(self, "lxmf.propagation")
             RNS.Transport.register_announce_handler(self.propagation_callback)
             if self.propagation_node_active:
                 self.propagation_node_set(self.propagation_node_active)
@@ -671,7 +671,7 @@ class lxmf_connection:
             log("-    App Data: " + message.app_data, LOG_DEBUG)
 
 
-class lxmf_connection_propagation():
+class LXMFPeerPropagation():
     def __init__(self, owner, aspect_filter=None):
         self.owner = owner
         self.aspect_filter = aspect_filter
@@ -784,7 +784,7 @@ class lxmf_announce_callback:
                     DATA["main"]["unsaved"] = "True"
             else:
                 DATA["main"]["unsaved"] = "True"
-            LXMF_CONNECTION.send(source_hash, config_get(CONFIG, "lxmf", "content", "").replace("!n!", "\n"), "")
+            LXMF_PEER.send(source_hash, config_get(CONFIG, "lxmf", "content", "").replace("!n!", "\n"), "")
 
 
 ##############################################################################################################
@@ -1194,7 +1194,7 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False,
     global LOG_LEVEL
     global LOG_FILE
     global RNS_CONNECTION
-    global LXMF_CONNECTION
+    global LXMF_PEER
 
     if path is not None:
         if path.endswith("/"):
@@ -1256,37 +1256,27 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False,
 
     log("LXMF - Connecting ...", LOG_DEBUG)
 
-    if CONFIG.has_option("lxmf", "propagation_node"):
-        config_propagation_node = CONFIG["lxmf"]["propagation_node"]
-    else:
-        config_propagation_node = None
-
-    if CONFIG.has_option("lxmf", "propagation_node_active"):
-        config_propagation_node_active = CONFIG["lxmf"]["propagation_node_active"]
-    else:
-        config_propagation_node_active = None
-
     if path is None:
         path = PATH
 
-    LXMF_CONNECTION = lxmf_connection(
+    LXMF_PEER = LXMFPeer(
         storage_path=path,
         destination_name=CONFIG["lxmf"]["destination_name"],
         destination_type=CONFIG["lxmf"]["destination_type"],
         send_delay=CONFIG["lxmf"]["send_delay"],
         method=CONFIG["lxmf"]["method"],
-        propagation_node=config_propagation_node,
+        propagation_node=CONFIG["lxmf"]["propagation_node"] if CONFIG.has_option("lxmf", "propagation_node") else None,
         propagation_node_auto=CONFIG["lxmf"].getboolean("propagation_node_auto"),
-        propagation_node_active=config_propagation_node_active,
+        propagation_node_active=CONFIG["lxmf"]["propagation_node_active"] if CONFIG.has_option("lxmf", "propagation_node_active") else None,
         )
 
-    LXMF_CONNECTION.register_announce_callback(lxmf_announce_callback)
-    LXMF_CONNECTION.register_config_set_callback(config_set)
+    LXMF_PEER.register_announce_callback(lxmf_announce_callback)
+    LXMF_PEER.register_config_set_callback(config_set)
 
     log("LXMF - Connected", LOG_DEBUG)
 
     log("...............................................................................", LOG_FORCE)
-    log("LXMF - Address: " + RNS.prettyhexrep(LXMF_CONNECTION.destination_hash()), LOG_FORCE)
+    log("LXMF - Address: " + RNS.prettyhexrep(LXMF_PEER.destination_hash()), LOG_FORCE)
     log("...............................................................................", LOG_FORCE)
 
     if CONFIG["main"].getboolean("periodic_save_data"):

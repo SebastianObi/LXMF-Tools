@@ -88,7 +88,7 @@ PATH_RNS = None
 #### Global Variables - System (Not changeable) ####
 CONFIG = None
 RNS_CONNECTION = None
-LXMF_CONNECTION = None
+LXMF_PEER = None
 SESSION = {}
 TERMINAL = None
 
@@ -153,7 +153,7 @@ MSG_FIELD_VOICE              = 0xBF
 # Terminal Class
 
 
-class lxmf_connection:
+class LXMFPeer:
     message_received_callback = None
     message_notification_callback = None
     message_notification_success_callback = None
@@ -278,7 +278,7 @@ class lxmf_connection:
         self.destination.set_link_established_callback(self.client_connected)
 
         if self.propagation_node_auto:
-            self.propagation_callback = lxmf_connection_propagation(self, "lxmf.propagation")
+            self.propagation_callback = LXMFPeerPropagation(self, "lxmf.propagation")
             RNS.Transport.register_announce_handler(self.propagation_callback)
             if self.propagation_node_active:
                 self.propagation_node_set(self.propagation_node_active)
@@ -681,7 +681,7 @@ class lxmf_connection:
             log("-    App Data: " + message.app_data, LOG_DEBUG)
 
 
-class lxmf_connection_propagation():
+class LXMFPeerPropagation():
     def __init__(self, owner, aspect_filter=None):
         self.owner = owner
         self.aspect_filter = aspect_filter
@@ -912,7 +912,7 @@ def output_now():
         if search != "":
             output = re.sub(search, config_get(CONFIG, "message", "send_regex_replace"), output)
 
-        LXMF_CONNECTION.send(SESSION["source"], content_prefix + output + content_suffix)
+        LXMF_PEER.send(SESSION["source"], content_prefix + output + content_suffix)
 
     return True
 
@@ -1240,7 +1240,7 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False,
     global LOG_LEVEL
     global LOG_FILE
     global RNS_CONNECTION
-    global LXMF_CONNECTION
+    global LXMF_PEER
     global TERMINAL
 
     if path is not None:
@@ -1298,16 +1298,6 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False,
 
     log("LXMF - Connecting ...", LOG_DEBUG)
 
-    if CONFIG.has_option("lxmf", "propagation_node"):
-        config_propagation_node = CONFIG["lxmf"]["propagation_node"]
-    else:
-        config_propagation_node = None
-
-    if CONFIG.has_option("lxmf", "propagation_node_active"):
-        config_propagation_node_active = CONFIG["lxmf"]["propagation_node_active"]
-    else:
-        config_propagation_node_active = None
-
     if path is None:
         path = PATH
 
@@ -1328,7 +1318,7 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False,
         except:
             pass
 
-    LXMF_CONNECTION = lxmf_connection(
+    LXMF_PEER = LXMFPeer(
         storage_path=path,
         destination_name=CONFIG["lxmf"]["destination_name"],
         destination_type=CONFIG["lxmf"]["destination_type"],
@@ -1337,9 +1327,9 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False,
         announce_hidden=CONFIG["lxmf"].getboolean("announce_hidden"),
         send_delay=CONFIG["lxmf"]["send_delay"],
         method=CONFIG["lxmf"]["method"],
-        propagation_node=config_propagation_node,
+        propagation_node=CONFIG["lxmf"]["propagation_node"] if CONFIG.has_option("lxmf", "propagation_node") else None,
         propagation_node_auto=CONFIG["lxmf"].getboolean("propagation_node_auto"),
-        propagation_node_active=config_propagation_node_active,
+        propagation_node_active=CONFIG["lxmf"]["propagation_node_active"] if CONFIG.has_option("lxmf", "propagation_node_active") else None,
         stamps_enabled=CONFIG["lxmf"].getboolean("stamps_enabled"),
         stamps_required=CONFIG["lxmf"].getboolean("stamps_required"),
         stamps_cost=CONFIG["lxmf"]["stamps_cost"],
@@ -1353,14 +1343,14 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False,
         sync_periodic=CONFIG["lxmf"].getboolean("sync_periodic"),
         sync_periodic_interval=CONFIG["lxmf"]["sync_periodic_interval"])
 
-    LXMF_CONNECTION.register_announce_callback(lxmf_announce_callback)
-    LXMF_CONNECTION.register_message_received_callback(lxmf_message_received_callback)
-    LXMF_CONNECTION.register_config_set_callback(config_set)
+    LXMF_PEER.register_announce_callback(lxmf_announce_callback)
+    LXMF_PEER.register_message_received_callback(lxmf_message_received_callback)
+    LXMF_PEER.register_config_set_callback(config_set)
 
     log("LXMF - Connected", LOG_DEBUG)
 
     log("...............................................................................", LOG_FORCE)
-    log("LXMF - Address: " + RNS.prettyhexrep(LXMF_CONNECTION.destination_hash()), LOG_FORCE)
+    log("LXMF - Address: " + RNS.prettyhexrep(LXMF_PEER.destination_hash()), LOG_FORCE)
     log("...............................................................................", LOG_FORCE)
 
     log("Terminal - Connecting ...", LOG_DEBUG)
