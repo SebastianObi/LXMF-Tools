@@ -1761,7 +1761,7 @@ periodic_save_data = True
 periodic_save_data_interval = 1 #Minutes
 
 
-#### LXMF connection settings ####
+#### LXMF settings ####
 [lxmf]
 
 # Destination name & type need to fits the LXMF protocoll
@@ -1828,7 +1828,7 @@ sync_limit = 0
 signature_validated = Yes
 
 
-#### Matrix connection settings ####
+#### Matrix settings ####
 [matrix]
 
 address = <server address>

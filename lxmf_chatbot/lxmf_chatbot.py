@@ -1353,7 +1353,7 @@ enabled = True
 name = Echo Test
 
 
-#### LXMF connection settings ####
+#### LXMF settings ####
 [lxmf]
 
 # Destination name & type need to fits the LXMF protocoll

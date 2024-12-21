@@ -4552,7 +4552,7 @@ auto_name_change = True
 fields_message = False
 
 
-#### LXMF connection settings ####
+#### LXMF settings ####
 [lxmf]
 
 # Destination name & type need to fits the LXMF protocoll

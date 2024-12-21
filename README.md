@@ -56,6 +56,10 @@ This program is a simple echo server. All received messages are sent back 1:1 as
 For more information, see the detailed [README.md](lxmf_echo).
 
 
+## lxmf_propagation
+For more information, see the detailed [README.md](lxmf_propagation).
+
+
 ## lxmf_provisioning
 For more information, see the detailed [README.md](lxmf_provisioning).
 

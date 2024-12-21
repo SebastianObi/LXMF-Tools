@@ -57,6 +57,10 @@ Dieses Programm ist ein einfacher Echo-Server. Alle empfangenen Nachrichten werd
 Weitere Informationen finden Sie in der ausführlichen [README.md](lxmf_echo).
 
 
+## lxmf_propagation
+Weitere Informationen finden Sie in der ausführlichen [README.md](lxmf_propagation).
+
+
 ## lxmf_provisioning
 Weitere Informationen finden Sie in der ausführlichen [README.md](lxmf_provisioning).
 

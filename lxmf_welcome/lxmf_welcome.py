@@ -1362,7 +1362,7 @@ periodic_save_data = True
 periodic_save_data_interval = 30 #Minutes
 
 
-#### LXMF connection settings ####
+#### LXMF settings ####
 [lxmf]
 
 # Destination name & type need to fits the LXMF protocoll

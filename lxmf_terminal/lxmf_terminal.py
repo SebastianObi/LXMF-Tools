@@ -1424,7 +1424,7 @@ enabled = True
 name = Terminal
 
 
-#### LXMF connection settings ####
+#### LXMF settings ####
 [lxmf]
 
 # Destination name & type need to fits the LXMF protocoll

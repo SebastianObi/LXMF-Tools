@@ -1533,7 +1533,7 @@ name =
 power = Yes
 
 
-#### LXMF connection settings ####
+#### LXMF settings ####
 [lxmf]
 
 # Destination name & type need to fits the LXMF protocoll

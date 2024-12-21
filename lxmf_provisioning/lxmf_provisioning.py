@@ -1681,7 +1681,7 @@ enabled = True
 name = LXMF Provisioning Server
 
 
-#### LXMF connection settings ####
+#### LXMF settings ####
 [lxmf]
 
 # Destination name & type need to fits the LXMF protocoll

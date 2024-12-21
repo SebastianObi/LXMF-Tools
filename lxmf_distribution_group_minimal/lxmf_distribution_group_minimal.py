@@ -1487,7 +1487,7 @@ enabled = True
 name = Distribution Group
 
 
-#### LXMF connection settings ####
+#### LXMF settings ####
 [lxmf]
 
 # Destination name & type need to fits the LXMF protocoll
