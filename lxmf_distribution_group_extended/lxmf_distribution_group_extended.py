@@ -948,7 +948,7 @@ class lxmf_announce_callback:
             hop_max = DATA.getint("main", "auto_add_user_announce_hop_max")
             if hop_min > 0 and hop_count < hop_min:
                 exist = True
-            if hop_max > 0 and hop_count < hop_max:
+            if hop_max > 0 and hop_count > hop_max:
                 exist = True
 
             for section in DATA.sections():
