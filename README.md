@@ -32,12 +32,6 @@ This program executes any text received by message as a system command and retur
 For more information, see the detailed [README.md](lxmf_cmd).
 
 
-## lxmf_distribution_group
-This program provides an email like distribution group for the "Communicator" app. Which is another project that is not part of this github. It will distribute incoming LXMF messages to multiple recipients.
-
-For more information, see the detailed [README.md](lxmf_distribution_group).
-
-
 ## lxmf_distribution_group_extended
 This program provides an email like distribution group. It will distribute incoming LXMF messages to multiple recipients. Since this program acts as a normal LXMF endpoint, all compatible chat applications can be used. In addition to simple messaging, there is a simple command-based user interface. Where all relevant actions for daily administration can be performed. The basic configuration is done in the configuration files. There are various options to adapt the entire behavior of the group to personal needs. This distribution group is much more than a standard email distribution group. It emulates advanced group functions with automatic notifications etc. Different user permissions can be defined. For each user type, the range of functions can be defined individually. The normal users have only small rights. While a moderator or admin can perform everything necessary by simple commands. Once the basic configuration is done, everything else can be done by LXMF messages as commands.
 
@@ -58,10 +52,6 @@ For more information, see the detailed [README.md](lxmf_echo).
 
 ## lxmf_propagation
 For more information, see the detailed [README.md](lxmf_propagation).
-
-
-## lxmf_provisioning
-For more information, see the detailed [README.md](lxmf_provisioning).
 
 
 ## lxmf_terminal

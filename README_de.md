@@ -33,12 +33,6 @@ Dieses Programm führt jeden per Nachricht empfangenen Text als Systembefehl aus
 Weitere Informationen finden Sie in der ausführlichen [README.md](lxmf_cmd).
 
 
-## lxmf_distribution_group
-Dieses Programm bietet eine E-Mail-ähnliche Verteilergruppe für die "Communicator" app. Welches ein anderes Projekt ist, das nicht Teil dieses github ist. Es verteilt eingehende LXMF-Nachrichten an mehrere Empfänger.
-
-Weitere Informationen finden Sie in der ausführlichen [README.md](lxmf_distribution_group).
-
-
 ## lxmf_distribution_group_extended
 Dieses Programm bietet eine E-Mail-ähnliche Verteilergruppe. Es verteilt eingehende LXMF-Nachrichten an mehrere Empfänger. Da dieses Programm wie ein normaler LXMF-Endpunkt agiert, können alle kompatiblen Chat-Anwendungen verwendet werden. Zusätzlich zum einfachen Messaging gibt es eine einfache kommandobasierte Benutzeroberfläche. Hier können alle relevanten Aktionen für die tägliche Verwaltung durchgeführt werden. Die Grundkonfiguration wird in den Konfigurationsdateien vorgenommen. Es gibt verschiedene Optionen, um das gesamte Verhalten der Gruppe an die eigenen Bedürfnisse anzupassen. Diese Verteilergruppe ist viel mehr als eine Standard-E-Mail-Verteilergruppe. Sie emuliert erweiterte Gruppenfunktionen mit automatischen Benachrichtigungen usw. Es können verschiedene Benutzerberechtigungen definiert werden. Für jeden Benutzertyp kann der Funktionsumfang individuell festgelegt werden. Die normalen Benutzer haben nur geringe Rechte. Während ein Moderator oder Admin mit einfachen Befehlen alles Notwendige erledigen kann. Ist die Grundkonfiguration einmal erledigt, kann alles Weitere über LXMF-Nachrichten als Befehle erfolgen.
 
@@ -59,10 +53,6 @@ Weitere Informationen finden Sie in der ausführlichen [README.md](lxmf_echo).
 
 ## lxmf_propagation
 Weitere Informationen finden Sie in der ausführlichen [README.md](lxmf_propagation).
-
-
-## lxmf_provisioning
-Weitere Informationen finden Sie in der ausführlichen [README.md](lxmf_provisioning).
 
 
 ## lxmf_terminal
