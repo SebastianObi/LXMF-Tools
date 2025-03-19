@@ -388,6 +388,15 @@ class LXMFPeer:
             method = self.method
 
         destination_identity = RNS.Identity.recall(destination)
+        if not destination_identity:
+            log("LXMF - No keys known for destination. Requesting path", LOG_DEBUG)
+            RNS.Transport.request_path(destination)
+            pr_time = time.time()+RNS.Transport.first_hop_timeout(destination)
+            while not RNS.Transport.has_path(destination):
+                if time.time() > pr_time+30:
+                    log("LXMF - Path request timeout", LOG_DEBUG)
+                    return None
+            destination_identity = RNS.Identity.recall(destination)
         destination = RNS.Destination(destination_identity, RNS.Destination.OUT, RNS.Destination.SINGLE, destination_name, destination_type)
         return self.send_message(destination, self.destination, content, title, fields, timestamp, app_data, method)
 
