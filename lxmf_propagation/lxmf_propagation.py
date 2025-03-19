@@ -143,7 +143,7 @@ MSG_FIELD_VOICE              = 0xBF
 
 
 class LXMFPropagation:
-    def __init__(self, storage_path=None, storage_limit=2000, identity_file="identity", identity=None, announce_display_name="", announce_fields=None, announce_hidden=False, announce_startup=False, announce_startup_delay=0, announce_periodic=False, announce_periodic_interval=360, autopeer=True, autopeer_maxdepth=4, propagation_limit=25000, auth_enabled=False, auth_destinations=[], priority_enabled=False, priority_destinations=[]):
+    def __init__(self, storage_path=None, storage_limit=2000, identity_file="identity", identity=None, announce_display_name="", announce_fields=None, announce_hidden=False, announce_startup=False, announce_startup_delay=0, announce_periodic=False, announce_periodic_interval=360, autopeer=True, autopeer_maxdepth=4, propagation_limit=25000, max_peers=0, static_peers=[], from_static_only=False, auth_enabled=False, auth_destinations=[], priority_enabled=False, priority_destinations=[]):
         self.storage_path = storage_path
         self.storage_limit = int(storage_limit)
 
@@ -171,6 +171,10 @@ class LXMFPropagation:
         self.autopeer_maxdepth = int(autopeer_maxdepth)
 
         self.propagation_limit = int(propagation_limit)
+
+        self.max_peers = int(max_peers)
+        self.static_peers = static_peers
+        self.from_static_only = from_static_only
 
         self.auth_enabled = auth_enabled
         self.auth_destinations = auth_destinations
@@ -213,12 +217,25 @@ class LXMFPropagation:
                     log("LXMF - Could not create and save a new Primary Identity", LOG_ERROR)
                     log("LXMF - The contained exception was: %s" % (str(e)), LOG_ERROR)
 
+        static_peers = []
+        if len(self.static_peers) > 0:
+            for dest_str in self.static_peers:
+                try:
+                    dest_hash = bytes.fromhex(dest_str)
+                    if len(dest_hash) == RNS.Reticulum.TRUNCATED_HASHLENGTH//8:
+                        static_peers.append(dest_hash)
+                except Exception as e:
+                    log("LXMF - Cannot add static peer "+str(dest_str)+", it is not a valid destination hash", LOG_ERROR)
+
         self.message_router = LXMF.LXMRouter(
             identity=self.identity,
             storagepath=self.storage_path,
             autopeer=self.autopeer,
             autopeer_maxdepth=self.autopeer_maxdepth,
             propagation_limit=self.propagation_limit,
+            max_peers=self.max_peers if self.max_peers > 0 else None,
+            static_peers=static_peers,
+            from_static_only=self.from_static_only
         )
 
         storage_limit = self.storage_limit
@@ -293,17 +310,17 @@ class LXMFPropagation:
 
     def announce_now(self, app_data=None, attached_interface=None):
         if self.announce_hidden:
-            self.message_router.propagation_destination.announce(msgpack.packb([True, int(time.time()), self.message_router.propagation_per_transfer_limit]), attached_interface=attached_interface)
+            self.message_router.propagation_destination.announce(msgpack.packb([True, int(time.time()), self.message_router.propagation_per_transfer_limit, self.message_router.get_wanted_inbound_peers()]), attached_interface=attached_interface)
             log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()) +" (Hidden)", LOG_DEBUG)
         elif app_data != None:
             if isinstance(app_data, str):
-                self.message_router.propagation_destination.announce(msgpack.packb([True, int(time.time()), self.message_router.propagation_per_transfer_limit, app_data.encode("utf-8")]), attached_interface=attached_interface)
+                self.message_router.propagation_destination.announce(msgpack.packb([True, int(time.time()), self.message_router.propagation_per_transfer_limit, self.message_router.get_wanted_inbound_peers(), app_data.encode("utf-8")]), attached_interface=attached_interface)
                 log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()) +": " + app_data, LOG_DEBUG)
             else:
                 self.message_router.propagation_destination.announce(app_data, attached_interface=attached_interface)
                 log("LMF - Announced: " + RNS.prettyhexrep(self.destination_hash()), LOG_DEBUG)
         else:
-            self.message_router.propagation_destination.announce(msgpack.packb([True, int(time.time()), self.message_router.propagation_per_transfer_limit, self.announce_display_name.encode("utf-8"), self.announce_fields]), attached_interface=attached_interface)
+            self.message_router.propagation_destination.announce(msgpack.packb([True, int(time.time()), self.message_router.propagation_per_transfer_limit, self.message_router.get_wanted_inbound_peers(), self.announce_display_name.encode("utf-8"), self.announce_fields]), attached_interface=attached_interface)
             log("LXMF - Announced: " + RNS.prettyhexrep(self.destination_hash()), LOG_DEBUG)
 
 
@@ -389,7 +406,7 @@ def config_set(key=None, value=""):
             fh = open(file,'r')
             data = fh.read()
             fh.close()
-            data = re.sub(r'^#?'+key+'( +)?=( +)?(\w+)?', key+" = "+value, data, count=1, flags=re.MULTILINE)
+            data = re.sub(r'^#?'+key+'( +)?=( +)?(\\w+)?', key+" = "+value, data, count=1, flags=re.MULTILINE)
             fh = open(file,'w')
             fh.write(data)
             fh.close()
@@ -399,7 +416,7 @@ def config_set(key=None, value=""):
             fh = open(file,'r')
             data = fh.read()
             fh.close()
-            data = re.sub(r'^#?'+key+'( +)?=( +)?(\w+)?', key+" = "+value, data, count=1, flags=re.MULTILINE)
+            data = re.sub(r'^#?'+key+'( +)?=( +)?(\\w+)?', key+" = "+value, data, count=1, flags=re.MULTILINE)
             fh = open(file,'w')
             fh.write(data)
             fh.close()
@@ -722,6 +739,9 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False,
         autopeer=CONFIG["lxmf"].getboolean("autopeer"),
         autopeer_maxdepth=CONFIG["lxmf"]["autopeer_maxdepth"],
         propagation_limit=CONFIG["lxmf"]["propagation_limit"],
+        max_peers=CONFIG["lxmf"]["max_peers"],
+        static_peers=CONFIG["lxmf"]["static_peers"].split(","),
+        from_static_only=CONFIG["lxmf"].getboolean("from_static_only"),
         auth_enabled=CONFIG["lxmf"].getboolean("auth_enabled"),
         auth_destinations=CONFIG["lxmf"]["auth_destinations"].split(","),
         priority_enabled=CONFIG["lxmf"].getboolean("priority_enabled"),
@@ -839,6 +859,10 @@ storage_limit = 2000 #MB
 # This also sets the upper limit for the size
 # of single messages accepted onto this node.
 propagation_limit = 25000 #KB
+
+max_peers = 0
+static_peers = 
+from_static_only = No
 
 # By default, any destination is allowed to
 # connect and download messages, but you can
