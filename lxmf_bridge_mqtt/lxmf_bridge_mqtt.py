@@ -912,7 +912,7 @@ def mqtt_state_now():
 
 
 #### MQTT - Connected ####
-def mqtt_connected_callback(client, userdata, flags, rc):
+def mqtt_connected_callback(client, userdata, flags, reason_code, properties):
     MQTT_CONNECTION.subscribe(CONFIG["mqtt"]["topic_power"])
     MQTT_CONNECTION.subscribe(CONFIG["mqtt"]["topic_state"])
     MQTT_CONNECTION.subscribe(CONFIG["mqtt"]["topic_send"])
@@ -1451,7 +1451,7 @@ def setup(path=None, path_rns=None, path_log=None, loglevel=None, service=False,
     log("...............................................................................", LOG_FORCE)
 
     log("MQTT - Connecting ...", LOG_DEBUG)
-    MQTT_CONNECTION = mqtt.Client(CONFIG["mqtt"]["client_id"], False, userdata=None, transport=CONFIG["mqtt"]["transport"])
+    MQTT_CONNECTION = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=CONFIG["mqtt"]["client_id"], clean_session=False, userdata=None, transport=CONFIG["mqtt"]["transport"])
     MQTT_CONNECTION.on_connect = mqtt_connected_callback
     MQTT_CONNECTION.message_callback_add(CONFIG["mqtt"]["topic_power"], mqtt_message_received_callback_power)
     MQTT_CONNECTION.message_callback_add(CONFIG["mqtt"]["topic_state"], mqtt_message_received_callback_state)
